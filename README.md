@@ -44,6 +44,8 @@ from local to global, each subsection in alphabetical order, i.e.:
 3) headers from other components
 4) system headers
 
+## System
+![alt text](./doc/system.svg)
 
 ## TODO
 - converter for audio frames (16 bit -> float; etc)

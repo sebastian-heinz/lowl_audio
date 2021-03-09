@@ -1,10 +1,9 @@
 #ifdef LOWL_UNIX
 
 #include "lowl_file.h"
-#include "lowl_error.h"
 
 #include <sys/stat.h>
-#include <errno.h>
+#include <cerrno>
 
 #ifdef MSVC
 #define S_ISREG(m) ((m)&_S_IFREG)

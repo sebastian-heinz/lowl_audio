@@ -1,7 +1,6 @@
-#include <iostream>
-#include <string>
-
 #include <lowl.h>
+
+#include <iostream>
 
 int main() {
 

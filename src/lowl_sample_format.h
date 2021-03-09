@@ -1,5 +1,6 @@
 #ifndef LOWL_SAMPLE_FORMAT
 #define LOWL_SAMPLE_FORMAT
+
 namespace Lowl {
     enum class SampleFormat {
         Unknown = 11,
@@ -28,6 +29,5 @@ namespace Lowl {
         }
     }
 }
-
 
 #endif
