@@ -45,7 +45,8 @@ from local to global, each subsection in alphabetical order, i.e.:
 4) system headers
 
 ## System
-![alt text](./doc/system.svg)
+![alt text](./doc/system.png)
+created with [draw.io](https://draw.io/)
 
 ## TODO
 - converter for audio frames (16 bit -> float; etc)
