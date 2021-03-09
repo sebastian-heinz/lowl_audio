@@ -2,8 +2,9 @@
 
 #include "lowl_pa_driver.h"
 #include "lowl_pa_device.h"
+#include "../../lowl_error.h"
 
-void LowlPaDriver::create_devices(LowlError &error) {
+void Lowl::PaDriver::create_devices(Lowl::LowlError &error) {
     devices.clear();
     PaHostApiIndex api_count = Pa_GetHostApiCount();
     for (PaHostApiIndex api_index = 0; api_index < api_count; api_index++) {
@@ -24,15 +25,15 @@ void LowlPaDriver::create_devices(LowlError &error) {
     }
 }
 
-void LowlPaDriver::initialize(LowlError &error) {
+void Lowl::PaDriver::initialize(Lowl::LowlError &error) {
     create_devices(error);
 }
 
-LowlPaDriver::LowlPaDriver() {
+Lowl::PaDriver::PaDriver() {
     name = std::string("Port Audio");
 }
 
-LowlPaDriver::~LowlPaDriver() {
+Lowl::PaDriver::~PaDriver() {
 }
 
 #endif

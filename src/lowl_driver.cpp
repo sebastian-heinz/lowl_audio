@@ -1,19 +1,15 @@
-#include "../include/lowl_driver.h"
+#include "lowl_driver.h"
+#include "lowl_device.h"
 
-std::vector<LowlDevice*> LowlDriver::get_devices() const
-{
-	return devices;
+std::vector<Lowl::Device *> Lowl::Driver::get_devices() const {
+    return devices;
 }
 
-std::string LowlDriver::get_name() const
-{
-	return name;
+std::string Lowl::Driver::get_name() const {
+    return name;
 }
 
-LowlDriver::LowlDriver() {
-	devices = std::vector<LowlDevice*>();
-	name = std::string("NoDriver");
-}
-
-LowlDriver::~LowlDriver() {
+Lowl::Driver::Driver() {
+    devices = std::vector<Lowl::Device *>();
+    name = std::string("NoDriver");
 }

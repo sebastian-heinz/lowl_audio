@@ -13,31 +13,34 @@ set(LOWL_SOURCES
         src/lowl_buffer.cpp
         src/lowl_device.cpp
         src/lowl_driver.cpp
-        src/lowl_dummy_driver.cpp
         src/lowl_error.cpp
         src/lowl_file_unix.cpp
         src/lowl_file_win.cpp
-        src/lowl_dummy_driver.cpp
-        src/lowl_dummy_driver.cpp
+        src/lowl_audio_frame.h)
+
+set(LOWL_DRIVER_DUMMY
+        src/driver/dummy/lowl_dummy_driver.cpp
         )
 
 set(LOWL_DRIVER_PA
-        src/lowl_pa_device.cpp
-        src/lowl_pa_driver.cpp
+        src/driver/portaudio/lowl_pa_device.cpp
+        src/driver/portaudio/lowl_pa_driver.cpp
         )
 
-add_library(${PROJECT_NAME} ${LOWL_SOURCES} ${LOWL_DRIVER_PA})
-
-add_subdirectory(third_party/readerwriterqueue)
-TARGET_LINK_LIBRARIES(${PROJECT_NAME} readerwriterqueue)
-
-add_subdirectory(third_party/portaudio)
-TARGET_LINK_LIBRARIES(${PROJECT_NAME} portaudio)
-
+add_library(${PROJECT_NAME} ${LOWL_SOURCES} ${LOWL_DRIVER_DUMMY} ${LOWL_DRIVER_PA})
+set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "")
 target_include_directories(${PROJECT_NAME} PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>")
 
 add_definitions(-DLOWL_DRIVER_DUMMY)
 add_definitions(-DLOWL_DRIVER_PORTAUDIO)
 add_definitions(-DLOWL_UNIX)
+
+
+add_subdirectory(third_party/readerwriterqueue)
+target_link_libraries(${PROJECT_NAME} readerwriterqueue)
+
+add_subdirectory(third_party/portaudio)
+target_link_libraries(${PROJECT_NAME} portaudio)
+
 
 add_subdirectory(demo)

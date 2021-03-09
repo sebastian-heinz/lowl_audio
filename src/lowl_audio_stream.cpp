@@ -1,8 +1,11 @@
-#include "../include/lowl_audio_stream.h"
+#include "lowl_audio_stream.h"
+#include "lowl_sample_format.h"
+#include "lowl_audio_frame.h"
+#include "lowl_error.h"
 
 LowlAudioStream::LowlAudioStream() {
     initialized = false;
-    sample_format = LowlSampleFormat::Unknown;
+    sample_format = Lowl::SampleFormat::Unknown;
     sample_rate = 0;
     channels = 0;
     sample_size = 0;
@@ -16,14 +19,14 @@ LowlAudioStream::~LowlAudioStream() {
     }
 }
 
-void LowlAudioStream::initialize(LowlSampleFormat p_sample_format, double p_sample_rate, int p_channels, LowlError &error) {
+void LowlAudioStream::initialize(Lowl::SampleFormat p_sample_format, double p_sample_rate, int p_channels, Lowl::LowlError &error) {
     if (initialized) {
-        error.set_error(LowlError::Code::AudioStreamAlreadyInitialized);
+        error.set_error(Lowl::LowlError::Code::AudioStreamAlreadyInitialized);
         return;
     }
 
     sample_format = p_sample_format;
-    sample_size = get_sample_size(sample_format);
+    sample_size = Lowl::get_sample_size(sample_format);
     sample_rate = p_sample_rate;
     channels = p_channels;
 
@@ -32,7 +35,7 @@ void LowlAudioStream::initialize(LowlSampleFormat p_sample_format, double p_samp
 
     int frames_per_buffer = 15;
     int time_request_seconds = frames_per_buffer / sample_rate;
-    buffer = new moodycamel::BlockingReaderWriterCircularBuffer<Frame>(10);
+    buffer = new moodycamel::BlockingReaderWriterCircularBuffer<Lowl::AudioFrame>(10);
 
     initialized = true;
 }
@@ -45,29 +48,16 @@ double LowlAudioStream::get_sample_rate() const {
     return sample_rate;
 }
 
-LowlSampleFormat LowlAudioStream::get_sample_format() const {
+Lowl::SampleFormat LowlAudioStream::get_sample_format() const {
     return sample_format;
 }
 
-inline int LowlAudioStream::get_sample_size(LowlSampleFormat format) {
-    switch (format) {
-        case LowlSampleFormat::FLOAT_32:
-        case LowlSampleFormat::INT_32:
-            return 4;
-        case LowlSampleFormat::INT_24:
-            return 3;
-        case LowlSampleFormat::INT_16:
-            return 2;
-        case LowlSampleFormat::INT_8:
-        case LowlSampleFormat::U_INT_8:
-            return 1;
-        case LowlSampleFormat::Unknown:
-            return 0;
-    }
+int LowlAudioStream::get_bytes_per_frame() const {
+    return bytes_per_frame;
 }
 
-LowlAudioStream::Frame LowlAudioStream::read(size_t &length) const {
-    Frame frame;
+Lowl::AudioFrame LowlAudioStream::read(size_t &length) const {
+    Lowl::AudioFrame frame;
     if (!buffer->try_dequeue(frame)) {
         return frame;
     }
@@ -85,7 +75,7 @@ void LowlAudioStream::write(void *data, size_t length) {
     }
 
     for(int i =0; i < frames_num; i++){
-        Frame frame;
+        Lowl::AudioFrame frame;
         if (!buffer->try_enqueue(frame)) {
             return;
         }
@@ -94,8 +84,6 @@ void LowlAudioStream::write(void *data, size_t length) {
 
 }
 
-int LowlAudioStream::get_bytes_per_frame() const {
-    return bytes_per_frame;
-}
+
 
 

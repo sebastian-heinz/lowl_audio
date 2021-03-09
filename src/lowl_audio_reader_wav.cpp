@@ -1,8 +1,10 @@
 #include "lowl_audio_reader_wav.h"
-
+#include "lowl_sample_format.h"
+#include "lowl_buffer.h"
+#include "lowl_error.h"
 
 std::unique_ptr<LowlAudioStream>
-LowlAudioReaderWav::read_buffer(const std::unique_ptr<LowlBuffer> &p_buffer, LowlError &error) {
+Lowl::AudioReaderWav::read_buffer(const std::unique_ptr<Buffer> &p_buffer, LowlError &error) {
     // WAV references:
     // http://www-mmsp.ece.mcgill.ca/Documents/AudioFormats/WAVE/WAVE.html
     // http://soundfile.sapp.org/doc/WaveFormat/
@@ -26,7 +28,7 @@ LowlAudioReaderWav::read_buffer(const std::unique_ptr<LowlBuffer> &p_buffer, Low
         return nullptr;
     }
 
-    LowlSampleFormat sample_format = LowlSampleFormat::Unknown;
+    Lowl::SampleFormat sample_format = Lowl::SampleFormat::Unknown;
     uint32_t sample_rate = 0;
     uint16_t channels = 0;
     void *audio = nullptr;
@@ -87,11 +89,11 @@ LowlAudioReaderWav::read_buffer(const std::unique_ptr<LowlBuffer> &p_buffer, Low
             uint16_t bits_per_sample = p_buffer->read_u16();
 
             if (bits_per_sample == 8) {
-                sample_format = LowlSampleFormat::U_INT_8;
+                sample_format = Lowl::SampleFormat::U_INT_8;
             } else if (bits_per_sample == 16) {
-                sample_format = LowlSampleFormat::INT_16;
+                sample_format = Lowl::SampleFormat::INT_16;
             } else if (audio_format == 3 && bits_per_sample == 32) {
-                sample_format = LowlSampleFormat::FLOAT_32;
+                sample_format = Lowl::SampleFormat::FLOAT_32;
             } else {
                 error.set_error(LowlError::Code::Error);
                 return nullptr;

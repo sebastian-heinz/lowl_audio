@@ -27,7 +27,7 @@ static inline uint64_t BSWAP64(uint64_t x) {
 
 const size_t GROW_SIZE = 1024;
 
-void LowlBuffer::write_data(void *p_src, size_t p_length) {
+void Lowl::Buffer::write_data(void *p_src, size_t p_length) {
     if (p_length <= 0) {
         return;
     }
@@ -41,7 +41,7 @@ void LowlBuffer::write_data(void *p_src, size_t p_length) {
     }
 }
 
-uint8_t LowlBuffer::read_u8() {
+uint8_t Lowl::Buffer::read_u8() {
     if (position >= virtual_length) {
         // end of file
         return 0;
@@ -51,17 +51,17 @@ uint8_t LowlBuffer::read_u8() {
     return value;
 }
 
-uint16_t LowlBuffer::read_u16() {
+uint16_t Lowl::Buffer::read_u16() {
     uint16_t value = (read_u8() | read_u8() << 8);
     return value;
 }
 
-uint32_t LowlBuffer::read_u32() {
+uint32_t Lowl::Buffer::read_u32() {
     uint32_t value = read_u8() | (read_u8() << 8) | (read_u8() << 16) | (read_u8() << 24);
     return value;
 }
 
-void LowlBuffer::read_data(void *p_dst, size_t p_length) {
+void Lowl::Buffer::read_data(void *p_dst, size_t p_length) {
     if (p_length < 0) {
         return;
     }
@@ -78,7 +78,7 @@ void LowlBuffer::read_data(void *p_dst, size_t p_length) {
     position += p_length;
 }
 
-void LowlBuffer::get_data(size_t p_src_offset, size_t p_src_count, void *p_dst, size_t p_dst_length) const {
+void Lowl::Buffer::get_data(size_t p_src_offset, size_t p_src_count, void *p_dst, size_t p_dst_length) const {
     if (p_src_offset < 0) {
         return;
     }
@@ -104,7 +104,7 @@ void LowlBuffer::get_data(size_t p_src_offset, size_t p_src_count, void *p_dst, 
     memcpy(p_dst, &data[p_src_offset], p_src_count);
 }
 
-void LowlBuffer::get_all_data(void *p_dst, size_t p_dst_length) const {
+void Lowl::Buffer::get_all_data(void *p_dst, size_t p_dst_length) const {
     if (p_dst_length <= 0) {
         return;
     }
@@ -117,7 +117,7 @@ void LowlBuffer::get_all_data(void *p_dst, size_t p_dst_length) const {
     memcpy(p_dst, &data[0], virtual_length);
 }
 
-void LowlBuffer::seek(size_t p_position) {
+void Lowl::Buffer::seek(size_t p_position) {
     if (p_position > virtual_length) {
         position = virtual_length;
         return;
@@ -125,31 +125,31 @@ void LowlBuffer::seek(size_t p_position) {
     position = p_position;
 }
 
-size_t LowlBuffer::get_position() const {
+size_t Lowl::Buffer::get_position() const {
     return position;
 }
 
-size_t LowlBuffer::get_length() const {
+size_t Lowl::Buffer::get_length() const {
     return virtual_length;
 }
 
-void LowlBuffer::set_length(size_t p_length) {
+void Lowl::Buffer::set_length(size_t p_length) {
     if (p_length > real_length) {
         grow(p_length - real_length);
     }
     virtual_length = p_length;
 }
 
-size_t LowlBuffer::get_available() const {
+size_t Lowl::Buffer::get_available() const {
     return virtual_length - position;
 }
 
-LowlBuffer *LowlBuffer::slice(size_t p_length) {
-    LowlBuffer *buffer = new LowlBuffer(&data[position], p_length);
+Lowl::Buffer *Lowl::Buffer::slice(size_t p_length) {
+    Buffer *buffer = new Buffer(&data[position], p_length);
     return buffer;
 }
 
-void LowlBuffer::grow(size_t p_length) {
+void Lowl::Buffer::grow(size_t p_length) {
     int new_real_length = real_length + p_length;
     void *newloc = realloc(data, new_real_length);
     if (!newloc) {
@@ -159,7 +159,7 @@ void LowlBuffer::grow(size_t p_length) {
     real_length = new_real_length;
 }
 
-LowlBuffer::LowlBuffer(void *p_data, int p_length) {
+Lowl::Buffer::Buffer(void *p_data, int p_length) {
     real_length = p_length;
     data = (uint8_t *) malloc(real_length);
     position = 0;
@@ -167,14 +167,14 @@ LowlBuffer::LowlBuffer(void *p_data, int p_length) {
     write_data(p_data, p_length);
 }
 
-LowlBuffer::LowlBuffer() {
+Lowl::Buffer::Buffer() {
     real_length = GROW_SIZE;
     data = (uint8_t *) malloc(real_length);
     position = 0;
     virtual_length = 0;
 }
 
-LowlBuffer::~LowlBuffer() {
+Lowl::Buffer::~Buffer() {
     free(data);
 }
 

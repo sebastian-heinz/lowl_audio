@@ -5,9 +5,11 @@
 
 #include <portaudio.h>
 
-#include "../include/lowl_device.h"
+#include "../../lowl_device.h"
+#include "../../lowl_sample_format.h"
+#include "../../lowl_error.h"
 
-class LowlPaDevice : public LowlDevice {
+class LowlPaDevice : public Lowl::Device {
 
 private:
     PaDeviceIndex device_index;
@@ -15,22 +17,22 @@ private:
     bool active;
     std::unique_ptr<LowlAudioStream> audio_stream;
 
-    void start_stream(LowlError &error);
+    void start_stream(Lowl::LowlError &error);
 
-    void stop_stream(LowlError &error);
+    void stop_stream(Lowl::LowlError &error);
 
-    void open_stream(LowlError &error);
+    void open_stream(Lowl::LowlError &error);
 
-    void close_stream(LowlError &error);
+    void close_stream(Lowl::LowlError &error);
 
-    PaSampleFormat get_pa_sample_format(LowlSampleFormat sample_format, LowlError &error);
+    PaSampleFormat get_pa_sample_format(Lowl::SampleFormat sample_format, Lowl::LowlError &error);
 
 public:
-    virtual void start(LowlError &error) override;
+    virtual void start(Lowl::LowlError &error) override;
 
-    virtual void stop(LowlError &error) override;
+    virtual void stop(Lowl::LowlError &error) override;
 
-    virtual void set_stream(std::unique_ptr<LowlAudioStream> p_audio_stream, LowlError &error) override;
+    virtual void set_stream(std::unique_ptr<LowlAudioStream> p_audio_stream, Lowl::LowlError &error) override;
 
 public:
     PaStreamCallbackResult callback(const void *p_input_buffer,

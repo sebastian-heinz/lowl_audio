@@ -1,6 +1,7 @@
 #ifdef LOWL_UNIX
 
 #include "lowl_file.h"
+#include "lowl_error.h"
 
 #include <sys/stat.h>
 #include <errno.h>
@@ -25,11 +26,11 @@ struct LowlFileUnix {
     FILE *file;
 };
 
-std::string LowlFile::get_path() {
+std::string Lowl::LowlFile::get_path() {
     return path;
 }
 
-void LowlFile::open(const std::string &p_path, LowlError &error) {
+void Lowl::LowlFile::open(const std::string &p_path, Lowl::LowlError &error) {
     LowlFileUnix *unix = (LowlFileUnix *) user_data;
     path = p_path;
 
@@ -48,7 +49,7 @@ void LowlFile::open(const std::string &p_path, LowlError &error) {
             }
             default: {
                 //return ERR_FILE_CANT_OPEN;
-                error.set_error(LowlError::Code::Error);
+                error.set_error(Lowl::LowlError::Code::Error);
                 return;
             }
         }
@@ -59,12 +60,12 @@ void LowlFile::open(const std::string &p_path, LowlError &error) {
         switch (errno) {
             case ENOENT: {
                 //   last_error = ERR_FILE_NOT_FOUND;
-                error.set_error(LowlError::Code::Error);
+                error.set_error(Lowl::LowlError::Code::Error);
                 return;
             }
             default: {
                 // last_error = ERR_FILE_CANT_OPEN;
-                error.set_error(LowlError::Code::Error);
+                error.set_error(Lowl::LowlError::Code::Error);
                 return;
             }
         }
@@ -84,7 +85,7 @@ void LowlFile::open(const std::string &p_path, LowlError &error) {
     }
 }
 
-void LowlFile::close() {
+void Lowl::LowlFile::close() {
     LowlFileUnix *unix = (LowlFileUnix *) user_data;
 
     if (!unix->file) {
@@ -95,7 +96,7 @@ void LowlFile::close() {
     unix->file = nullptr;
 }
 
-void LowlFile::seek(size_t p_position) {
+void Lowl::LowlFile::seek(size_t p_position) {
     LowlFileUnix *unix = (LowlFileUnix *) user_data;
     if (!unix->file) {
         return;
@@ -106,7 +107,7 @@ void LowlFile::seek(size_t p_position) {
     }
 }
 
-size_t LowlFile::get_position() const {
+size_t Lowl::LowlFile::get_position() const {
     LowlFileUnix *unix = (LowlFileUnix *) user_data;
     if (!unix->file) {
         // error
@@ -120,7 +121,7 @@ size_t LowlFile::get_position() const {
     return pos;
 }
 
-size_t LowlFile::get_length() const {
+size_t Lowl::LowlFile::get_length() const {
     LowlFileUnix *unix = (LowlFileUnix *) user_data;
     if (!unix->file) {
         // error
@@ -146,7 +147,7 @@ size_t LowlFile::get_length() const {
     return size;
 }
 
-uint8_t LowlFile::read_u8() const {
+uint8_t Lowl::LowlFile::read_u8() const {
     LowlFileUnix *unix = (LowlFileUnix *) user_data;
     if (!unix->file) {
         // error
@@ -160,7 +161,7 @@ uint8_t LowlFile::read_u8() const {
     return b;
 }
 
-int LowlFile::get_buffer(uint8_t *p_dst, int p_length) const {
+int Lowl::LowlFile::get_buffer(uint8_t *p_dst, int p_length) const {
     LowlFileUnix *unix = (LowlFileUnix *) user_data;
     if (!unix->file) {
         // error
@@ -171,7 +172,7 @@ int LowlFile::get_buffer(uint8_t *p_dst, int p_length) const {
     return read;
 }
 
-bool LowlFile::is_eof() const {
+bool Lowl::LowlFile::is_eof() const {
     LowlFileUnix *unix = (LowlFileUnix *) user_data;
     if (!unix->file) {
         return true;
@@ -179,14 +180,14 @@ bool LowlFile::is_eof() const {
     return feof(unix->file);
 }
 
-LowlFile::LowlFile() {
+Lowl::LowlFile::LowlFile() {
     user_data = new LowlFileUnix;
     LowlFileUnix *unix = (LowlFileUnix *) user_data;
     unix->file = nullptr;
     path = std::string();
 }
 
-LowlFile::~LowlFile() {
+Lowl::LowlFile::~LowlFile() {
     delete (LowlFileUnix *) user_data;
 }
 

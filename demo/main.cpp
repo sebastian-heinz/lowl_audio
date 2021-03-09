@@ -5,7 +5,7 @@
 
 int main() {
 
-    LowlError error;
+    Lowl::LowlError error;
     Lowl::initialize(error);
     if (error.has_error()) {
         std::cout << "Err: Lowl::initialize\n";
@@ -18,23 +18,23 @@ int main() {
         return -1;
     }
 
-    std::vector<LowlDriver *> drivers = Lowl::get_drivers(error);
+    std::vector<Lowl::Driver *> drivers = Lowl::get_drivers(error);
     if (error.has_error()) {
         std::cout << "Err: Lowl::get_drivers\n";
         return -1;
     }
 
-    std::vector<LowlDevice *> all_devices = std::vector<LowlDevice *>();
+    std::vector<Lowl::Device *> all_devices = std::vector<Lowl::Device *>();
     int current_device_index = 0;
-    for (LowlDriver *driver : drivers) {
+    for (Lowl::Driver *driver : drivers) {
         std::cout << "Driver: " + driver->get_name() + "\n";
         driver->initialize(error);
         if (error.has_error()) {
             std::cout << "Err: driver->initialize (" + driver->get_name() + ")\n";
-            error = LowlError();
+            error = Lowl::LowlError();
         }
-        std::vector<LowlDevice *> devices = driver->get_devices();
-        for (LowlDevice *device : devices) {
+        std::vector<Lowl::Device *> devices = driver->get_devices();
+        for (Lowl::Device *device : devices) {
             std::cout << "Device[" + std::to_string(current_device_index++) + "]: " + device->get_name() + "\n";
             all_devices.push_back(device);
         }
@@ -45,7 +45,7 @@ int main() {
     std::getline(std::cin, user_input);
     int selected_index = std::stoi(user_input);
 
-    LowlDevice *device = all_devices[selected_index];
+    Lowl::Device *device = all_devices[selected_index];
     device->set_stream(std::move(stream), error);
     if (error.has_error()) {
         std::cout << "Err: driver->set_stream\n";
