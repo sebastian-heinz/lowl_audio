@@ -3,11 +3,9 @@
 
 #ifdef LOWL_DRIVER_PORTAUDIO
 
-#include <portaudio.h>
-
 #include "../../lowl_device.h"
-#include "../../lowl_sample_format.h"
-#include "../../lowl_error.h"
+
+#include <portaudio.h>
 
 class LowlPaDevice : public Lowl::Device {
 
@@ -15,7 +13,7 @@ private:
     PaDeviceIndex device_index;
     PaStream *stream;
     bool active;
-    std::unique_ptr<LowlAudioStream> audio_stream;
+    std::unique_ptr<Lowl::AudioStream> audio_stream;
 
     void start_stream(Lowl::LowlError &error);
 
@@ -32,7 +30,7 @@ public:
 
     virtual void stop(Lowl::LowlError &error) override;
 
-    virtual void set_stream(std::unique_ptr<LowlAudioStream> p_audio_stream, Lowl::LowlError &error) override;
+    virtual void set_stream(std::unique_ptr<Lowl::AudioStream> p_audio_stream, Lowl::LowlError &error) override;
 
 public:
     PaStreamCallbackResult callback(const void *p_input_buffer,

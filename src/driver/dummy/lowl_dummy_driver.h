@@ -4,7 +4,6 @@
 #ifdef LOWL_DRIVER_DUMMY
 
 #include "../../lowl_driver.h"
-#include "../../lowl_error.h"
 
 namespace Lowl {
 

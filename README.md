@@ -35,6 +35,16 @@ so that they can be included.
 If there is any issue including one of these projects under the MIT license,
 please let me know by opening an issue and I will remove it / perform required changes.
 
+## Guidlines
+
+### Header include order:
+from local to global, each subsection in alphabetical order, i.e.:
+1) h file corresponding to this cpp file (if applicable)
+2) headers from the same component
+3) headers from other components
+4) system headers
+
+
 ## TODO
 - converter for audio frames (16 bit -> float; etc)
 - file format parsing (mp3 / wav / ogg)

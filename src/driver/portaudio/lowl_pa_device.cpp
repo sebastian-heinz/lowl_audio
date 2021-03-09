@@ -1,8 +1,6 @@
 #ifdef LOWL_DRIVER_PORTAUDIO
 
 #include "lowl_pa_device.h"
-#include "../../lowl_sample_format.h"
-#include "../../lowl_error.h"
 
 static int audio_callback(const void *p_input_buffer, void *p_output_buffer,
                           unsigned long p_frames_per_buffer, const PaStreamCallbackTimeInfo *p_time_info,
@@ -46,7 +44,7 @@ PaStreamCallbackResult LowlPaDevice::callback(const void *p_input_buffer, void *
     //  return buffer_position < buffer_size ? paContinue : paComplete;
 }
 
-void LowlPaDevice::set_stream(std::unique_ptr<LowlAudioStream> p_audio_stream, Lowl::LowlError &error) {
+void LowlPaDevice::set_stream(std::unique_ptr<Lowl::AudioStream> p_audio_stream, Lowl::LowlError &error) {
     audio_stream = std::move(p_audio_stream);
 }
 

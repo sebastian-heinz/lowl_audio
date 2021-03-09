@@ -1,11 +1,10 @@
 #ifndef LOWL_DRIVER_H
 #define LOWL_DRIVER_H
 
+#include "lowl_device.h"
+
 #include <string>
 #include <vector>
-
-#include "lowl_error.h"
-#include "lowl_device.h"
 
 namespace Lowl {
     class Driver {

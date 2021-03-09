@@ -1,8 +1,8 @@
 #ifdef LOWL_DRIVER_PORTAUDIO
 
 #include "lowl_pa_driver.h"
+
 #include "lowl_pa_device.h"
-#include "../../lowl_error.h"
 
 void Lowl::PaDriver::create_devices(Lowl::LowlError &error) {
     devices.clear();

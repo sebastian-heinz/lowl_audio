@@ -3,10 +3,9 @@
 
 #ifdef LOWL_DRIVER_PORTAUDIO
 
-#include <portaudio.h>
-
 #include "../../lowl_driver.h"
-#include "../../lowl_error.h"
+
+#include <portaudio.h>
 
 namespace Lowl {
 

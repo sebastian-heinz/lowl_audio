@@ -1,6 +1,6 @@
 #include "lowl_buffer.h"
 
-#include <stdlib.h>
+#include <cstdlib>
 #include <cstring>
 
 // Swap 16, 32 and 64 bits value for endianness.

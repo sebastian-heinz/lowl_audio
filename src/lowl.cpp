@@ -46,7 +46,7 @@ void Lowl::terminate(LowlError &error) {
 #endif
 }
 
-std::unique_ptr<LowlAudioStream>
+std::unique_ptr<Lowl::AudioStream>
 Lowl::create_stream(void *p_buffer, uint32_t p_length, FileFormat format, LowlError &error) {
     std::unique_ptr<AudioReader> reader = create_reader(format, error);
     if (error.has_error()) {
@@ -56,14 +56,14 @@ Lowl::create_stream(void *p_buffer, uint32_t p_length, FileFormat format, LowlEr
         error.set_error(LowlError::Code::Error);
         return nullptr;
     }
-    std::unique_ptr<LowlAudioStream> stream = reader->read_ptr(p_buffer, p_length, error);
+    std::unique_ptr<AudioStream> stream = reader->read_ptr(p_buffer, p_length, error);
     if (error.has_error()) {
         return nullptr;
     }
     return stream;
 }
 
-std::unique_ptr<LowlAudioStream> Lowl::create_stream(const std::string &p_path, LowlError &error) {
+std::unique_ptr<Lowl::AudioStream> Lowl::create_stream(const std::string &p_path, LowlError &error) {
     FileFormat format = detect_format(p_path, error);
     if (error.has_error()) {
         return nullptr;
@@ -80,7 +80,7 @@ std::unique_ptr<LowlAudioStream> Lowl::create_stream(const std::string &p_path, 
         error.set_error(LowlError::Code::Error);
         return nullptr;
     }
-    std::unique_ptr<LowlAudioStream> stream = reader->read_file(p_path, error);
+    std::unique_ptr<AudioStream> stream = reader->read_file(p_path, error);
     if (error.has_error()) {
         return nullptr;
     }

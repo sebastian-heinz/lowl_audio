@@ -1,5 +1,4 @@
 #include "lowl_driver.h"
-#include "lowl_device.h"
 
 std::vector<Lowl::Device *> Lowl::Driver::get_devices() const {
     return devices;

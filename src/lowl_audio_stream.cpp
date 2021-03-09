@@ -1,9 +1,6 @@
 #include "lowl_audio_stream.h"
-#include "lowl_sample_format.h"
-#include "lowl_audio_frame.h"
-#include "lowl_error.h"
 
-LowlAudioStream::LowlAudioStream() {
+Lowl::AudioStream::AudioStream() {
     initialized = false;
     sample_format = Lowl::SampleFormat::Unknown;
     sample_rate = 0;
@@ -13,13 +10,14 @@ LowlAudioStream::LowlAudioStream() {
     buffer = nullptr;
 }
 
-LowlAudioStream::~LowlAudioStream() {
+Lowl::AudioStream::~AudioStream() {
     if (buffer != nullptr) {
         delete buffer;
     }
 }
 
-void LowlAudioStream::initialize(Lowl::SampleFormat p_sample_format, double p_sample_rate, int p_channels, Lowl::LowlError &error) {
+void Lowl::AudioStream::initialize(Lowl::SampleFormat p_sample_format, double p_sample_rate, int p_channels,
+                                   Lowl::LowlError &error) {
     if (initialized) {
         error.set_error(Lowl::LowlError::Code::AudioStreamAlreadyInitialized);
         return;
@@ -40,23 +38,23 @@ void LowlAudioStream::initialize(Lowl::SampleFormat p_sample_format, double p_sa
     initialized = true;
 }
 
-int LowlAudioStream::get_channels() const {
+int Lowl::AudioStream::get_channels() const {
     return channels;
 }
 
-double LowlAudioStream::get_sample_rate() const {
+double Lowl::AudioStream::get_sample_rate() const {
     return sample_rate;
 }
 
-Lowl::SampleFormat LowlAudioStream::get_sample_format() const {
+Lowl::SampleFormat Lowl::AudioStream::get_sample_format() const {
     return sample_format;
 }
 
-int LowlAudioStream::get_bytes_per_frame() const {
+int Lowl::AudioStream::get_bytes_per_frame() const {
     return bytes_per_frame;
 }
 
-Lowl::AudioFrame LowlAudioStream::read(size_t &length) const {
+Lowl::AudioFrame Lowl::AudioStream::read(size_t &length) const {
     Lowl::AudioFrame frame;
     if (!buffer->try_dequeue(frame)) {
         return frame;
@@ -64,7 +62,7 @@ Lowl::AudioFrame LowlAudioStream::read(size_t &length) const {
     return frame;
 }
 
-void LowlAudioStream::write(void *data, size_t length) {
+void Lowl::AudioStream::write(void *data, size_t length) {
     if (length <= 0) {
         return;
     }
@@ -74,7 +72,7 @@ void LowlAudioStream::write(void *data, size_t length) {
         // incomplete frames
     }
 
-    for(int i =0; i < frames_num; i++){
+    for (int i = 0; i < frames_num; i++) {
         Lowl::AudioFrame frame;
         if (!buffer->try_enqueue(frame)) {
             return;
