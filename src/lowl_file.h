@@ -13,7 +13,7 @@ namespace Lowl {
         std::string path;
 
     public:
-        void open(const std::string &p_path, LowlError &error);
+        void open(const std::string &p_path, Error &error);
 
         void close();
 

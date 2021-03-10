@@ -9,6 +9,6 @@ std::string Lowl::Driver::get_name() const {
 }
 
 Lowl::Driver::Driver() {
-    devices = std::vector<Lowl::Device *>();
+    devices = std::vector<Device *>();
     name = std::string("NoDriver");
 }

@@ -2,7 +2,7 @@
 
 
 std::unique_ptr<Lowl::AudioStream>
-Lowl::AudioReaderWav::read_buffer(const std::unique_ptr<Buffer> &p_buffer, LowlError &error) {
+Lowl::AudioReaderWav::read_buffer(const std::unique_ptr<Buffer> &p_buffer, Error &error) {
     // WAV references:
     // http://www-mmsp.ece.mcgill.ca/Documents/AudioFormats/WAVE/WAVE.html
     // http://soundfile.sapp.org/doc/WaveFormat/
@@ -115,8 +115,9 @@ Lowl::AudioReaderWav::read_buffer(const std::unique_ptr<Buffer> &p_buffer, LowlE
         return nullptr;
     }
 
-    std::unique_ptr<AudioStream> audio_stream = std::make_unique<AudioStream>();
-    audio_stream->initialize(sample_format, sample_rate, channels, error);
+    Channel channel = get_channel(channels);
+    std::unique_ptr<AudioStream> audio_stream = std::make_unique<AudioStream>(sample_rate, channel);
+
     audio_stream->write(audio, audio_size);
 
     free(audio);

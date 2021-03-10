@@ -4,7 +4,7 @@
 
 #include "lowl_pa_device.h"
 
-void Lowl::PaDriver::create_devices(LowlError &error) {
+void Lowl::PaDriver::create_devices(Error &error) {
     devices.clear();
     PaHostApiIndex api_count = Pa_GetHostApiCount();
     for (PaHostApiIndex api_index = 0; api_index < api_count; api_index++) {
@@ -25,7 +25,7 @@ void Lowl::PaDriver::create_devices(LowlError &error) {
     }
 }
 
-void Lowl::PaDriver::initialize(LowlError &error) {
+void Lowl::PaDriver::initialize(Error &error) {
     create_devices(error);
 }
 

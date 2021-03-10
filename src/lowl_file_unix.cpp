@@ -29,7 +29,7 @@ std::string Lowl::LowlFile::get_path() {
     return path;
 }
 
-void Lowl::LowlFile::open(const std::string &p_path, Lowl::LowlError &error) {
+void Lowl::LowlFile::open(const std::string &p_path, Lowl::Error &error) {
     LowlFileUnix *unix = (LowlFileUnix *) user_data;
     path = p_path;
 

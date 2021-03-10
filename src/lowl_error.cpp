@@ -1,26 +1,26 @@
 #include "lowl_error.h"
 
-Lowl::ErrorCode Lowl::LowlError::get_error() {
+Lowl::ErrorCode Lowl::Error::get_error() {
     return error;
 }
 
-void Lowl::LowlError::set_error(Lowl::ErrorCode p_error) {
+void Lowl::Error::set_error(Lowl::ErrorCode p_error) {
     error = p_error;
 }
 
-bool Lowl::LowlError::has_error() {
+bool Lowl::Error::has_error() {
     return error != ErrorCode::NoError;
 }
 
-Lowl::LowlError::LowlError() {
+Lowl::Error::Error() {
     error = ErrorCode::NoError;
 }
 
-int Lowl::LowlError::to_error_code(Lowl::ErrorCode p_error) {
+int Lowl::Error::to_error_code(Lowl::ErrorCode p_error) {
     return static_cast<int>(p_error);
 }
 
-std::string Lowl::LowlError::to_error_text(Lowl::ErrorCode p_error) {
+std::string Lowl::Error::to_error_text(Lowl::ErrorCode p_error) {
     switch (p_error) {
         case ErrorCode::NoError:
             return "NoError";
@@ -97,10 +97,10 @@ std::string Lowl::LowlError::to_error_text(Lowl::ErrorCode p_error) {
 
 }
 
-int Lowl::LowlError::get_error_code() {
+int Lowl::Error::get_error_code() {
     return to_error_code(error);
 }
 
-std::string Lowl::LowlError::get_error_text() {
+std::string Lowl::Error::get_error_text() {
     return to_error_text(error);
 }

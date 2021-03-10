@@ -57,10 +57,18 @@ created with [draw.io](https://draw.io/)
 - run under win/osx/unix
 - c-api wrapper
 
+## Definitions
+- Audio Sample = smallest audio unit, depends on bit depth
+- Audio Frame = contains Audio Samples (2Channel/Stereo audio at 16bit depth contains two samples, each 2bytes. The Frame would be 4byte)
+
+
 ## Links
 a list of related information to audio programming
 
 - [real time audio programming 101](http://www.rossbencina.com/code/real-time-audio-programming-101-time-waits-for-nothing)
+- [int float int its jungle out there](http://blog.bjornroche.com/2009/12/int-float-int-its-jungle-out-there.html)
+- [linearity and dynamic range in int](http://blog.bjornroche.com/2009/12/linearity-and-dynamic-range-in-int.html)
+- [Audio recording bitdepth](https://lists.apple.com/archives/coreaudio-api/2009/Dec/msg00046.html)
 
 ## Flags
 LOWL_LIBRARY  

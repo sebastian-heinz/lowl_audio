@@ -47,7 +47,7 @@ namespace Lowl {
         paBadBufferPtr,
     };
 
-    class LowlError {
+    class Error {
 
     private:
         ErrorCode error;
@@ -67,7 +67,7 @@ namespace Lowl {
 
         bool has_error();
 
-        LowlError();
+        Error();
     };
 }
 

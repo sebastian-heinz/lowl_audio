@@ -11,11 +11,11 @@ namespace Lowl {
         std::string name;
 
     public:
-        virtual void set_stream(std::unique_ptr<AudioStream> p_audio_stream, LowlError &error) = 0;
+        virtual void set_stream(std::unique_ptr<AudioStream> p_audio_stream, Error &error) = 0;
 
-        virtual void start(LowlError &error) = 0;
+        virtual void start(Error &error) = 0;
 
-        virtual void stop(LowlError &error) = 0;
+        virtual void stop(Error &error) = 0;
 
     public:
         std::string get_name() const;

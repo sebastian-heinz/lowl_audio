@@ -4,7 +4,7 @@
 
 int main() {
 
-    Lowl::LowlError error;
+    Lowl::Error error;
     Lowl::initialize(error);
     if (error.has_error()) {
         std::cout << "Err: Lowl::initialize\n";
@@ -30,7 +30,7 @@ int main() {
         driver->initialize(error);
         if (error.has_error()) {
             std::cout << "Err: driver->initialize (" + driver->get_name() + ")\n";
-            error = Lowl::LowlError();
+            error = Lowl::Error();
         }
         std::vector<Lowl::Device *> devices = driver->get_devices();
         for (Lowl::Device *device : devices) {

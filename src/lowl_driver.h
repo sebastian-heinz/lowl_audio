@@ -14,7 +14,7 @@ namespace Lowl {
         std::string name;
 
     public:
-        virtual void initialize(LowlError &error) = 0;
+        virtual void initialize(Error &error) = 0;
 
     public:
         std::vector<Device *> get_devices() const;

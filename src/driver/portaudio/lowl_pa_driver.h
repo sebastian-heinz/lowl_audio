@@ -12,10 +12,10 @@ namespace Lowl {
     class PaDriver : public Driver {
 
     private:
-        void create_devices(LowlError &error);
+        void create_devices(Error &error);
 
     public:
-        void initialize(LowlError &error) override;
+        void initialize(Error &error) override;
 
     public:
         PaDriver();

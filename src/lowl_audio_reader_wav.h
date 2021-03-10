@@ -5,11 +5,11 @@
 
 namespace Lowl {
 
-    class AudioReaderWav : public Lowl::AudioReader {
+    class AudioReaderWav : public AudioReader {
 
     protected:
         std::unique_ptr<AudioStream>
-        read_buffer(const std::unique_ptr<Buffer> &p_buffer, LowlError &error) override;
+        read_buffer(const std::unique_ptr<Buffer> &p_buffer, Error &error) override;
     };
 }
 

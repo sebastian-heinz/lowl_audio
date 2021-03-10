@@ -17,22 +17,22 @@ namespace Lowl {
         bool active;
         std::unique_ptr<AudioStream> audio_stream;
 
-        void start_stream(LowlError &error);
+        void start_stream(Error &error);
 
-        void stop_stream(LowlError &error);
+        void stop_stream(Error &error);
 
-        void open_stream(LowlError &error);
+        void open_stream(Error &error);
 
-        void close_stream(LowlError &error);
+        void close_stream(Error &error);
 
-        PaSampleFormat get_pa_sample_format(SampleFormat sample_format, LowlError &error);
+        PaSampleFormat get_pa_sample_format(SampleFormat sample_format, Error &error);
 
     public:
-        virtual void start(LowlError &error) override;
+        virtual void start(Error &error) override;
 
-        virtual void stop(LowlError &error) override;
+        virtual void stop(Error &error) override;
 
-        virtual void set_stream(std::unique_ptr<AudioStream> p_audio_stream, LowlError &error) override;
+        virtual void set_stream(std::unique_ptr<AudioStream> p_audio_stream, Error &error) override;
 
     public:
         PaStreamCallbackResult callback(const void *p_input_buffer,
