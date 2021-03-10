@@ -27,8 +27,11 @@ As a user of this library I want to be able to play back audio samples, be it ge
 
 
 ## 3rd Party
-- [Port Audio](https://github.com/PortAudio/portaudio) - [simplified BSD](https://github.com/cameron314/readerwriterqueue/blob/master/LICENSE.md)
-- [readerwriterqueue](https://github.com/cameron314/readerwriterqueue) - [MIT](https://github.com/PortAudio/portaudio/blob/master/LICENSE.txt)
+- [Port Audio](https://github.com/PortAudio/portaudio) 
+  - [MIT](https://github.com/PortAudio/portaudio/blob/master/LICENSE.txt)
+- [readerwriterqueue](https://github.com/cameron314/readerwriterqueue) 
+  - [simplified BSD](https://github.com/cameron314/readerwriterqueue/blob/master/LICENSE.md)
+  - [Blog Post](https://moodycamel.com/blog/2013/a-fast-lock-free-queue-for-c++.htm) describing the queue is designed for audio sample transfer
 
 All third party libraries should be compatible with the MIT license,
 so that they can be included.
@@ -53,6 +56,11 @@ created with [draw.io](https://draw.io/)
 - file format parsing (mp3 / wav / ogg)
 - run under win/osx/unix
 - c-api wrapper
+
+## Links
+a list of related information to audio programming
+
+- [real time audio programming 101](http://www.rossbencina.com/code/real-time-audio-programming-101-time-waits-for-nothing)
 
 ## Flags
 LOWL_LIBRARY  
