@@ -48,7 +48,7 @@ void Lowl::LowlFile::open(const std::string &p_path, Lowl::LowlError &error) {
             }
             default: {
                 //return ERR_FILE_CANT_OPEN;
-                error.set_error(Lowl::LowlError::Code::Error);
+                error.set_error(ErrorCode::Error);
                 return;
             }
         }
@@ -59,12 +59,12 @@ void Lowl::LowlFile::open(const std::string &p_path, Lowl::LowlError &error) {
         switch (errno) {
             case ENOENT: {
                 //   last_error = ERR_FILE_NOT_FOUND;
-                error.set_error(Lowl::LowlError::Code::Error);
+                error.set_error(ErrorCode::Error);
                 return;
             }
             default: {
                 // last_error = ERR_FILE_CANT_OPEN;
-                error.set_error(Lowl::LowlError::Code::Error);
+                error.set_error(ErrorCode::Error);
                 return;
             }
         }

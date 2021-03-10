@@ -19,7 +19,7 @@ Lowl::AudioStream::~AudioStream() {
 void Lowl::AudioStream::initialize(Lowl::SampleFormat p_sample_format, double p_sample_rate, int p_channels,
                                    Lowl::LowlError &error) {
     if (initialized) {
-        error.set_error(Lowl::LowlError::Code::AudioStreamAlreadyInitialized);
+        error.set_error(ErrorCode::AudioStreamAlreadyInitialized);
         return;
     }
 

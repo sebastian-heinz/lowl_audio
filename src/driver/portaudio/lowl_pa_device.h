@@ -7,45 +7,48 @@
 
 #include <portaudio.h>
 
-class LowlPaDevice : public Lowl::Device {
+namespace Lowl {
 
-private:
-    PaDeviceIndex device_index;
-    PaStream *stream;
-    bool active;
-    std::unique_ptr<Lowl::AudioStream> audio_stream;
+    class PaDevice : public Device {
 
-    void start_stream(Lowl::LowlError &error);
+    private:
+        PaDeviceIndex device_index;
+        PaStream *stream;
+        bool active;
+        std::unique_ptr<AudioStream> audio_stream;
 
-    void stop_stream(Lowl::LowlError &error);
+        void start_stream(LowlError &error);
 
-    void open_stream(Lowl::LowlError &error);
+        void stop_stream(LowlError &error);
 
-    void close_stream(Lowl::LowlError &error);
+        void open_stream(LowlError &error);
 
-    PaSampleFormat get_pa_sample_format(Lowl::SampleFormat sample_format, Lowl::LowlError &error);
+        void close_stream(LowlError &error);
 
-public:
-    virtual void start(Lowl::LowlError &error) override;
+        PaSampleFormat get_pa_sample_format(SampleFormat sample_format, LowlError &error);
 
-    virtual void stop(Lowl::LowlError &error) override;
+    public:
+        virtual void start(LowlError &error) override;
 
-    virtual void set_stream(std::unique_ptr<Lowl::AudioStream> p_audio_stream, Lowl::LowlError &error) override;
+        virtual void stop(LowlError &error) override;
 
-public:
-    PaStreamCallbackResult callback(const void *p_input_buffer,
-                                    void *p_output_buffer,
-                                    unsigned long p_frames_per_buffer,
-                                    const PaStreamCallbackTimeInfo *p_time_info,
-                                    PaStreamCallbackFlags p_status_flags
-    );
+        virtual void set_stream(std::unique_ptr<AudioStream> p_audio_stream, LowlError &error) override;
 
-    void set_device_index(PaDeviceIndex device_index);
+    public:
+        PaStreamCallbackResult callback(const void *p_input_buffer,
+                                        void *p_output_buffer,
+                                        unsigned long p_frames_per_buffer,
+                                        const PaStreamCallbackTimeInfo *p_time_info,
+                                        PaStreamCallbackFlags p_status_flags
+        );
 
-    LowlPaDevice();
+        void set_device_index(PaDeviceIndex device_index);
 
-    ~LowlPaDevice();
-};
+        PaDevice();
+
+        ~PaDevice();
+    };
+}
 
 #endif /* LOWL_DRIVER_PORTAUDIO */
 #endif /* LOWL_PA_DEVICE_H */

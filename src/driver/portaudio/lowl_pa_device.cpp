@@ -5,16 +5,16 @@
 static int audio_callback(const void *p_input_buffer, void *p_output_buffer,
                           unsigned long p_frames_per_buffer, const PaStreamCallbackTimeInfo *p_time_info,
                           PaStreamCallbackFlags p_status_flags, void *p_user_data) {
-    LowlPaDevice *device = (LowlPaDevice *) p_user_data;
+    Lowl::PaDevice *device = (Lowl::PaDevice *) p_user_data;
     return device->callback(p_input_buffer, p_output_buffer,
                             p_frames_per_buffer, p_time_info, p_status_flags
     );
 }
 
-PaStreamCallbackResult LowlPaDevice::callback(const void *p_input_buffer, void *p_output_buffer,
-                                              unsigned long p_frames_per_buffer,
-                                              const PaStreamCallbackTimeInfo *p_time_info,
-                                              PaStreamCallbackFlags p_status_flags) {
+PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void *p_output_buffer,
+                                                unsigned long p_frames_per_buffer,
+                                                const PaStreamCallbackTimeInfo *p_time_info,
+                                                PaStreamCallbackFlags p_status_flags) {
     if (!active) {
         return paAbort;
     }
@@ -44,11 +44,11 @@ PaStreamCallbackResult LowlPaDevice::callback(const void *p_input_buffer, void *
     //  return buffer_position < buffer_size ? paContinue : paComplete;
 }
 
-void LowlPaDevice::set_stream(std::unique_ptr<Lowl::AudioStream> p_audio_stream, Lowl::LowlError &error) {
+void Lowl::PaDevice::set_stream(std::unique_ptr<Lowl::AudioStream> p_audio_stream, Lowl::LowlError &error) {
     audio_stream = std::move(p_audio_stream);
 }
 
-void LowlPaDevice::start_stream(Lowl::LowlError &error) {
+void Lowl::PaDevice::start_stream(Lowl::LowlError &error) {
     /*
     A stream is active after a successful call to Pa_StartStream(), until it
     becomes inactive either as a result of a call to Pa_StopStream() or
@@ -63,7 +63,7 @@ void LowlPaDevice::start_stream(Lowl::LowlError &error) {
         // not playing
     } else {
         // error
-        error.set_error(static_cast<Lowl::LowlError::Code>(pa_error));
+        error.set_error(static_cast<Lowl::ErrorCode>(pa_error));
         return;
     }
 
@@ -71,12 +71,12 @@ void LowlPaDevice::start_stream(Lowl::LowlError &error) {
     pa_error = Pa_StartStream(stream);
     if (pa_error != PaErrorCode::paNoError) {
         active = false;
-        error.set_error(static_cast<Lowl::LowlError::Code>(pa_error));
+        error.set_error(static_cast<Lowl::ErrorCode>(pa_error));
         return;
     }
 }
 
-void LowlPaDevice::stop_stream(Lowl::LowlError &error) {
+void Lowl::PaDevice::stop_stream(Lowl::LowlError &error) {
     /*
     A stream is considered to be stopped prior to a successful call to
     Pa_StartStream and after a successful call to Pa_StopStream or Pa_AbortStream.
@@ -91,24 +91,24 @@ void LowlPaDevice::stop_stream(Lowl::LowlError &error) {
         // running
     } else {
         // error
-        error.set_error(static_cast<Lowl::LowlError::Code>(pa_error));
+        error.set_error(static_cast<Lowl::ErrorCode>(pa_error));
         return;
     }
     pa_error = Pa_StopStream(stream);
     active = false;
     if (pa_error != PaErrorCode::paNoError) {
-        error.set_error(static_cast<Lowl::LowlError::Code>(pa_error));
+        error.set_error(static_cast<Lowl::ErrorCode>(pa_error));
         return;
     }
 }
 
-void LowlPaDevice::open_stream(Lowl::LowlError &error) {
+void Lowl::PaDevice::open_stream(Lowl::LowlError &error) {
 
     unsigned long frames_per_buffer = paFramesPerBufferUnspecified;
     PaStreamFlags stream_flags = paNoFlag;
     const PaDeviceInfo *device_info = Pa_GetDeviceInfo(device_index);
     if (device_info == nullptr) {
-        error.set_error(Lowl::LowlError::Code::Pa_GetDeviceInfo);
+        error.set_error(ErrorCode::Pa_GetDeviceInfo);
         return;
     }
     PaTime suggested_latency = device_info->defaultLowOutputLatency;
@@ -138,20 +138,20 @@ void LowlPaDevice::open_stream(Lowl::LowlError &error) {
 
     if (pa_error != PaErrorCode::paNoError) {
         stream = nullptr;
-        error.set_error(static_cast<Lowl::LowlError::Code>(pa_error));
+        error.set_error(static_cast<Lowl::ErrorCode>(pa_error));
         return;
     }
 }
 
-void LowlPaDevice::close_stream(Lowl::LowlError &error) {
+void Lowl::PaDevice::close_stream(Lowl::LowlError &error) {
     PaError pa_error = Pa_CloseStream(stream);
     if (pa_error != PaErrorCode::paNoError) {
-        error.set_error(static_cast<Lowl::LowlError::Code>(pa_error));
+        error.set_error(static_cast<Lowl::ErrorCode>(pa_error));
         return;
     }
 }
 
-void LowlPaDevice::start(Lowl::LowlError &error) {
+void Lowl::PaDevice::start(Lowl::LowlError &error) {
     open_stream(error);
     if (error.has_error()) {
         return;
@@ -162,7 +162,7 @@ void LowlPaDevice::start(Lowl::LowlError &error) {
     }
 }
 
-void LowlPaDevice::stop(Lowl::LowlError &error) {
+void Lowl::PaDevice::stop(Lowl::LowlError &error) {
     stop_stream(error);
     if (error.has_error()) {
         return;
@@ -173,15 +173,15 @@ void LowlPaDevice::stop(Lowl::LowlError &error) {
     }
 }
 
-void LowlPaDevice::set_device_index(PaDeviceIndex p_device_index) {
+void Lowl::PaDevice::set_device_index(PaDeviceIndex p_device_index) {
     device_index = p_device_index;
 }
 
-LowlPaDevice::LowlPaDevice() {
+Lowl::PaDevice::PaDevice() {
 
 }
 
-LowlPaDevice::~LowlPaDevice() {
+Lowl::PaDevice::~PaDevice() {
     PaError pa_error = Pa_CloseStream(stream);
     if (pa_error != PaErrorCode::paNoError) {
     }
@@ -189,7 +189,7 @@ LowlPaDevice::~LowlPaDevice() {
     stream = nullptr;
 }
 
-PaSampleFormat LowlPaDevice::get_pa_sample_format(Lowl::SampleFormat sample_format, Lowl::LowlError &error) {
+PaSampleFormat Lowl::PaDevice::get_pa_sample_format(Lowl::SampleFormat sample_format, Lowl::LowlError &error) {
     PaSampleFormat pa_sample_format;
     switch (sample_format) {
         case Lowl::SampleFormat::FLOAT_32: {
@@ -217,7 +217,7 @@ PaSampleFormat LowlPaDevice::get_pa_sample_format(Lowl::SampleFormat sample_form
             break;
         }
         case Lowl::SampleFormat::Unknown: {
-            error.set_error(Lowl::LowlError::Code::PaUnknownSampleFormat);
+            error.set_error(ErrorCode::PaUnknownSampleFormat);
             pa_sample_format = (PaSampleFormat) 0;
             break;
         }

@@ -10,7 +10,7 @@ Lowl::AudioReaderWav::read_buffer(const std::unique_ptr<Buffer> &p_buffer, LowlE
     bool is_riff = p_buffer->read_u8() == 'R' && p_buffer->read_u8() == 'I' && p_buffer->read_u8() == 'F' &&
                    p_buffer->read_u8() == 'F';
     if (!is_riff) {
-        error.set_error(LowlError::Code::Error);
+        error.set_error(ErrorCode::Error);
         return nullptr;
     }
 
@@ -22,7 +22,7 @@ Lowl::AudioReaderWav::read_buffer(const std::unique_ptr<Buffer> &p_buffer, LowlE
     bool is_wave = p_buffer->read_u8() == 'W' && p_buffer->read_u8() == 'A' && p_buffer->read_u8() == 'V' &&
                    p_buffer->read_u8() == 'E';
     if (!is_wave) {
-        error.set_error(LowlError::Code::Error);
+        error.set_error(ErrorCode::Error);
         return nullptr;
     }
 
@@ -66,7 +66,7 @@ Lowl::AudioReaderWav::read_buffer(const std::unique_ptr<Buffer> &p_buffer, LowlE
                     break;
                 }
                 default: {
-                    error.set_error(LowlError::Code::WavReaderUnsupportedAudioFormat);
+                    error.set_error(ErrorCode::WavReaderUnsupportedAudioFormat);
                     return nullptr;
                 }
             }
@@ -93,7 +93,7 @@ Lowl::AudioReaderWav::read_buffer(const std::unique_ptr<Buffer> &p_buffer, LowlE
             } else if (audio_format == 3 && bits_per_sample == 32) {
                 sample_format = Lowl::SampleFormat::FLOAT_32;
             } else {
-                error.set_error(LowlError::Code::Error);
+                error.set_error(ErrorCode::Error);
                 return nullptr;
             }
             has_fmt = true;
@@ -111,7 +111,7 @@ Lowl::AudioReaderWav::read_buffer(const std::unique_ptr<Buffer> &p_buffer, LowlE
 
     if (!audio) {
         // no data
-        error.set_error(LowlError::Code::Error);
+        error.set_error(ErrorCode::Error);
         return nullptr;
     }
 

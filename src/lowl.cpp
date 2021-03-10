@@ -29,7 +29,7 @@ void Lowl::initialize(LowlError &error) {
 #ifdef LOWL_DRIVER_PORTAUDIO
     PaError pa_error = Pa_Initialize();
     if (pa_error != PaErrorCode::paNoError) {
-        error.set_error(LowlError::Code::Error);
+        error.set_error(ErrorCode::Error);
         return;
     }
     drivers.push_back(new PaDriver());
@@ -40,7 +40,7 @@ void Lowl::terminate(LowlError &error) {
 #ifdef LOWL_DRIVER_PORTAUDIO
     PaError pa_error = Pa_Terminate();
     if (pa_error != PaErrorCode::paNoError) {
-        error.set_error(LowlError::Code::Error);
+        error.set_error(ErrorCode::Error);
         return;
     }
 #endif
@@ -53,7 +53,7 @@ Lowl::create_stream(void *p_buffer, uint32_t p_length, FileFormat format, LowlEr
         return nullptr;
     }
     if (!reader) {
-        error.set_error(LowlError::Code::Error);
+        error.set_error(ErrorCode::Error);
         return nullptr;
     }
     std::unique_ptr<AudioStream> stream = reader->read_ptr(p_buffer, p_length, error);
@@ -69,7 +69,7 @@ std::unique_ptr<Lowl::AudioStream> Lowl::create_stream(const std::string &p_path
         return nullptr;
     }
     if (format == FileFormat::UNKNOWN) {
-        error.set_error(LowlError::Code::Error);
+        error.set_error(ErrorCode::Error);
         return nullptr;
     }
     std::unique_ptr<AudioReader> reader = create_reader(format, error);
@@ -77,7 +77,7 @@ std::unique_ptr<Lowl::AudioStream> Lowl::create_stream(const std::string &p_path
         return nullptr;
     }
     if (!reader) {
-        error.set_error(LowlError::Code::Error);
+        error.set_error(ErrorCode::Error);
         return nullptr;
     }
     std::unique_ptr<AudioStream> stream = reader->read_file(p_path, error);
@@ -85,7 +85,7 @@ std::unique_ptr<Lowl::AudioStream> Lowl::create_stream(const std::string &p_path
         return nullptr;
     }
     if (!stream) {
-        error.set_error(LowlError::Code::Error);
+        error.set_error(ErrorCode::Error);
         return nullptr;
     }
     return stream;
@@ -95,7 +95,7 @@ std::unique_ptr<Lowl::AudioReader> Lowl::create_reader(FileFormat format, LowlEr
     std::unique_ptr<AudioReader> reader = std::unique_ptr<AudioReader>();
     switch (format) {
         case FileFormat::UNKNOWN: {
-            error.set_error(LowlError::Code::Error);
+            error.set_error(ErrorCode::Error);
             break;
         }
         case FileFormat::WAV: {

@@ -4,7 +4,7 @@
 
 #include "lowl_pa_device.h"
 
-void Lowl::PaDriver::create_devices(Lowl::LowlError &error) {
+void Lowl::PaDriver::create_devices(LowlError &error) {
     devices.clear();
     PaHostApiIndex api_count = Pa_GetHostApiCount();
     for (PaHostApiIndex api_index = 0; api_index < api_count; api_index++) {
@@ -17,7 +17,7 @@ void Lowl::PaDriver::create_devices(Lowl::LowlError &error) {
                 continue;
             }
             std::string name = "[" + std::string(api_info->name) + "] " + std::string(device_info->name);
-            LowlPaDevice *device = new LowlPaDevice();
+            PaDevice *device = new PaDevice();
             device->set_name(name);
             device->set_device_index(device_index);
             devices.push_back(device);
@@ -25,7 +25,7 @@ void Lowl::PaDriver::create_devices(Lowl::LowlError &error) {
     }
 }
 
-void Lowl::PaDriver::initialize(Lowl::LowlError &error) {
+void Lowl::PaDriver::initialize(LowlError &error) {
     create_devices(error);
 }
 

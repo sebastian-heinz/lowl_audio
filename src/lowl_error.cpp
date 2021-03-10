@@ -1,97 +1,97 @@
 #include "lowl_error.h"
 
-Lowl::LowlError::Code Lowl::LowlError::get_error() {
+Lowl::ErrorCode Lowl::LowlError::get_error() {
     return error;
 }
 
-void Lowl::LowlError::set_error(LowlError::Code p_error) {
+void Lowl::LowlError::set_error(Lowl::ErrorCode p_error) {
     error = p_error;
 }
 
 bool Lowl::LowlError::has_error() {
-    return error != Code::NoError;
+    return error != ErrorCode::NoError;
 }
 
 Lowl::LowlError::LowlError() {
-    error = Code::NoError;
+    error = ErrorCode::NoError;
 }
 
-int Lowl::LowlError::to_error_code(LowlError::Code p_error) {
+int Lowl::LowlError::to_error_code(Lowl::ErrorCode p_error) {
     return static_cast<int>(p_error);
 }
 
-std::string Lowl::LowlError::to_error_text(LowlError::Code p_error) {
+std::string Lowl::LowlError::to_error_text(Lowl::ErrorCode p_error) {
     switch (p_error) {
-        case Code::NoError:
+        case ErrorCode::NoError:
             return "NoError";
-        case Code::Error:
+        case ErrorCode::Error:
             return "Error";
 
             // wav reader
-        case Code::WavReaderUnsupportedAudioFormat:
+        case ErrorCode::WavReaderUnsupportedAudioFormat:
             return "WavReaderUnsupportedAudioFormat";
 
             // Pa Error
-        case Code::paNotInitialized:
+        case ErrorCode::paNotInitialized:
             return "paNotInitialized";
-        case Code::paUnanticipatedHostError:
+        case ErrorCode::paUnanticipatedHostError:
             return "paUnanticipatedHostError";
-        case Code::paInvalidChannelCount:
+        case ErrorCode::paInvalidChannelCount:
             return "paInvalidChannelCount";
-        case Code::paInvalidSampleRate:
+        case ErrorCode::paInvalidSampleRate:
             return "paInvalidSampleRate";
-        case Code::paInvalidDevice:
+        case ErrorCode::paInvalidDevice:
             return "paInvalidDevice";
-        case Code::paInvalidFlag:
+        case ErrorCode::paInvalidFlag:
             return "paInvalidFlag";
-        case Code::paSampleFormatNotSupported:
+        case ErrorCode::paSampleFormatNotSupported:
             return "paSampleFormatNotSupported";
-        case Code::paBadIODeviceCombination:
+        case ErrorCode::paBadIODeviceCombination:
             return "paBadIODeviceCombination";
-        case Code::paInsufficientMemory:
+        case ErrorCode::paInsufficientMemory:
             return "paInsufficientMemory";
-        case Code::paBufferTooBig:
+        case ErrorCode::paBufferTooBig:
             return "paBufferTooBig";
-        case Code::paBufferTooSmall:
+        case ErrorCode::paBufferTooSmall:
             return "paBufferTooSmall";
-        case Code::paNullCallback:
+        case ErrorCode::paNullCallback:
             return "paNullCallback";
-        case Code::paBadStreamPtr:
+        case ErrorCode::paBadStreamPtr:
             return "paBadStreamPtr";
-        case Code::paTimedOut:
+        case ErrorCode::paTimedOut:
             return "paTimedOut";
-        case Code::paInternalError:
+        case ErrorCode::paInternalError:
             return "paInternalError";
-        case Code::paDeviceUnavailable:
+        case ErrorCode::paDeviceUnavailable:
             return "paDeviceUnavailable";
-        case Code::paIncompatibleHostApiSpecificStreamInfo:
+        case ErrorCode::paIncompatibleHostApiSpecificStreamInfo:
             return "paIncompatibleHostApiSpecificStreamInfo";
-        case Code::paStreamIsStopped:
+        case ErrorCode::paStreamIsStopped:
             return "paStreamIsStopped";
-        case Code::paStreamIsNotStopped:
+        case ErrorCode::paStreamIsNotStopped:
             return "paStreamIsNotStopped";
-        case Code::paInputOverflowed:
+        case ErrorCode::paInputOverflowed:
             return "paInputOverflowed";
-        case Code::paOutputUnderflowed:
+        case ErrorCode::paOutputUnderflowed:
             return "paOutputUnderflowed";
-        case Code::paHostApiNotFound:
+        case ErrorCode::paHostApiNotFound:
             return "paHostApiNotFound";
-        case Code::paInvalidHostApi:
+        case ErrorCode::paInvalidHostApi:
             return "paInvalidHostApi";
-        case Code::paCanNotReadFromACallbackStream:
+        case ErrorCode::paCanNotReadFromACallbackStream:
             return "paCanNotReadFromACallbackStream";
-        case Code::paCanNotWriteToACallbackStream:
+        case ErrorCode::paCanNotWriteToACallbackStream:
             return "paCanNotWriteToACallbackStream";
-        case Code::paCanNotReadFromAnOutputOnlyStream:
+        case ErrorCode::paCanNotReadFromAnOutputOnlyStream:
             return "paCanNotReadFromAnOutputOnlyStream";
-        case Code::paCanNotWriteToAnInputOnlyStream:
+        case ErrorCode::paCanNotWriteToAnInputOnlyStream:
             return "paCanNotWriteToAnInputOnlyStream";
-        case Code::paIncompatibleStreamHostApi:
+        case ErrorCode::paIncompatibleStreamHostApi:
             return "paIncompatibleStreamHostApi";
-        case Code::paBadBufferPtr:
+        case ErrorCode::paBadBufferPtr:
             return "paBadBufferPtr";
             // PA Wrapper
-        case Code::Pa_GetDeviceInfo:
+        case ErrorCode::Pa_GetDeviceInfo:
             return "Pa_GetDeviceInfo";
     }
 

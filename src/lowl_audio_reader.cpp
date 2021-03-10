@@ -13,7 +13,7 @@ std::unique_ptr<Lowl::AudioStream> Lowl::AudioReader::read_ptr(void *p_buffer, u
         return nullptr;
     }
     if (!stream) {
-        error.set_error(LowlError::Code::Error);
+        error.set_error(ErrorCode::Error);
         return nullptr;
     }
     return stream;
@@ -36,7 +36,7 @@ std::unique_ptr<Lowl::AudioStream> Lowl::AudioReader::read_file(const std::strin
         return nullptr;
     }
     if (!stream) {
-        error.set_error(LowlError::Code::Error);
+        error.set_error(ErrorCode::Error);
         return nullptr;
     }
     return stream;
