@@ -31,6 +31,8 @@ namespace Lowl {
 
         void write(AudioFrame p_audio_frame);
 
+        void write(const std::vector<AudioFrame>& p_audio_frames);
+
         AudioStream(SampleRate p_sample_rate, Channel p_channel);
 
         ~AudioStream();

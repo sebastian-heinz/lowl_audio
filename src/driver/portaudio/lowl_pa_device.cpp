@@ -120,7 +120,7 @@ void Lowl::PaDevice::open_stream(Error &error) {
 
     const PaStreamParameters output_parameter = {
             device_index,
-            audio_stream->get_channels(),
+            (int)audio_stream->get_channel(),
             sample_format,
             suggested_latency,
             nullptr

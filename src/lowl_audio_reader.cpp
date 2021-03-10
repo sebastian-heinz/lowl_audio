@@ -43,9 +43,9 @@ std::unique_ptr<Lowl::AudioStream> Lowl::AudioReader::read_file(const std::strin
 }
 
 std::vector<Lowl::AudioFrame>
-Lowl::AudioReader::read_frames(Lowl::SampleFormat format, int channel, void *data, size_t data_size) {
+Lowl::AudioReader::read_frames(Lowl::SampleFormat format, Lowl::Channel channel, void *data, size_t data_size) {
 
-    std::vector<AudioFrame> frames;
+    std::vector<AudioFrame> frames = std::vector<AudioFrame>();
 
     int sample_size = Lowl::get_sample_size(format);
 
@@ -55,7 +55,8 @@ Lowl::AudioReader::read_frames(Lowl::SampleFormat format, int channel, void *dat
         // incomplete frames
     }
 
-    int num_frames = sample_num / channel;
+    int num_channels = get_channel_num(channel);
+    int num_frames = sample_num / num_channels;
 
     switch (format) {
         case SampleFormat::FLOAT_32: {

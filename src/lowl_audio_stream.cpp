@@ -39,3 +39,9 @@ void Lowl::AudioStream::write(AudioFrame p_audio_frame) {
 int Lowl::AudioStream::get_channel_num() const {
     return Lowl::get_channel_num(channel);
 }
+
+void Lowl::AudioStream::write(const std::vector<AudioFrame> &p_audio_frames) {
+    for (AudioFrame frame : p_audio_frames) {
+        write(frame);
+    }
+}

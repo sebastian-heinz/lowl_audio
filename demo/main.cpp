@@ -5,19 +5,19 @@
 int main() {
 
     Lowl::Error error;
-    Lowl::initialize(error);
+    Lowl::Lib::initialize(error);
     if (error.has_error()) {
         std::cout << "Err: Lowl::initialize\n";
         return -1;
     }
 
-    std::unique_ptr<Lowl::AudioStream> stream = Lowl::create_stream("/Users/railgun/Downloads/CantinaBand60.wav", error);
+    std::unique_ptr<Lowl::AudioStream> stream = Lowl::Lib::create_stream("/Users/railgun/Downloads/CantinaBand60.wav", error);
     if (error.has_error()) {
         std::cout << "Err:  Lowl::create_stream\n";
         return -1;
     }
 
-    std::vector<Lowl::Driver *> drivers = Lowl::get_drivers(error);
+    std::vector<Lowl::Driver *> drivers = Lowl::Lib::get_drivers(error);
     if (error.has_error()) {
         std::cout << "Err: Lowl::get_drivers\n";
         return -1;

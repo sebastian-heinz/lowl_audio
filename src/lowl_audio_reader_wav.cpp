@@ -28,9 +28,9 @@ Lowl::AudioReaderWav::read_buffer(const std::unique_ptr<Buffer> &p_buffer, Error
 
     Lowl::SampleFormat sample_format = Lowl::SampleFormat::Unknown;
     uint32_t sample_rate = 0;
-    uint16_t channels = 0;
-    void *audio = nullptr;
+    uint16_t num_channel = 0;
     size_t audio_size = 0;
+    std::unique_ptr<uint8_t[]> audio_data = nullptr;
 
     bool has_fmt = false;
     bool has_data = false;
@@ -72,7 +72,7 @@ Lowl::AudioReaderWav::read_buffer(const std::unique_ptr<Buffer> &p_buffer, Error
             }
 
             // Mono = 1, Stereo = 2, etc.
-            channels = p_buffer->read_u16();
+            num_channel = p_buffer->read_u16();
 
             // 8000, 44100, etc.
             sample_rate = p_buffer->read_u32();
@@ -101,26 +101,28 @@ Lowl::AudioReaderWav::read_buffer(const std::unique_ptr<Buffer> &p_buffer, Error
 
         if (!has_data && chunk_id[0] == 'd' && chunk_id[1] == 'a' && chunk_id[2] == 't' && chunk_id[3] == 'a') {
             audio_size = chunk_size;
-            audio = malloc(audio_size);
-            p_buffer->read_data(audio, audio_size);
+            audio_data = std::make_unique<uint8_t[]>(audio_size);
+            p_buffer->read_data(audio_data.get(), audio_size);
             has_data = true;
         }
 
         p_buffer->seek(chunk_position + chunk_size);
     }
 
-    if (!audio) {
-        // no data
+    Channel channel = get_channel(num_channel);
+    if (channel == Channel::None) {
         error.set_error(ErrorCode::Error);
         return nullptr;
     }
 
-    Channel channel = get_channel(channels);
+    if (!audio_data) {
+        error.set_error(ErrorCode::Error);
+        return nullptr;
+    }
+    std::vector<AudioFrame> audio_frames = AudioReader::read_frames(sample_format, channel, &audio_data, audio_size);
+
     std::unique_ptr<AudioStream> audio_stream = std::make_unique<AudioStream>(sample_rate, channel);
-
-    audio_stream->write(audio, audio_size);
-
-    free(audio);
+    audio_stream->write(audio_frames);
 
     return audio_stream;
 }

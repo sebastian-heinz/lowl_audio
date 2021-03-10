@@ -10,19 +10,25 @@
 
 namespace Lowl {
 
-    std::vector<Driver *> get_drivers(Error &error);
+    class Lib {
 
-    void initialize(Error &error);
+    public:
+        static std::vector<Driver *> get_drivers(Error &error);
 
-    void terminate(Error &error);
+        static void initialize(Error &error);
 
-    std::unique_ptr<AudioStream>
-    create_stream(void *p_buffer, uint32_t p_length, FileFormat p_format, Error &error);
+        static void terminate(Error &error);
 
-    std::unique_ptr<AudioStream> create_stream(const std::string &p_path, Error &error);
+        static std::unique_ptr<AudioStream>
+        create_stream(void *p_buffer, uint32_t p_length, FileFormat p_format, Error &error);
 
-    std::unique_ptr<AudioReader> create_reader(FileFormat p_format, Error &error);
+        static std::unique_ptr<AudioStream> create_stream(const std::string &p_path, Error &error);
 
-    FileFormat detect_format(const std::string &p_path, Error &error);
+        static std::unique_ptr<AudioReader> create_reader(FileFormat p_format, Error &error);
+
+        static FileFormat detect_format(const std::string &p_path, Error &error);
+    };
+
+
 }
 #endif /* LOWL_H */

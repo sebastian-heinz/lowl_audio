@@ -18,11 +18,11 @@ namespace {
     std::vector<Lowl::Driver *> drivers = std::vector<Lowl::Driver *>();
 }
 
-std::vector<Lowl::Driver *> Lowl::get_drivers(Error &error) {
+std::vector<Lowl::Driver *> Lowl::Lib::get_drivers(Error &error) {
     return drivers;
 }
 
-void Lowl::initialize(Error &error) {
+void Lowl::Lib::initialize(Error &error) {
 #ifdef LOWL_DRIVER_DUMMY
     drivers.push_back(new DummyDriver());
 #endif
@@ -36,7 +36,7 @@ void Lowl::initialize(Error &error) {
 #endif
 }
 
-void Lowl::terminate(Error &error) {
+void Lowl::Lib::terminate(Error &error) {
 #ifdef LOWL_DRIVER_PORTAUDIO
     PaError pa_error = Pa_Terminate();
     if (pa_error != PaErrorCode::paNoError) {
@@ -47,7 +47,7 @@ void Lowl::terminate(Error &error) {
 }
 
 std::unique_ptr<Lowl::AudioStream>
-Lowl::create_stream(void *p_buffer, uint32_t p_length, FileFormat format, Error &error) {
+Lowl::Lib::create_stream(void *p_buffer, uint32_t p_length, FileFormat format, Error &error) {
     std::unique_ptr<AudioReader> reader = create_reader(format, error);
     if (error.has_error()) {
         return nullptr;
@@ -63,7 +63,7 @@ Lowl::create_stream(void *p_buffer, uint32_t p_length, FileFormat format, Error 
     return stream;
 }
 
-std::unique_ptr<Lowl::AudioStream> Lowl::create_stream(const std::string &p_path, Error &error) {
+std::unique_ptr<Lowl::AudioStream> Lowl::Lib::create_stream(const std::string &p_path, Error &error) {
     FileFormat format = detect_format(p_path, error);
     if (error.has_error()) {
         return nullptr;
@@ -91,7 +91,7 @@ std::unique_ptr<Lowl::AudioStream> Lowl::create_stream(const std::string &p_path
     return stream;
 }
 
-std::unique_ptr<Lowl::AudioReader> Lowl::create_reader(FileFormat format, Error &error) {
+std::unique_ptr<Lowl::AudioReader> Lowl::Lib::create_reader(FileFormat format, Error &error) {
     std::unique_ptr<AudioReader> reader = std::unique_ptr<AudioReader>();
     switch (format) {
         case FileFormat::UNKNOWN: {
@@ -106,7 +106,7 @@ std::unique_ptr<Lowl::AudioReader> Lowl::create_reader(FileFormat format, Error 
     return reader;
 }
 
-Lowl::FileFormat Lowl::detect_format(const std::string &p_path, Error &error) {
+Lowl::FileFormat Lowl::Lib::detect_format(const std::string &p_path, Error &error) {
     std::string::size_type idx;
     idx = p_path.rfind('.');
     if (idx != std::string::npos) {
