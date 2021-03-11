@@ -19,29 +19,24 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
         return paAbort;
     }
 
-    size_t buffer_size;
-    //void *buffer = audio_stream->read(buffer_size);
-    // if (buffer == nullptr || buffer_size <= 0) {
+    float *dst = (float *) p_output_buffer;
+
+    if(audio_stream->get_channel() == Channel::Mono){
+        for (int current_frame = 0; current_frame < p_frames_per_buffer; current_frame++) {
+            AudioFrame frame = audio_stream->read();
+            *dst++ = frame.left;
+        }
+    } else {
+        for (int current_frame = 0; current_frame < p_frames_per_buffer; current_frame++) {
+            AudioFrame frame = audio_stream->read();
+            *dst++ = frame.left;
+            *dst++ = frame.right;
+        }
+    }
+
+
+
     return paContinue;
-    // }
-
-    //  int bytes_requested = audio_stream->get_bytes_per_frame() * p_frames_per_buffer;
-    //  if (bytes_requested <= 0) {
-    //      return paContinue;
-    //  }
-
-    // uint8_t *src = (uint8_t *) buffer;
-    // uint8_t *dst = (uint8_t *) p_output_buffer;
-    //  return paContinue;
-    //  for (int i = 0; i < bytes_to_write; i++) {
-    //      dst[i] = src[buffer_position];
-    //      buffer_position++;
-    //  }
-    //  for (int i = 0; i < bytes_to_pad; i++) {
-    //      dst[i] = 0;
-    //  }
-//
-    //  return buffer_position < buffer_size ? paContinue : paComplete;
 }
 
 void Lowl::PaDevice::set_stream(std::unique_ptr<AudioStream> p_audio_stream, Error &error) {
@@ -120,7 +115,7 @@ void Lowl::PaDevice::open_stream(Error &error) {
 
     const PaStreamParameters output_parameter = {
             device_index,
-            (int)audio_stream->get_channel(),
+            (int) audio_stream->get_channel(),
             sample_format,
             suggested_latency,
             nullptr

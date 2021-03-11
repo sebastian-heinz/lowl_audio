@@ -1,6 +1,8 @@
 #include <lowl.h>
 
 #include <iostream>
+#include <thread>
+#include <chrono>
 
 int main() {
 
@@ -11,7 +13,12 @@ int main() {
         return -1;
     }
 
-    std::unique_ptr<Lowl::AudioStream> stream = Lowl::Lib::create_stream("/Users/railgun/Downloads/CantinaBand60.wav", error);
+    std::unique_ptr<Lowl::AudioStream> stream = Lowl::Lib::create_stream(
+            // "/Users/railgun/Downloads/32_bit_float.WAV",
+            "/Users/railgun/Downloads/CantinaBand60.wav",
+            error
+    );
+
     if (error.has_error()) {
         std::cout << "Err:  Lowl::create_stream\n";
         return -1;
@@ -40,9 +47,10 @@ int main() {
     }
 
     std::cout << "Select Device:\n";
-    std::string user_input;
-    std::getline(std::cin, user_input);
-    int selected_index = std::stoi(user_input);
+    // std::string user_input;
+    // std::getline(std::cin, user_input);
+    // int selected_index = std::stoi(user_input);
+    int selected_index = 1;
 
     Lowl::Device *device = all_devices[selected_index];
     device->set_stream(std::move(stream), error);
@@ -57,7 +65,7 @@ int main() {
         return -1;
     }
 
-    // wait for duration
+    std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 
     device->stop(error);
     if (error.has_error()) {

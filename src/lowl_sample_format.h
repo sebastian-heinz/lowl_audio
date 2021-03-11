@@ -34,9 +34,9 @@ namespace Lowl {
 
     inline float sample_to_float(int16_t sample) {
         if (sample > 0) {
-            return sample / 0x7FFF;
+            return static_cast<float>(sample) / 0x7FFF;
         } else {
-            return sample / 0x8000;
+            return static_cast<float>(sample) / 0x8000;
         }
     }
 
@@ -47,7 +47,6 @@ namespace Lowl {
             return sample * 0x8000;
         }
     }
-
 
 
 }

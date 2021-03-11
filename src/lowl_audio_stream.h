@@ -17,6 +17,8 @@ namespace Lowl {
         SampleRate sample_rate;
         Channel channel;
         moodycamel::ReaderWriterQueue<AudioFrame> *buffer;
+        uint32_t samples_in;
+        uint32_t samples_out;
 
     public:
         SampleFormat get_sample_format() const;
@@ -27,11 +29,11 @@ namespace Lowl {
 
         int get_channel_num() const;
 
-        AudioFrame read() const;
+        AudioFrame read();
 
         void write(AudioFrame p_audio_frame);
 
-        void write(const std::vector<AudioFrame>& p_audio_frames);
+        void write(const std::vector<AudioFrame> &p_audio_frames);
 
         AudioStream(SampleRate p_sample_rate, Channel p_channel);
 

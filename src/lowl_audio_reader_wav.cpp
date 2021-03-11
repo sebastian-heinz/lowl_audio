@@ -119,7 +119,7 @@ Lowl::AudioReaderWav::read_buffer(const std::unique_ptr<Buffer> &p_buffer, Error
         error.set_error(ErrorCode::Error);
         return nullptr;
     }
-    std::vector<AudioFrame> audio_frames = AudioReader::read_frames(sample_format, channel, &audio_data, audio_size);
+    std::vector<AudioFrame> audio_frames = AudioReader::read_frames(sample_format, channel, audio_data.get(), audio_size);
 
     std::unique_ptr<AudioStream> audio_stream = std::make_unique<AudioStream>(sample_rate, channel);
     audio_stream->write(audio_frames);

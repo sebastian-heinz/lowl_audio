@@ -43,23 +43,28 @@ std::unique_ptr<Lowl::AudioStream> Lowl::AudioReader::read_file(const std::strin
 }
 
 std::vector<Lowl::AudioFrame>
-Lowl::AudioReader::read_frames(Lowl::SampleFormat format, Lowl::Channel channel, void *data, size_t data_size) {
+Lowl::AudioReader::read_frames(SampleFormat format, Channel channel, void *data, size_t data_size) {
 
     std::vector<AudioFrame> frames = std::vector<AudioFrame>();
-
     int sample_size = Lowl::get_sample_size(format);
-
     int sample_num = data_size / sample_size;
     int expected_data_size = sample_num * sample_size;
     if (expected_data_size != data_size) {
         // incomplete frames
     }
-
     int num_channels = get_channel_num(channel);
     int num_frames = sample_num / num_channels;
 
     switch (format) {
         case SampleFormat::FLOAT_32: {
+            float *float32 = static_cast<float *>(data);
+            for (int current_frame = 0; current_frame < num_frames; current_frame++) {
+                int sample_index = current_frame * 2;
+                AudioFrame frame{};
+                frame.left = float32[sample_index];
+                frame.right = float32[sample_index + 1];
+                frames.push_back(frame);
+            }
             break;
         }
         case SampleFormat::INT_32: {
@@ -72,13 +77,29 @@ Lowl::AudioReader::read_frames(Lowl::SampleFormat format, Lowl::Channel channel,
         }
         case SampleFormat::INT_16: {
             int16_t *int16 = static_cast<int16_t *>(data);
-            for (int i = 0; i < sample_num; i++) {
-                int16_t left = int16[i];
-                int16_t right = int16[i];
-                AudioFrame frame{};
-                frame.left = sample_to_float(left);
-                frame.right = sample_to_float(right);
-                frames.push_back(frame);
+            switch (channel) {
+                case Channel::Mono: {
+                    for (int current_frame = 0; current_frame < num_frames; current_frame++) {
+                        int sample_index = current_frame * 1;
+                        int16_t center = int16[sample_index];
+                        AudioFrame frame{};
+                        frame.left = frame.right = sample_to_float(center);
+                        frames.push_back(frame);
+                    }
+                    break;
+                }
+                case Channel::Stereo: {
+                    for (int current_frame = 0; current_frame < num_frames; current_frame++) {
+                        int sample_index = current_frame * 2;
+                        int16_t left = int16[sample_index];
+                        int16_t right = int16[sample_index + 1];
+                        AudioFrame frame{};
+                        frame.left = sample_to_float(left);
+                        frame.right = sample_to_float(right);
+                        frames.push_back(frame);
+                    }
+                    break;
+                }
             }
             break;
         }
@@ -92,7 +113,5 @@ Lowl::AudioReader::read_frames(Lowl::SampleFormat format, Lowl::Channel channel,
             break;
         }
     }
-
-
     return frames;
 }

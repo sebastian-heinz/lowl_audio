@@ -11,15 +11,16 @@ namespace Lowl {
     public:
         static std::vector<AudioFrame> read_frames(SampleFormat format, Channel channel, void *data, size_t data_size);
 
-
+    public:
         virtual std::unique_ptr<AudioStream>
         read_buffer(const std::unique_ptr<Buffer> &p_buffer, Error &error) = 0;
 
+        virtual ~AudioReader() = default;
+
+    public:
         std::unique_ptr<AudioStream> read_ptr(void *p_buffer, uint32_t p_length, Error &error);
 
         std::unique_ptr<AudioStream> read_file(const std::string &p_path, Error &error);
-
-        virtual ~AudioReader() = default;
     };
 }
 
