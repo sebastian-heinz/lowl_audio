@@ -1,5 +1,6 @@
 #include "lowl_audio_reader_wav.h"
 
+#include <dr_wav.h>
 
 std::unique_ptr<Lowl::AudioStream>
 Lowl::AudioReaderWav::read_buffer(const std::unique_ptr<Buffer> &p_buffer, Error &error) {
@@ -34,6 +35,7 @@ Lowl::AudioReaderWav::read_buffer(const std::unique_ptr<Buffer> &p_buffer, Error
 
     bool has_fmt = false;
     bool has_data = false;
+    bool has_fact = false;
     while (p_buffer->get_available() > 0) {
         char chunk_id[4];
         p_buffer->read_data((uint8_t *) &chunk_id, 4);
@@ -94,7 +96,7 @@ Lowl::AudioReaderWav::read_buffer(const std::unique_ptr<Buffer> &p_buffer, Error
                 sample_format = Lowl::SampleFormat::FLOAT_32;
             } else {
                 error.set_error(ErrorCode::Error);
-                return nullptr;
+               // return nullptr;
             }
             has_fmt = true;
         }
@@ -104,6 +106,10 @@ Lowl::AudioReaderWav::read_buffer(const std::unique_ptr<Buffer> &p_buffer, Error
             audio_data = std::make_unique<uint8_t[]>(audio_size);
             p_buffer->read_data(audio_data.get(), audio_size);
             has_data = true;
+        }
+
+        if (!has_fact && chunk_id[0] == 'f' && chunk_id[1] == 'a' && chunk_id[2] == 'c' && chunk_id[3] == 't') {
+            has_fact = true;
         }
 
         p_buffer->seek(chunk_position + chunk_size);
