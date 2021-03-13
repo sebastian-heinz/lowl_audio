@@ -3,9 +3,6 @@
 
 #include "lowl_device.h"
 
-#include <string>
-#include <vector>
-
 namespace Lowl {
     class Driver {
 

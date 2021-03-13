@@ -1,6 +1,6 @@
 #ifdef LOWL_DRIVER_PORTAUDIO
 
-#include "lowl_pa_device.h"
+#include "lowl_device_pa.h"
 
 static int audio_callback(const void *p_input_buffer, void *p_output_buffer,
                           unsigned long p_frames_per_buffer, const PaStreamCallbackTimeInfo *p_time_info,

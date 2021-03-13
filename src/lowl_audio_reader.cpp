@@ -106,7 +106,7 @@ Lowl::AudioReader::read_frames(AudioFormat p_audio_format, SampleFormat p_sample
 
     std::vector<AudioFrame> frames = std::vector<AudioFrame>();
 
-    if (samples.size() <= 0) {
+    if (samples.empty()) {
         // no data
         return frames;
     }

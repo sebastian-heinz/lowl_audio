@@ -1,9 +1,8 @@
+#define DR_WAV_IMPLEMENTATION
+
 #include "lowl_audio_reader_wav.h"
 
-#include "lowl_sample_converter.h"
 #include "lowl_audio_format.h"
-
-#define DR_WAV_IMPLEMENTATION
 
 #include <dr_wav.h>
 
@@ -104,7 +103,7 @@ Lowl::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, E
 
     std::vector<AudioFrame> audio_frames =
             read_frames(audio_format, sample_format, channel, std::move(pcm_frames), bytes_read, error);
-    if(error.has_error()){
+    if (error.has_error()) {
         return nullptr;
     }
 

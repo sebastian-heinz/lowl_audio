@@ -1,7 +1,6 @@
 #ifndef LOWL_SAMPLE_FORMAT
 #define LOWL_SAMPLE_FORMAT
 
-#include <cstdint>
 #include <cstddef>
 
 namespace Lowl {
@@ -34,24 +33,6 @@ namespace Lowl {
                 return 0;
         }
     }
-
-    inline float sample_to_float(int16_t sample) {
-        if (sample > 0) {
-            return static_cast<float>(sample) / 0x7FFF;
-        } else {
-            return static_cast<float>(sample) / 0x8000;
-        }
-    }
-
-    inline int16_t sample_to_int16(float sample) {
-        if (sample > 0) {
-            return sample * 0x7FFF;
-        } else {
-            return sample * 0x8000;
-        }
-    }
-
-
 }
 
 #endif

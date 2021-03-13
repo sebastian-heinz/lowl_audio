@@ -3,7 +3,7 @@
 
 #ifdef LOWL_DRIVER_DUMMY
 
-#include "../../lowl_driver.h"
+#include "lowl_driver.h"
 
 namespace Lowl {
 

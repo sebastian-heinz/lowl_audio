@@ -4,6 +4,7 @@
 #include "lowl_audio_stream.h"
 #include "lowl_file_format.h"
 #include "lowl_sample_converter.h"
+#include "lowl_audio_format.h"
 
 #include <vector>
 

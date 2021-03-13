@@ -3,8 +3,6 @@
 
 #include "lowl_error.h"
 
-#include <string>
-
 namespace Lowl {
 
     class LowlFile {

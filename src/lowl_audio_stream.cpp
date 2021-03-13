@@ -4,8 +4,8 @@ Lowl::AudioStream::AudioStream(SampleRate p_sample_rate, Channel p_channel) {
     sample_rate = p_sample_rate;
     channel = p_channel;
     buffer = new moodycamel::ReaderWriterQueue<AudioFrame>(100);
-    samples_in = 0;
-    samples_out = 0;
+    frames_in = 0;
+    frames_out = 0;
 }
 
 Lowl::AudioStream::~AudioStream() {
@@ -29,7 +29,7 @@ Lowl::AudioFrame Lowl::AudioStream::read() {
     if (!buffer->try_dequeue(frame)) {
         return frame;
     }
-    samples_out++;
+    frames_out++;
     return frame;
 }
 
@@ -37,7 +37,7 @@ void Lowl::AudioStream::write(AudioFrame p_audio_frame) {
     if (!buffer->enqueue(p_audio_frame)) {
         return;
     }
-    samples_in++;
+    frames_in++;
 }
 
 int Lowl::AudioStream::get_channel_num() const {

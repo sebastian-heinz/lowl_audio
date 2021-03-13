@@ -1,14 +1,14 @@
 # include "lowl_sample_converter.h"
 
-float Lowl::SampleConverter::to_float(uint8_t p_sample) {
+float Lowl::SampleConverter::to_float(uint8_t p_sample) const {
     return 0;
 }
 
-float Lowl::SampleConverter::to_float(int8_t p_sample) {
+float Lowl::SampleConverter::to_float(int8_t p_sample) const {
     return 0;
 }
 
-float Lowl::SampleConverter::to_float(int16_t p_sample) {
+float Lowl::SampleConverter::to_float(int16_t p_sample) const {
     if (p_sample > 0) {
         return static_cast<float>(p_sample) / 0x7FFF;
     } else {
@@ -16,7 +16,7 @@ float Lowl::SampleConverter::to_float(int16_t p_sample) {
     }
 }
 
-float Lowl::SampleConverter::to_float(int32_t p_sample) {
+float Lowl::SampleConverter::to_float(int32_t p_sample) const {
     return 0;
 }
 

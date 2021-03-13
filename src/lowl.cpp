@@ -4,13 +4,13 @@
 
 #ifdef LOWL_DRIVER_DUMMY
 
-#include "driver/dummy/lowl_dummy_driver.h"
+#include "lowl_driver_dummy.h"
 
 #endif
 
 #ifdef LOWL_DRIVER_PORTAUDIO
 
-#include "driver/portaudio/lowl_pa_driver.h"
+#include "lowl_driver_pa.h"
 
 #endif
 
