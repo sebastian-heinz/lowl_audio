@@ -99,6 +99,18 @@ Lowl::AudioReader::read_frames(AudioFormat p_audio_format, SampleFormat p_sample
                 }
             }
         }
+        case AudioFormat::MP3: {
+            if (p_size < sizeof(int32_t)) {
+                break;
+            }
+            int32_t *int32 = reinterpret_cast<int32_t *>(p_buffer.get());
+            for (int current_sample = 0; current_sample < num_samples; current_sample++) {
+                int32_t sample_32 = int32[current_sample];
+                float sample = sample_converter->to_float(sample_32);
+                samples.push_back(sample);
+            }
+            break;
+        }
         default: {
             // audio format not supported
         }

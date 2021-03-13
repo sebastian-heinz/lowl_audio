@@ -17,7 +17,9 @@ int main() {
     // std::string audio_file = "PCM_FLOAT_32_2CH_SR44100_Juanitos_Exotica.wav";
     // std::string audio_file = "PCM_INT_32_2CH_SR44100_Juanitos_Exotica.wav";
     // std::string audio_file = "PCM_INT_24_2CH_SR44100_Juanitos_Exotica.wav";
-     std::string audio_file = "PCM_INT_16_2CH_SR44100_Juanitos_Exotica.wav";
+    // std::string audio_file = "PCM_INT_16_2CH_SR44100_Juanitos_Exotica.wav";
+
+    std::string audio_file = "MP3_CBITRATE128_SR44100_Juanitos_Exotica.mp3";
 
 
     Lowl::Error error;

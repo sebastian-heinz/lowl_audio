@@ -1,9 +1,8 @@
-#define DR_WAV_IMPLEMENTATION
-
 #include "lowl_audio_reader_wav.h"
 
 #include "lowl_audio_format.h"
 
+#define DR_WAV_IMPLEMENTATION
 #include <dr_wav.h>
 
 std::unique_ptr<Lowl::AudioStream>
@@ -17,6 +16,7 @@ Lowl::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, E
 
     /* Cannot use this function for compressed formats. */
     if (drwav__is_compressed_format_tag(wav.translatedFormatTag)) {
+        // todo uninit?
         return nullptr;
     }
 

@@ -1,6 +1,7 @@
 #include "../include/lowl.h"
 
 #include "lowl_audio_reader_wav.h"
+#include "lowl_audio_reader_mp3.h"
 
 #ifdef LOWL_DRIVER_DUMMY
 
@@ -101,6 +102,10 @@ std::unique_ptr<Lowl::AudioReader> Lowl::Lib::create_reader(FileFormat format, E
             reader = std::make_unique<AudioReaderWav>();
             break;
         }
+        case FileFormat::MP3: {
+            reader = std::make_unique<AudioReaderMp3>();
+            break;
+        }
     }
     return reader;
 }
@@ -113,6 +118,8 @@ Lowl::FileFormat Lowl::Lib::detect_format(const std::string &p_path, Error &erro
         std::transform(extension.begin(), extension.end(), extension.begin(), std::tolower);
         if (extension == "wav") {
             return FileFormat::WAV;
+        } else if (extension == "mp3") {
+            return FileFormat::MP3;
         }
     }
     return FileFormat::UNKNOWN;

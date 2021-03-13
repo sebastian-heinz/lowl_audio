@@ -10,6 +10,7 @@ namespace Lowl {
         WAVE_FORMAT_MULAW = 4,
         WAVE_FORMAT_ADPCM = 5,
         WAVE_FORMAT_DVI_ADPCM = 6,
+        MP3 = 7,
     };
 }
 
