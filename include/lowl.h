@@ -12,6 +12,9 @@ namespace Lowl {
 
     class Lib {
 
+    private:
+        static std::vector<Lowl::Driver *> drivers;
+
     public:
         static std::vector<Driver *> get_drivers(Error &error);
 
@@ -20,7 +23,7 @@ namespace Lowl {
         static void terminate(Error &error);
 
         static std::unique_ptr<AudioStream>
-        create_stream(void *p_buffer, uint32_t p_length, FileFormat p_format, Error &error);
+        create_stream(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, FileFormat p_format, Error &error);
 
         static std::unique_ptr<AudioStream> create_stream(const std::string &p_path, Error &error);
 

@@ -8,7 +8,7 @@ namespace Lowl {
         Stereo = 2,
     };
 
-    inline int get_channel_num(Channel channel) {
+    inline size_t get_channel_num(Channel channel) {
         switch (channel) {
             case Channel::None:
                 return 0;

@@ -9,6 +9,8 @@
 
 #include <readerwriterqueue.h>
 
+#include <vector>
+
 namespace Lowl {
 
     class AudioStream {

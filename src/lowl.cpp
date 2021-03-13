@@ -14,9 +14,7 @@
 
 #endif
 
-namespace {
-    std::vector<Lowl::Driver *> drivers = std::vector<Lowl::Driver *>();
-}
+std::vector<Lowl::Driver *> Lowl::Lib::drivers = std::vector<Lowl::Driver *>();
 
 std::vector<Lowl::Driver *> Lowl::Lib::get_drivers(Error &error) {
     return drivers;
@@ -47,8 +45,9 @@ void Lowl::Lib::terminate(Error &error) {
 }
 
 std::unique_ptr<Lowl::AudioStream>
-Lowl::Lib::create_stream(void *p_buffer, uint32_t p_length, FileFormat format, Error &error) {
-    std::unique_ptr<AudioReader> reader = create_reader(format, error);
+Lowl::Lib::create_stream(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Lowl::FileFormat p_format,
+                         Lowl::Error &error) {
+    std::unique_ptr<AudioReader> reader = create_reader(p_format, error);
     if (error.has_error()) {
         return nullptr;
     }
@@ -56,7 +55,7 @@ Lowl::Lib::create_stream(void *p_buffer, uint32_t p_length, FileFormat format, E
         error.set_error(ErrorCode::Error);
         return nullptr;
     }
-    std::unique_ptr<AudioStream> stream = reader->read_ptr(p_buffer, p_length, error);
+    std::unique_ptr<AudioStream> stream = reader->read(std::move(p_buffer), p_size, error);
     if (error.has_error()) {
         return nullptr;
     }

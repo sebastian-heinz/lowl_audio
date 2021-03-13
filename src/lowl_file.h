@@ -25,7 +25,11 @@ namespace Lowl {
 
         uint8_t read_u8() const;
 
-        int get_buffer(uint8_t *p_dst, int p_length) const;
+        /***
+         * - read length-bytes from current cursor position
+         * - store number of read bytes in length parameter
+         */
+        std::unique_ptr<uint8_t[]> read_buffer(size_t &length) const;
 
         bool is_eof() const;
 

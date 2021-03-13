@@ -160,15 +160,15 @@ uint8_t Lowl::LowlFile::read_u8() const {
     return b;
 }
 
-int Lowl::LowlFile::get_buffer(uint8_t *p_dst, int p_length) const {
+std::unique_ptr<uint8_t[]> Lowl::LowlFile::read_buffer(size_t &length) const {
     LowlFileUnix *unix = (LowlFileUnix *) user_data;
     if (!unix->file) {
         // error
         return 0;
     }
-    int read = fread(p_dst, 1, p_length, unix->file);
-    //check_errors();
-    return read;
+    std::unique_ptr<uint8_t[]> data = std::make_unique<uint8_t[]>(length);
+    length = fread(data.get(), 1, length, unix->file);
+    return data;
 }
 
 bool Lowl::LowlFile::is_eof() const {
@@ -189,5 +189,6 @@ Lowl::LowlFile::LowlFile() {
 Lowl::LowlFile::~LowlFile() {
     delete (LowlFileUnix *) user_data;
 }
+
 
 #endif

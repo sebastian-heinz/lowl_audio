@@ -5,6 +5,20 @@
 #include <chrono>
 
 int main() {
+    std::string audio_root = "/Users/railgun/dev/lowl_audio/demo/audio/";
+
+    // mono
+    // std::string audio_file = "PCM_FLOAT_32_1CH_SR44100_Juanitos_Exotica.wav";
+    // std::string audio_file = "PCM_INT_32_1CH_SR44100_Juanitos_Exotica.wav";
+    // std::string audio_file = "PCM_INT_24_1CH_SR44100_Juanitos_Exotica.wav";
+    // std::string audio_file = "PCM_INT_16_1CH_SR44100_Juanitos_Exotica.wav";
+
+    // stereo
+    // std::string audio_file = "PCM_FLOAT_32_2CH_SR44100_Juanitos_Exotica.wav";
+    // std::string audio_file = "PCM_INT_32_2CH_SR44100_Juanitos_Exotica.wav";
+    // std::string audio_file = "PCM_INT_24_2CH_SR44100_Juanitos_Exotica.wav";
+     std::string audio_file = "PCM_INT_16_2CH_SR44100_Juanitos_Exotica.wav";
+
 
     Lowl::Error error;
     Lowl::Lib::initialize(error);
@@ -12,12 +26,8 @@ int main() {
         std::cout << "Err: Lowl::initialize\n";
         return -1;
     }
-
-    std::unique_ptr<Lowl::AudioStream> stream = Lowl::Lib::create_stream(
-            // "/Users/railgun/Downloads/32_bit_float.WAV",
-            "/Users/railgun/Downloads/CantinaBand60.wav",
-            error
-    );
+    std::string audio_path = audio_root + audio_file;
+    std::unique_ptr<Lowl::AudioStream> stream = Lowl::Lib::create_stream(audio_path, error);
 
     if (error.has_error()) {
         std::cout << "Err:  Lowl::create_stream\n";

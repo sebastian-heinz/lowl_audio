@@ -6,17 +6,20 @@
 
 namespace Lowl {
     enum class SampleFormat {
-        Unknown = 11,
-        FLOAT_32 = 0,
-        INT_32 = 1,
-        INT_24 = 2,
-        INT_16 = 3,
-        INT_8 = 4,
-        U_INT_8 = 5,
+        Unknown = 0,
+        FLOAT_32 = 1,
+        FLOAT_64 = 2,
+        INT_32 = 3,
+        INT_24 = 4,
+        INT_16 = 5,
+        INT_8 = 6,
+        U_INT_8 = 7,
     };
 
-    inline int get_sample_size(SampleFormat format) {
+    inline size_t get_sample_size(SampleFormat format) {
         switch (format) {
+            case SampleFormat::FLOAT_64:
+                return 8;
             case SampleFormat::FLOAT_32:
             case SampleFormat::INT_32:
                 return 4;
