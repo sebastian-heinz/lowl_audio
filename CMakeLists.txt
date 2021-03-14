@@ -30,7 +30,8 @@ target_include_directories(${PROJECT_NAME} PUBLIC "$<BUILD_INTERFACE:${CMAKE_CUR
 
 add_definitions(-DLOWL_DRIVER_DUMMY)
 add_definitions(-DLOWL_DRIVER_PORTAUDIO)
-add_definitions(-DLOWL_UNIX)
+#add_definitions(-DLOWL_UNIX)
+add_definitions(-DLOWL_WIN)
 
 # readerwriterqueue
 add_subdirectory(third_party/readerwriterqueue)
@@ -38,7 +39,7 @@ target_link_libraries(${PROJECT_NAME} readerwriterqueue)
 
 # portaudio
 add_subdirectory(third_party/portaudio)
-target_link_libraries(${PROJECT_NAME} portaudio)
+target_link_libraries(${PROJECT_NAME} portaudio_static)
 
 # dr_lib
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE third_party/dr_libs)

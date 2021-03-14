@@ -16,6 +16,8 @@
 
 #endif
 
+#include <algorithm>
+
 std::vector<Lowl::Driver *> Lowl::Lib::drivers = std::vector<Lowl::Driver *>();
 
 std::vector<Lowl::Driver *> Lowl::Lib::get_drivers(Error &error) {

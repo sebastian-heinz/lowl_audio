@@ -6,23 +6,23 @@ struct LowlFileWin {
 	FILE* file;
 };
 
-std::wstring LowlFile::get_path()
+std::string Lowl::LowlFile::get_path()
 {
 	return path;
 }
 
-void LowlFile::open(const std::wstring& p_path)
+void Lowl::LowlFile::open(const std::string& p_path, Error& error)
 {
 	LowlFileWin* win = (LowlFileWin*)user_data;
 	path = p_path;
 
 	struct _stat st;
-	if (_wstat(path.c_str(), &st) == 0) {
+	if (_stat(path.c_str(), &st) == 0) {
 		if (!(st.st_mode & _S_IFREG))
 			return;
 	};
 
-	errno_t errcode = _wfopen_s(&win->file, path.c_str(), L"rb");
+	errno_t errcode = fopen_s(&win->file, path.c_str(), "rb");
 
 	if (win->file == NULL) {
 		switch (errcode) {
@@ -45,7 +45,7 @@ void LowlFile::open(const std::wstring& p_path)
 	return;
 }
 
-void LowlFile::close()
+void Lowl::LowlFile::close()
 {
 	LowlFileWin* win = (LowlFileWin*)user_data;
 	if (!win->file)
@@ -56,7 +56,7 @@ void LowlFile::close()
 	win->file = NULL;
 }
 
-void LowlFile::seek(size_t p_position)
+void Lowl::LowlFile::seek(size_t p_position)
 {
 	LowlFileWin* win = (LowlFileWin*)user_data;
 	if (!win->file)
@@ -70,7 +70,7 @@ void LowlFile::seek(size_t p_position)
 
 }
 
-size_t LowlFile::get_position() const
+size_t Lowl::LowlFile::get_position() const
 {
 	LowlFileWin* win = (LowlFileWin*)user_data;
 	size_t aux_position = 0;
@@ -81,7 +81,7 @@ size_t LowlFile::get_position() const
 	return aux_position;
 }
 
-size_t LowlFile::get_length() const
+size_t Lowl::LowlFile::get_length() const
 {
 	LowlFileWin* win = (LowlFileWin*)user_data;
 	if (!win->file)
@@ -89,15 +89,32 @@ size_t LowlFile::get_length() const
 		return 0;
 	}
 
-	size_t pos = get_position();
-	fseek(win->file, 0, SEEK_END);
-	int size = get_position();
-	fseek(win->file, pos, SEEK_SET);
+	//size_t pos = get_position();
+	//fseek(win->file, 0, SEEK_END);
+	//int size = get_position();
+	//fseek(win->file, pos, SEEK_SET);
 
+
+	long pos = ftell(win->file);
+	if (pos < 0) {
+		// error
+	}
+	int seek_end = fseek(win->file, 0, SEEK_END);
+	if (!seek_end) {
+		// error
+	}
+	long size = ftell(win->file);
+	if (size < 0) {
+		// error
+	}
+	int seek_set = fseek(win->file, pos, SEEK_SET);
+	if (!seek_set) {
+		// error
+	}
 	return size;
 }
 
-uint8_t LowlFile::read_u8() const
+uint8_t Lowl::LowlFile::read_u8() const
 {
 	LowlFileWin* win = (LowlFileWin*)user_data;
 	if (!win->file)
@@ -111,18 +128,19 @@ uint8_t LowlFile::read_u8() const
 	return b;
 }
 
-int LowlFile::get_buffer(uint8_t* p_dst, int p_length) const
+std::unique_ptr<uint8_t[]> Lowl::LowlFile::read_buffer(size_t& length) const
 {
 	LowlFileWin* win = (LowlFileWin*)user_data;
-	if (!win->file)
-	{
-		return -1;
+	if (!win->file) {
+		// error
+		return 0;
 	}
-	int read = fread(p_dst, 1, p_length, win->file);
-	return read;
+	std::unique_ptr<uint8_t[]> data = std::make_unique<uint8_t[]>(length);
+	length = fread(data.get(), 1, length, win->file);
+	return data;
 }
 
-bool LowlFile::is_eof() const
+bool Lowl::LowlFile::is_eof() const
 {
 	LowlFileWin* win = (LowlFileWin*)user_data;
 	if (!win->file)
@@ -132,13 +150,15 @@ bool LowlFile::is_eof() const
 	return feof(win->file);
 }
 
-LowlFile::LowlFile()
+Lowl::LowlFile::LowlFile()
 {
 	user_data = new LowlFileWin;
-	path = std::wstring();
+	LowlFileWin* win = (LowlFileWin*)user_data;
+	win->file = nullptr;
+	path = std::string();
 }
 
-LowlFile::~LowlFile()
+Lowl::LowlFile::~LowlFile()
 {
 	delete user_data;
 }
