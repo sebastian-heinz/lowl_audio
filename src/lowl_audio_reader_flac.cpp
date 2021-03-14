@@ -41,7 +41,7 @@ Lowl::AudioReaderFlac::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, 
     size_t bytes_to_read = bytes_to_read_test;
 
     std::unique_ptr<uint8_t[]> pcm_frames = std::make_unique<uint8_t[]>(bytes_to_read);
-    drflac_int32 *buffer = reinterpret_cast<drflac_int32 *>(pcm_frames.get());
+    int32_t *buffer = reinterpret_cast<int32_t *>(pcm_frames.get());
     size_t pcm_frames_read = drflac_read_pcm_frames_s32(flac, flac->totalPCMFrameCount, buffer);
     size_t pcm_buffer_size = pcm_frames_read * bytes_per_frame;
 
