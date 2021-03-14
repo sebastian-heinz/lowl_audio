@@ -11,6 +11,7 @@ namespace Lowl {
         WAVE_FORMAT_ADPCM = 5,
         WAVE_FORMAT_DVI_ADPCM = 6,
         MP3 = 7,
+        FLAC = 8,
     };
 }
 

@@ -6,6 +6,7 @@ namespace Lowl {
         UNKNOWN = 0,
         WAV = 1,
         MP3 = 2,
+        FLAC = 3,
     };
 }
 
