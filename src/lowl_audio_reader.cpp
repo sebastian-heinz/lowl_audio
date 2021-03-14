@@ -37,94 +37,55 @@ Lowl::AudioReader::read_frames(AudioFormat p_audio_format, SampleFormat p_sample
     size_t num_samples = p_size / sample_size;
     std::vector<float> samples = std::vector<float>();
 
-    switch (p_audio_format) {
-        case AudioFormat::WAVE_FORMAT_PCM: {
-            switch (p_sample_format) {
-                case SampleFormat::INT_32: {
-                    if (p_size < sizeof(int32_t)) {
-                        break;
-                    }
-                    int32_t *int32 = reinterpret_cast<int32_t *>(p_buffer.get());
-                    for (int current_sample = 0; current_sample < num_samples; current_sample++) {
-                        int32_t sample_32 = int32[current_sample];
-                        float sample = sample_converter->to_float(sample_32);
-                        samples.push_back(sample);
-                    }
+    if (p_audio_format == AudioFormat::WAVE_FORMAT_PCM
+        || p_audio_format == AudioFormat::WAVE_FORMAT_IEEE_FLOAT
+        || p_audio_format == AudioFormat::MP3
+        || p_audio_format == AudioFormat::FLAC
+            ) {
+        // formats can be just read based on sample format, no special handling required
+        switch (p_sample_format) {
+            case SampleFormat::INT_32: {
+                if (p_size < sizeof(int32_t)) {
                     break;
                 }
-                case SampleFormat::INT_24: {
-                    break;
+                int32_t *int32 = reinterpret_cast<int32_t *>(p_buffer.get());
+                for (int current_sample = 0; current_sample < num_samples; current_sample++) {
+                    int32_t sample_32 = int32[current_sample];
+                    float sample = sample_converter->to_float(sample_32);
+                    samples.push_back(sample);
                 }
-                case SampleFormat::INT_16: {
-                    if (p_size < sizeof(int16_t)) {
-                        break;
-                    }
-                    int16_t *int16 = reinterpret_cast<int16_t *>(p_buffer.get());
-                    for (int current_sample = 0; current_sample < num_samples; current_sample++) {
-                        int16_t sample_16 = int16[current_sample];
-                        float sample = sample_converter->to_float(sample_16);
-                        samples.push_back(sample);
-                    }
-                    break;
-                }
-                case SampleFormat::U_INT_8: {
-                    break;
-                }
-                default: {
-                    // error SampleFormat not supported for AudioFormat
-                    break;
-                }
-            }
-            break;
-        }
-        case AudioFormat::WAVE_FORMAT_IEEE_FLOAT: {
-            switch (p_sample_format) {
-                case SampleFormat::FLOAT_32: {
-                    if (p_size < sizeof(float)) {
-                        break;
-                    }
-                    float *sample_float = reinterpret_cast<float *>(p_buffer.get());
-                    for (int current_sample = 0; current_sample < num_samples; current_sample++) {
-                        float sample = sample_float[current_sample];
-                        samples.push_back(sample);
-                    }
-                    break;
-                }
-                case SampleFormat::FLOAT_64: {
-                    break;
-                }
-                default: {
-                    // error SampleFormat not supported for AudioFormat
-                    break;
-                }
-            }
-        }
-        case AudioFormat::MP3: {
-            if (p_size < sizeof(float)) {
                 break;
             }
-            float *sample_float = reinterpret_cast<float *>(p_buffer.get());
-            for (int current_sample = 0; current_sample < num_samples; current_sample++) {
-                float sample = sample_float[current_sample];
-                samples.push_back(sample);
-            }
-            break;
-        }
-        case AudioFormat::FLAC: {
-            if (p_size < sizeof(int32_t)) {
+            case SampleFormat::INT_16: {
+                if (p_size < sizeof(int16_t)) {
+                    break;
+                }
+                int16_t *int16 = reinterpret_cast<int16_t *>(p_buffer.get());
+                for (int current_sample = 0; current_sample < num_samples; current_sample++) {
+                    int16_t sample_16 = int16[current_sample];
+                    float sample = sample_converter->to_float(sample_16);
+                    samples.push_back(sample);
+                }
                 break;
             }
-            int32_t *int32 = reinterpret_cast<int32_t *>(p_buffer.get());
-            for (int current_sample = 0; current_sample < num_samples; current_sample++) {
-                int32_t sample_32 = int32[current_sample];
-                float sample = sample_converter->to_float(sample_32);
-                samples.push_back(sample);
+            case SampleFormat::FLOAT_32: {
+                if (p_size < sizeof(float)) {
+                    break;
+                }
+                float *sample_float = reinterpret_cast<float *>(p_buffer.get());
+                for (int current_sample = 0; current_sample < num_samples; current_sample++) {
+                    float sample = sample_float[current_sample];
+                    samples.push_back(sample);
+                }
+                break;
             }
-            break;
+            default: {
+                // error SampleFormat not supported for AudioFormat
+                break;
+            }
         }
-        default: {
-            // audio format not supported
-        }
+    } else {
+        // audio format not supported
     }
 
     std::vector<AudioFrame> frames = std::vector<AudioFrame>();
