@@ -15,7 +15,6 @@ namespace Lowl {
         PaDeviceIndex device_index;
         PaStream *stream;
         bool active;
-        std::unique_ptr<AudioStream> audio_stream;
 
         void start_stream(Error &error);
 
@@ -31,8 +30,6 @@ namespace Lowl {
         virtual void start(Error &error) override;
 
         virtual void stop(Error &error) override;
-
-        virtual void set_stream(std::unique_ptr<AudioStream> p_audio_stream, Error &error) override;
 
     public:
         PaStreamCallbackResult callback(const void *p_input_buffer,

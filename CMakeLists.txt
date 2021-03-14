@@ -40,6 +40,6 @@ add_subdirectory(third_party/portaudio)
 target_link_libraries(${PROJECT_NAME} portaudio)
 
 # dr_lib
-target_include_directories(${PROJECT_NAME} PRIVATE third_party/dr_libs)
+target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE third_party/dr_libs)
 
 add_subdirectory(demo)

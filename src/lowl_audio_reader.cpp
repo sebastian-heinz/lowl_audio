@@ -31,7 +31,7 @@ Lowl::AudioReader::AudioReader() {
 
 std::vector<Lowl::AudioFrame>
 Lowl::AudioReader::read_frames(AudioFormat p_audio_format, SampleFormat p_sample_format, Channel p_channel,
-                               std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Error &error) {
+                               const std::unique_ptr<uint8_t[]> &p_buffer, size_t p_size, Error &error) {
 
     size_t sample_size = get_sample_size(p_sample_format);
     size_t num_samples = p_size / sample_size;
@@ -100,13 +100,12 @@ Lowl::AudioReader::read_frames(AudioFormat p_audio_format, SampleFormat p_sample
             }
         }
         case AudioFormat::MP3: {
-            if (p_size < sizeof(int32_t)) {
+            if (p_size < sizeof(float)) {
                 break;
             }
-            int32_t *int32 = reinterpret_cast<int32_t *>(p_buffer.get());
+            float *sample_float = reinterpret_cast<float *>(p_buffer.get());
             for (int current_sample = 0; current_sample < num_samples; current_sample++) {
-                int32_t sample_32 = int32[current_sample];
-                float sample = sample_converter->to_float(sample_32);
+                float sample = sample_float[current_sample];
                 samples.push_back(sample);
             }
             break;

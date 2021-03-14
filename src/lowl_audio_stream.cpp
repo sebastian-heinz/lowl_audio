@@ -49,3 +49,11 @@ void Lowl::AudioStream::write(const std::vector<AudioFrame> &p_audio_frames) {
         write(frame);
     }
 }
+
+uint32_t Lowl::AudioStream::get_frames_out() const {
+    return frames_out;
+}
+
+uint32_t Lowl::AudioStream::get_frames_in() const {
+    return frames_in;
+}

@@ -19,7 +19,7 @@ int main() {
     // std::string audio_file = "PCM_INT_24_2CH_SR44100_Juanitos_Exotica.wav";
     // std::string audio_file = "PCM_INT_16_2CH_SR44100_Juanitos_Exotica.wav";
 
-    std::string audio_file = "MP3_CBITRATE128_SR44100_Juanitos_Exotica.mp3";
+   std::string audio_file = "MP3_CBITRATE128_SR44100_Juanitos_Exotica.mp3";
 
 
     Lowl::Error error;
@@ -67,17 +67,20 @@ int main() {
     Lowl::Device *device = all_devices[selected_index];
     device->set_stream(std::move(stream), error);
     if (error.has_error()) {
-        std::cout << "Err: driver->set_stream\n";
+        std::cout << "Err: device->set_stream\n";
         return -1;
     }
 
     device->start(error);
     if (error.has_error()) {
-        std::cout << "Err: driver->start\n";
+        std::cout << "Err: device->start\n";
         return -1;
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+    while (device->is_playing()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::cout << "frames_played: \n" + std::to_string(device->frames_played()) + "\n";
+    }
 
     device->stop(error);
     if (error.has_error()) {

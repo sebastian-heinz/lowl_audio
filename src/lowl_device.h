@@ -10,12 +10,20 @@ namespace Lowl {
     private:
         std::string name;
 
+    protected:
+        std::unique_ptr<AudioStream> audio_stream;
+
     public:
-        virtual void set_stream(std::unique_ptr<AudioStream> p_audio_stream, Error &error) = 0;
 
         virtual void start(Error &error) = 0;
 
         virtual void stop(Error &error) = 0;
+
+        virtual bool is_playing() const;
+
+        virtual uint32_t frames_played() const;
+
+        virtual void set_stream(std::unique_ptr<AudioStream> p_audio_stream, Error &error);
 
     public:
         std::string get_name() const;

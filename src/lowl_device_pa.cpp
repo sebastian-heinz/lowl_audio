@@ -39,10 +39,6 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
     return paContinue;
 }
 
-void Lowl::PaDevice::set_stream(std::unique_ptr<AudioStream> p_audio_stream, Error &error) {
-    audio_stream = std::move(p_audio_stream);
-}
-
 void Lowl::PaDevice::start_stream(Error &error) {
     /*
     A stream is active after a successful call to Pa_StartStream(), until it

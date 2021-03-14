@@ -102,7 +102,7 @@ Lowl::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, E
     }
 
     std::vector<AudioFrame> audio_frames =
-            read_frames(audio_format, sample_format, channel, std::move(pcm_frames), bytes_read, error);
+            read_frames(audio_format, sample_format, channel, pcm_frames, bytes_read, error);
     if (error.has_error()) {
         return nullptr;
     }

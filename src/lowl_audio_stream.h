@@ -23,6 +23,10 @@ namespace Lowl {
         uint32_t frames_out;
 
     public:
+        uint32_t get_frames_in() const;
+
+        uint32_t get_frames_out() const;
+
         SampleFormat get_sample_format() const;
 
         SampleRate get_sample_rate() const;
