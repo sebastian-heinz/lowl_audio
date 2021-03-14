@@ -30,8 +30,14 @@ target_include_directories(${PROJECT_NAME} PUBLIC "$<BUILD_INTERFACE:${CMAKE_CUR
 
 add_definitions(-DLOWL_DRIVER_DUMMY)
 add_definitions(-DLOWL_DRIVER_PORTAUDIO)
-#add_definitions(-DLOWL_UNIX)
+
+IF(WIN32)
 add_definitions(-DLOWL_WIN)
+ENDIF()
+
+IF(UNIX)
+add_definitions(-DLOWL_UNIX)
+ENDIF()
 
 # readerwriterqueue
 add_subdirectory(third_party/readerwriterqueue)
