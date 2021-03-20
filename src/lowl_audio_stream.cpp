@@ -26,7 +26,10 @@ Lowl::SampleFormat Lowl::AudioStream::get_sample_format() const {
 
 Lowl::AudioFrame Lowl::AudioStream::read() {
     AudioFrame frame;
+    frame.left = 1;
     if (!buffer->try_dequeue(frame)) {
+        // if empty return silence
+        frame = {};
         return frame;
     }
     frames_out++;

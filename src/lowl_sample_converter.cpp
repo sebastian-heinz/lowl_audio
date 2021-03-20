@@ -5,7 +5,11 @@ float Lowl::SampleConverter::to_float(uint8_t p_sample) const {
 }
 
 float Lowl::SampleConverter::to_float(int8_t p_sample) const {
-    return 0;
+    if (p_sample > 0) {
+        return static_cast<float>(p_sample) / 0x7F;
+    } else {
+        return static_cast<float>(p_sample) / 0x80;
+    }
 }
 
 float Lowl::SampleConverter::to_float(int16_t p_sample) const {
