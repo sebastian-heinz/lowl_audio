@@ -4,6 +4,42 @@
 #include <thread>
 #include <chrono>
 
+
+std::shared_ptr<Lowl::AudioStream> play(const std::string &audio_path) {
+    Lowl::Error error;
+    std::shared_ptr<Lowl::AudioStream> stream = Lowl::Lib::create_stream(audio_path, error);
+    if (error.has_error()) {
+        std::cout << "Err:  Lowl::create_stream\n";
+        return nullptr;
+    }
+    return stream;
+}
+
+std::shared_ptr<Lowl::AudioStream> mix(const std::string &audio_path_1, const std::string &audio_path_2) {
+
+    Lowl::Error error;
+    std::shared_ptr<Lowl::AudioStream> stream_1 = Lowl::Lib::create_stream(audio_path_1, error);
+    if (error.has_error()) {
+        std::cout << "Err: mix:audio_path_1 -> Lowl::create_stream\n";
+        return nullptr;
+    }
+
+    std::shared_ptr<Lowl::AudioStream> stream_2 = Lowl::Lib::create_stream(audio_path_2, error);
+    if (error.has_error()) {
+        std::cout << "Err: mix:audio_path_2 -> Lowl::create_stream\n";
+        return nullptr;
+    }
+
+    Lowl::AudioMixer *mixer = new Lowl::AudioMixer(stream_1->get_sample_rate(), stream_1->get_channel());
+
+    mixer->mix_stream(stream_1);
+    mixer->mix_stream(stream_2);
+    mixer->start_mix();
+
+    return mixer->get_out_stream();
+
+}
+
 int main() {
     std::string audio_root = "/Users/railgun/dev/lowl_audio/demo/audio/";
 
@@ -25,18 +61,25 @@ int main() {
     // flac
     std::string audio_file = "FLAC_2CH_SR44100_Juanitos_Exotica.flac";
 
+    ///
+
+    //  std::shared_ptr<Lowl::AudioStream> stream = play(audio_file);
+    std::shared_ptr<Lowl::AudioStream> stream = mix(
+            "/Users/railgun/Downloads/StarWars60.wav",
+            "/Users/railgun/Downloads/CantinaBand60.wav"
+            );
+
+    ///
+
+    if (!stream) {
+        std::cout << "Err: failed to create stream\n";
+        return -1;
+    }
 
     Lowl::Error error;
     Lowl::Lib::initialize(error);
     if (error.has_error()) {
         std::cout << "Err: Lowl::initialize\n";
-        return -1;
-    }
-    std::string audio_path = audio_root + audio_file;
-    std::unique_ptr<Lowl::AudioStream> stream = Lowl::Lib::create_stream(audio_path, error);
-
-    if (error.has_error()) {
-        std::cout << "Err:  Lowl::create_stream\n";
         return -1;
     }
 
@@ -69,7 +112,8 @@ int main() {
     int selected_index = 1;
 
     Lowl::Device *device = all_devices[selected_index];
-    device->set_stream(std::move(stream), error);
+
+    device->set_stream(stream, error);
     if (error.has_error()) {
         std::cout << "Err: device->set_stream\n";
         return -1;

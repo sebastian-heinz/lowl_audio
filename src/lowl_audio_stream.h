@@ -23,9 +23,9 @@ namespace Lowl {
         uint32_t frames_out;
 
     public:
-        uint32_t get_frames_in() const;
+        uint32_t get_num_frame_write() const;
 
-        uint32_t get_frames_out() const;
+        uint32_t get_num_frame_read() const;
 
         SampleFormat get_sample_format() const;
 
@@ -35,9 +35,11 @@ namespace Lowl {
 
         int get_channel_num() const;
 
+        size_t get_num_frame_queued() const;
+
         AudioFrame read();
 
-        void write(AudioFrame p_audio_frame);
+        void write(const AudioFrame &p_audio_frame);
 
         void write(const std::vector<AudioFrame> &p_audio_frames);
 

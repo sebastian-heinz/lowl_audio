@@ -11,7 +11,7 @@ namespace Lowl {
         std::string name;
 
     protected:
-        std::unique_ptr<AudioStream> audio_stream;
+        std::shared_ptr<AudioStream> audio_stream;
 
     public:
 
@@ -21,18 +21,16 @@ namespace Lowl {
 
         virtual bool is_playing() const;
 
-        virtual uint32_t frames_played() const;
-
-        virtual void set_stream(std::unique_ptr<AudioStream> p_audio_stream, Error &error);
+        virtual void set_stream(std::shared_ptr<AudioStream> p_audio_stream, Error &error);
 
     public:
         std::string get_name() const;
 
         void set_name(const std::string &p_name);
 
-        Device() = default;;
+        Device() = default;
 
-        virtual ~Device() = default;;
+        virtual ~Device() = default;
     };
 }
 

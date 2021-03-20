@@ -5,6 +5,7 @@
 #include "../src/lowl_audio_stream.h"
 #include "../src/lowl_driver.h"
 #include "../src/lowl_file_format.h"
+#include "../src/lowl_audio_mixer.h"
 
 #include <vector>
 
