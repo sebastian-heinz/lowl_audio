@@ -34,7 +34,7 @@ std::shared_ptr<Lowl::AudioStream> mix(const std::string &audio_path_1, const st
 
     mixer->mix_stream(stream_1);
     mixer->mix_stream(stream_2);
-    mixer->start_mix();
+    mixer->mix_all();
 
     return mixer->get_out_stream();
 
@@ -67,7 +67,7 @@ int main() {
     std::shared_ptr<Lowl::AudioStream> stream = mix(
             "/Users/railgun/Downloads/StarWars60.wav",
             "/Users/railgun/Downloads/CantinaBand60.wav"
-            );
+    );
 
     ///
 
@@ -127,7 +127,7 @@ int main() {
 
     while (device->is_playing()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        std::cout << "frames_played: \n" + std::to_string(device->frames_played()) + "\n";
+        std::cout << "frames_played: \n" + std::to_string(stream->get_num_frame_queued()) + "\n";
     }
 
     device->stop(error);

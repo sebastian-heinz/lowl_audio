@@ -24,23 +24,20 @@ Lowl::SampleFormat Lowl::AudioStream::get_sample_format() const {
     return SampleFormat::FLOAT_32;
 }
 
-Lowl::AudioFrame Lowl::AudioStream::read() {
-    // TODO communicate end of user provided frames / potentially end of stream
-    AudioFrame frame;
-    if (!buffer->try_dequeue(frame)) {
-        // if empty return silence
-        frame = {};
-        return frame;
+bool Lowl::AudioStream::read(AudioFrame &audio_frame) {
+    if (!buffer->try_dequeue(audio_frame)) {
+        return false;
     }
     frames_out++;
-    return frame;
+    return true;
 }
 
-void Lowl::AudioStream::write(const AudioFrame &p_audio_frame) {
+bool Lowl::AudioStream::write(const AudioFrame &p_audio_frame) {
     if (!buffer->enqueue(p_audio_frame)) {
-        return;
+        return false;
     }
     frames_in++;
+    return true;
 }
 
 int Lowl::AudioStream::get_channel_num() const {

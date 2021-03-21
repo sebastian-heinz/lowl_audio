@@ -40,12 +40,22 @@ Lowl::SampleRate Lowl::AudioMixer::get_sample_rate() const {
     return sample_rate;
 }
 
-void Lowl::AudioMixer::mix_frame() {
+bool Lowl::AudioMixer::mix_next_frame() {
     AudioFrame mix_frame;
+    bool has_output = false;
     for (const std::shared_ptr<AudioStream> &stream : streams) {
-        // TODO detect stream end
-        mix_frame += stream->read();
+        AudioFrame frame;
+        if (!stream->read(frame)) {
+            // stream empty
+            continue;
+        }
+        mix_frame += frame;
+        has_output = true;
     }
+    if (!has_output) {
+        return false;
+    }
+
     if (mix_frame.left > 1.0) {
         mix_frame.left = 1.0;
     }
@@ -53,15 +63,17 @@ void Lowl::AudioMixer::mix_frame() {
         mix_frame.right = 1.0;
     }
     out_stream->write(mix_frame);
+    return true;
 }
 
 void Lowl::AudioMixer::mix_thread() {
     while (running) {
-        mix_frame();
+        mix_next_frame();
     }
 }
 
 void Lowl::AudioMixer::mix_stream(std::shared_ptr<AudioStream> p_audio_stream) {
+    // TODO validate input stream sample rate / channels and potentially adjust
     streams.push_back(std::move(p_audio_stream));
 }
 
@@ -74,5 +86,7 @@ Lowl::Channel Lowl::AudioMixer::get_channel() const {
 }
 
 void Lowl::AudioMixer::mix_all() {
-
+    while (mix_next_frame()) {
+        // keep mixing
+    }
 }

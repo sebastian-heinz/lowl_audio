@@ -20,21 +20,37 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
     }
 
     float *dst = (float *) p_output_buffer;
-
-    if(audio_stream->get_channel() == Channel::Mono){
-        for (int current_frame = 0; current_frame < p_frames_per_buffer; current_frame++) {
-            AudioFrame frame = audio_stream->read();
+    unsigned long current_frame = 0;
+    if (audio_stream->get_channel() == Channel::Mono) {
+        for (; current_frame < p_frames_per_buffer; current_frame++) {
+            AudioFrame frame;
+            if (!audio_stream->read(frame)) {
+                // stream empty
+                break;
+            }
             *dst++ = frame.left;
         }
     } else {
-        for (int current_frame = 0; current_frame < p_frames_per_buffer; current_frame++) {
-            AudioFrame frame = audio_stream->read();
+        for (; current_frame < p_frames_per_buffer; current_frame++) {
+            AudioFrame frame;
+            if (!audio_stream->read(frame)) {
+                // stream empty
+                break;
+            }
             *dst++ = frame.left;
             *dst++ = frame.right;
         }
     }
 
-
+    if (current_frame < p_frames_per_buffer) {
+        // fill buffer with silence if not enough samples available.
+        unsigned long missing_frames = p_frames_per_buffer - current_frame;
+        unsigned long missing_samples = missing_frames * audio_stream->get_channel_num();
+        unsigned long current_sample = 0;
+        for (; current_sample < missing_samples; current_sample++) {
+            *dst++ = 0;
+        }
+    }
 
     return paContinue;
 }

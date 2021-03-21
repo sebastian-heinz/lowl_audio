@@ -22,17 +22,32 @@ namespace Lowl {
     protected:
         virtual void mix_thread();
 
-        virtual void mix_frame();
-
     public:
         virtual ~AudioMixer();
 
+        /**
+         * mixes a single frame from all sources
+         */
+        virtual bool mix_next_frame();
+
+        /**
+         * starts to continuously mixing all inputs
+         */
         virtual void start_mix();
 
+        /**
+         * stops all mixing operations instantly and clears all data.
+         */
         virtual void stop_mix();
 
+        /**
+         * mixes until all inputs are exhausted
+         */
         virtual void mix_all();
 
+        /**
+         * adds a stream to mix
+         */
         virtual void mix_stream(std::shared_ptr<AudioStream> p_audio_stream);
 
         SampleRate get_sample_rate() const;

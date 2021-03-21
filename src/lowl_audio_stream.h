@@ -37,9 +37,9 @@ namespace Lowl {
 
         size_t get_num_frame_queued() const;
 
-        AudioFrame read();
+        bool read(AudioFrame &audio_frame);
 
-        void write(const AudioFrame &p_audio_frame);
+        bool write(const AudioFrame &p_audio_frame);
 
         void write(const std::vector<AudioFrame> &p_audio_frames);
 
