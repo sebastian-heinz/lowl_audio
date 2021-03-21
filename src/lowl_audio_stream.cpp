@@ -61,3 +61,9 @@ uint32_t Lowl::AudioStream::get_num_frame_write() const {
 size_t Lowl::AudioStream::get_num_frame_queued() const {
     return buffer->size_approx();
 }
+
+void Lowl::AudioStream::drain() {
+    while (buffer->pop()) {
+        // drain
+    }
+}

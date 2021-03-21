@@ -6,6 +6,8 @@ Lowl::AudioMixer::AudioMixer(SampleRate p_sample_rate, Channel p_channel) {
     streams = std::vector<std::shared_ptr<AudioStream>>();
     running = false;
     out_stream = std::make_shared<AudioStream>(sample_rate, channel);
+    frames = std::make_shared<AudioStream>(sample_rate, channel);
+    streams.push_back(frames);
 }
 
 Lowl::AudioMixer::~AudioMixer() {
@@ -34,6 +36,8 @@ void Lowl::AudioMixer::stop_mix() {
         thread.join();
     }
     streams.clear();
+    frames->drain();
+    streams.push_back(frames);
 }
 
 Lowl::SampleRate Lowl::AudioMixer::get_sample_rate() const {
@@ -43,8 +47,8 @@ Lowl::SampleRate Lowl::AudioMixer::get_sample_rate() const {
 bool Lowl::AudioMixer::mix_next_frame() {
     AudioFrame mix_frame;
     bool has_output = false;
+    AudioFrame frame;
     for (const std::shared_ptr<AudioStream> &stream : streams) {
-        AudioFrame frame;
         if (!stream->read(frame)) {
             // stream empty
             continue;
@@ -52,6 +56,7 @@ bool Lowl::AudioMixer::mix_next_frame() {
         mix_frame += frame;
         has_output = true;
     }
+
     if (!has_output) {
         return false;
     }
@@ -77,6 +82,10 @@ void Lowl::AudioMixer::mix_stream(std::shared_ptr<AudioStream> p_audio_stream) {
     streams.push_back(std::move(p_audio_stream));
 }
 
+void Lowl::AudioMixer::mix_frame(AudioFrame p_audio_frame) {
+    frames->write(p_audio_frame);
+}
+
 std::shared_ptr<Lowl::AudioStream> Lowl::AudioMixer::get_out_stream() {
     return out_stream;
 }
@@ -90,3 +99,4 @@ void Lowl::AudioMixer::mix_all() {
         // keep mixing
     }
 }
+

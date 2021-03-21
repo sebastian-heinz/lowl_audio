@@ -17,6 +17,7 @@ namespace Lowl {
         Channel channel;
         std::thread thread;
         std::vector<std::shared_ptr<AudioStream>> streams;
+        std::shared_ptr<AudioStream> frames;
         std::shared_ptr<AudioStream> out_stream;
 
     protected:
@@ -49,6 +50,11 @@ namespace Lowl {
          * adds a stream to mix
          */
         virtual void mix_stream(std::shared_ptr<AudioStream> p_audio_stream);
+
+        /**
+         * adds a frame to mix
+         */
+        virtual void mix_frame(AudioFrame p_audio_frame);
 
         SampleRate get_sample_rate() const;
 
