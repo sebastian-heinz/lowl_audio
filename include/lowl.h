@@ -2,6 +2,7 @@
 #define LOWL_H
 
 #include "../src/lowl_audio_reader.h"
+#include "../src/lowl_audio_data.h"
 #include "../src/lowl_audio_stream.h"
 #include "../src/lowl_driver.h"
 #include "../src/lowl_file_format.h"
@@ -27,6 +28,8 @@ namespace Lowl {
         create_stream(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, FileFormat p_format, Error &error);
 
         static std::unique_ptr<AudioStream> create_stream(const std::string &p_path, Error &error);
+
+        static std::unique_ptr<AudioData> to_data(std::unique_ptr<AudioStream> p_audio_stream, Error &error);
 
         static std::unique_ptr<AudioReader> create_reader(FileFormat p_format, Error &error);
 

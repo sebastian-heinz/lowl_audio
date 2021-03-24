@@ -94,7 +94,7 @@ std::string Lowl::Error::to_error_text(Lowl::ErrorCode p_error) {
         case ErrorCode::Pa_GetDeviceInfo:
             return "Pa_GetDeviceInfo";
     }
-
+    return "NOT DECLARED";
 }
 
 int Lowl::Error::get_error_code() {

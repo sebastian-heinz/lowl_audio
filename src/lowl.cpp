@@ -133,3 +133,14 @@ Lowl::FileFormat Lowl::Lib::detect_format(const std::string &p_path, Error &erro
     }
     return FileFormat::UNKNOWN;
 }
+
+std::unique_ptr<Lowl::AudioData> Lowl::Lib::to_data(std::unique_ptr<AudioStream> p_audio_stream, Lowl::Error &error) {
+    std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(
+            p_audio_stream->get_sample_rate(), p_audio_stream->get_channel()
+    );
+    AudioFrame frame;
+    while (p_audio_stream->read(frame)) {
+        audio_data->write(frame);
+    }
+    return audio_data;
+}
