@@ -39,6 +39,8 @@ namespace Lowl {
 
         bool read(AudioFrame &audio_frame);
 
+        std::vector<AudioFrame> read();
+
         bool write(const AudioFrame &p_audio_frame);
 
         void write(const std::vector<AudioFrame> &p_audio_frames);

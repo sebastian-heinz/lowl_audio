@@ -25,23 +25,38 @@ The aim of this project is to be the glue between moving parts and provide:
 - unix/osx/win support
 - easy to understand/reason about code
 - MIT licensed and only utilize libraries that are compatible with MIT license
-
-As a user of this library I want to be able to play back audio samples, be it generated or from audio files.
-
-Update:
 - this library should focus on being the "glue" by utilizing open source projects
 - it should be designed in a modular way
   - custom audio frame extraction support (dr_wav.. etc are just plug and play modules)
   - custom driver 
   - etc
+  
+## Classes
 
-Update:
-- perhaps rename library to AudioBox..BoomBox etc
-- utilize builder class and require user to select components (so that all parts are interchangable and one can have own / custom BOX)
-  - driver
-  - reader
-  - converter
-- provide sane default setting 
+### AAudioStream 
+- a endless stream of audio data, AudioFrames can be pushed into it and read from. once a frame is read it is gone from the stream.
+
+### AAudioData 
+- a finite set of audio frames, when the end is reached it will signal its end and next read call will return data from the start. (for effects / reoccuring sounds etc)
+
+### AudioMixer 
+- accepts AudioStream and Audio data and combines them to a single AudioStream
+
+currently uses a b
+
+
+### AudioDevice 
+- represents a device like headphones or speaker
+
+### AudioDriver 
+- provides a list of devices for playback
+
+### AudioReader
+- wav/flac/mp3
+- provides capabilities to read audio files and return a AudioStream
+
+### AudioFrame 
+- represents a single frame of audio data
 
 
 ## Setup
@@ -79,24 +94,22 @@ from local to global, each subsection in alphabetical order, i.e.:
 ![](./doc/system.jpg)
 created with [draw.io](https://draw.io/)
 
-## Supported Formats
-any binary blob provided in a supported `data formats` can be used and
-all combinations of `file formats` and `data formats` are supported.
+## Features / Out of the box
+
+### File Formats
+- .wav parsing (float 32bit, int 16bit) (mono, stereo)
+- .mp3
+- .flac
 
 When reading data the library will extract the audio samples and convert them to
 sample format of 32bit float. This process will only happen once on reading, as 
 every internal function is designed to operate on 32bit float samples.
 
-### file formats
-- .wav
+### Driver
+- PortAudio
 
-### data formats
-| sample format | channel |
-|:--------------|:--------| 
-|float 32bit    | mono    |
-|float 32bit    | stereo  |
-|int 16bit      | mono    |
-|int 16bit      | stereo  |
+### Mixer
+- Lowl::AudioMixer - mixes multiple `Lowl::AudioStream` and `Lowl::AudioData` into a single output stream
 
 ## Definitions
 - Audio Sample = smallest audio unit, depends on bit depth
@@ -111,15 +124,15 @@ a list of related information to audio programming
 - [Audio recording bitdepth](https://lists.apple.com/archives/coreaudio-api/2009/Dec/msg00046.html)
 
 ## Flags
-LOWL_LIBRARY  
-LOWL_WIN  
-LOWL_UNIX  
-LOWL_DRIVER_DUMMY  
-LOWL_DRIVER_PORTAUDIO
+- LOWL_LIBRARY - build as library
+- LOWL_WIN - build for windows
+- LOWL_UNIX - build for unix  
+- LOWL_DRIVER_DUMMY - enable dummy driver
+- LOWL_DRIVER_PORTAUDIO - enable port audio driver
 
 ## TODO
-- file format parsing (mp3 / ogg)
-- run under win/unix
+- linux testing
+- .ogg format
 - c-api wrapper
 
 

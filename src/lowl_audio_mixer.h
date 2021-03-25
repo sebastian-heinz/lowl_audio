@@ -2,8 +2,10 @@
 #define LOWL_AUDIO_MIXER_H
 
 #include "lowl_audio_stream.h"
+#include "lowl_audio_data.h"
+#include "lowl_audio_mixer_event.h"
 
-#include <readerwriterqueue.h>
+#include <concurrentqueue.h>
 
 #include <thread>
 #include <vector>
@@ -17,8 +19,9 @@ namespace Lowl {
         Channel channel;
         std::thread thread;
         std::vector<std::shared_ptr<AudioStream>> streams;
-        std::shared_ptr<AudioStream> frames;
+        std::vector<std::shared_ptr<AudioData>> data;
         std::shared_ptr<AudioStream> out_stream;
+        std::unique_ptr<moodycamel::ConcurrentQueue<AudioMixerEvent>> events;
 
     protected:
         virtual void mix_thread();
@@ -54,7 +57,7 @@ namespace Lowl {
         /**
          * adds a frame to mix
          */
-        virtual void mix_frame(AudioFrame p_audio_frame);
+        virtual void mix_data(std::shared_ptr<AudioData> p_audio_data);
 
         SampleRate get_sample_rate() const;
 

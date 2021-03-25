@@ -67,3 +67,12 @@ void Lowl::AudioStream::drain() {
         // drain
     }
 }
+
+std::vector<Lowl::AudioFrame> Lowl::AudioStream::read() {
+    std::vector<AudioFrame> frames = std::vector<AudioFrame>();
+    AudioFrame frame;
+    while (read(frame)) {
+        frames.push_back(frame);
+    }
+    return frames;
+}

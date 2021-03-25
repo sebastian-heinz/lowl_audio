@@ -45,6 +45,10 @@ ENDIF()
 add_subdirectory(third_party/readerwriterqueue)
 target_link_libraries(${PROJECT_NAME} readerwriterqueue)
 
+# concurrentqueue
+add_subdirectory(third_party/concurrentqueue)
+target_link_libraries(${PROJECT_NAME} concurrentqueue)
+
 # portaudio
 add_subdirectory(third_party/portaudio)
 target_link_libraries(${PROJECT_NAME} portaudio_static)

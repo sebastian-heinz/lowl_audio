@@ -22,6 +22,7 @@ namespace Lowl {
         Channel channel;
         std::vector<AudioFrame> frames;
         size_t position;
+        std::atomic_flag do_read = ATOMIC_FLAG_INIT;
 
     public:
         SampleFormat get_sample_format() const;
@@ -31,6 +32,12 @@ namespace Lowl {
         Channel get_channel() const;
 
         int get_channel_num() const;
+
+        /**
+         * signals read to interrupt
+         * next read call will start reading data from beginning.
+         */
+        void cancel_read();
 
         /**
          * returns all frames.
@@ -46,11 +53,7 @@ namespace Lowl {
          */
         bool read(AudioFrame &audio_frame);
 
-        bool write(const AudioFrame &p_audio_frame);
-
-        bool write(const std::vector<AudioFrame> &p_audio_frames);
-
-        AudioData(SampleRate p_sample_rate, Channel p_channel);
+        AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate, Channel p_channel);
 
         ~AudioData();
     };

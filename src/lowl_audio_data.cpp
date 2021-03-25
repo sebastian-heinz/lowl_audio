@@ -1,27 +1,24 @@
 #include "lowl_audio_data.h"
 
-Lowl::AudioData::AudioData(SampleRate p_sample_rate, Channel p_channel) {
+Lowl::AudioData::AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate,
+                           Channel p_channel) {
     sample_rate = p_sample_rate;
     channel = p_channel;
-    frames = std::vector<AudioFrame>();
+    frames = std::vector<AudioFrame>(p_audio_frames);
     position = 0;
+    // do_read = ATOMIC_FLAG_INIT;
+    do_read.test_and_set();
 }
 
 Lowl::AudioData::~AudioData() {
 
 }
 
-bool Lowl::AudioData::write(const std::vector<Lowl::AudioFrame> &p_audio_frames) {
-    frames.insert(std::end(frames), std::begin(p_audio_frames), std::end(p_audio_frames));
-    return true;
-}
-
-bool Lowl::AudioData::write(const Lowl::AudioFrame &p_audio_frame) {
-    frames.push_back(p_audio_frame);
-    return true;
-}
-
 bool Lowl::AudioData::read(Lowl::AudioFrame &audio_frame) {
+    if (!do_read.test_and_set()) {
+        position = 0;
+        return false;
+    }
     if (position >= frames.size()) {
         position = 0;
         return false;
@@ -29,6 +26,10 @@ bool Lowl::AudioData::read(Lowl::AudioFrame &audio_frame) {
     audio_frame = frames[position];
     position++;
     return true;
+}
+
+void Lowl::AudioData::cancel_read() {
+    do_read.clear();
 }
 
 int Lowl::AudioData::get_channel_num() const {

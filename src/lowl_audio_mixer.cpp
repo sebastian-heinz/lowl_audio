@@ -4,10 +4,10 @@ Lowl::AudioMixer::AudioMixer(SampleRate p_sample_rate, Channel p_channel) {
     sample_rate = p_sample_rate;
     channel = p_channel;
     streams = std::vector<std::shared_ptr<AudioStream>>();
+    data = std::vector<std::shared_ptr<AudioData>>();
     running = false;
     out_stream = std::make_shared<AudioStream>(sample_rate, channel);
-    frames = std::make_shared<AudioStream>(sample_rate, channel);
-    streams.push_back(frames);
+    events = std::make_unique<moodycamel::ConcurrentQueue<AudioMixerEvent>>();
 }
 
 Lowl::AudioMixer::~AudioMixer() {
@@ -16,6 +16,7 @@ Lowl::AudioMixer::~AudioMixer() {
         thread.join();
     }
     streams.clear();
+    data.clear();
 }
 
 void Lowl::AudioMixer::start_mix() {
@@ -24,6 +25,7 @@ void Lowl::AudioMixer::start_mix() {
     }
     running = true;
     // Creates the thread without using 'std::bind'
+    // TODO set thread priority / make int configureable
     thread = std::thread(&AudioMixer::mix_thread, this);
 }
 
@@ -36,8 +38,7 @@ void Lowl::AudioMixer::stop_mix() {
         thread.join();
     }
     streams.clear();
-    frames->drain();
-    streams.push_back(frames);
+    data.clear();
 }
 
 Lowl::SampleRate Lowl::AudioMixer::get_sample_rate() const {
@@ -45,16 +46,48 @@ Lowl::SampleRate Lowl::AudioMixer::get_sample_rate() const {
 }
 
 bool Lowl::AudioMixer::mix_next_frame() {
+
+    AudioMixerEvent event;
+    while (events->try_dequeue(event)) {
+        switch (event.type) {
+            case AudioMixerEvent::AudioStreamType: {
+                std::shared_ptr<AudioStream> audio_stream = std::static_pointer_cast<AudioStream>(event.ptr);
+                streams.push_back(audio_stream);
+            }
+            case AudioMixerEvent::AudioDataType: {
+                std::shared_ptr<AudioData> audio_data = std::static_pointer_cast<AudioData>(event.ptr);
+                data.push_back(audio_data);
+            }
+        }
+    }
+
+    AudioFrame frame;
     AudioFrame mix_frame;
     bool has_output = false;
-    AudioFrame frame;
+    bool has_empty_data = false;
     for (const std::shared_ptr<AudioStream> &stream : streams) {
         if (!stream->read(frame)) {
-            // stream empty
+            // stream empty - streams stay connected to the mixer, more data might be pushed at any time
             continue;
         }
         mix_frame += frame;
         has_output = true;
+    }
+
+    for (const std::shared_ptr<AudioData> &audio_data : data) {
+        if (!audio_data->read(frame)) {
+            // data empty - data will be removed and need to be added again
+            int idx = &audio_data - &data[0];
+            data[idx] = nullptr;
+            has_empty_data = true;
+            continue;
+        }
+        mix_frame += frame;
+        has_output = true;
+    }
+
+    if (has_empty_data) {
+        data.erase(std::remove(data.begin(), data.end(), nullptr), data.end());
     }
 
     if (!has_output) {
@@ -78,12 +111,21 @@ void Lowl::AudioMixer::mix_thread() {
 }
 
 void Lowl::AudioMixer::mix_stream(std::shared_ptr<AudioStream> p_audio_stream) {
+    AudioMixerEvent event = {};
+    event.type = AudioMixerEvent::AudioStreamType;
+    event.ptr = p_audio_stream;
+    events->enqueue(event);
     // TODO validate input stream sample rate / channels and potentially adjust
-    streams.push_back(std::move(p_audio_stream));
 }
 
-void Lowl::AudioMixer::mix_frame(AudioFrame p_audio_frame) {
-    frames->write(p_audio_frame);
+void Lowl::AudioMixer::mix_data(std::shared_ptr<AudioData> p_audio_data) {
+    AudioMixerEvent event = {};
+    event.type = AudioMixerEvent::AudioDataType;
+    event.ptr = p_audio_data;
+    events->enqueue(event);
+    // TODO validate input stream sample rate / channels and potentially adjust
+    // TODO perhaps enqueue a copy, passing same ref twice will mix two frames in a single pass..
+    //  but need to find solution to cancel midway..potentially return unique id for further commands mixer->cancel(uid)
 }
 
 std::shared_ptr<Lowl::AudioStream> Lowl::AudioMixer::get_out_stream() {
