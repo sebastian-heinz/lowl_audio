@@ -36,14 +36,16 @@ The aim of this project is to be the glue between moving parts and provide:
 ### AAudioStream 
 - a endless stream of audio data, AudioFrames can be pushed into it and read from. once a frame is read it is gone from the stream.
 
-### AAudioData 
+### AudioData 
 - a finite set of audio frames, when the end is reached it will signal its end and next read call will return data from the start. (for effects / reoccuring sounds etc)
 
 ### AudioMixer 
-- accepts AudioStream and Audio data and combines them to a single AudioStream
-
-currently uses a b
-
+- accepts AudioStream and AudioData, combines them to a single AudioStream
+- has a mixing thread that constantly mixes frames, `start_mix` and `stop_mix()` control this
+- it is thread safe to add AudioData or AudioStreams to the mixer via `mix_data()` and `mix_stream` method
+- uses a lock free queue to pass events to the mixer, for adding AudioData or AudioStreams
+- `mix_all()` - function will mix all frames until every input is exhausted. (should probably not be used while mixing thread is active)
+- `mix_next_frame()` will mix a single frame from all available inputs, returns false if no frame has been mixed. (should probably not be used while mixing thread is active)
 
 ### AudioDevice 
 - represents a device like headphones or speaker
