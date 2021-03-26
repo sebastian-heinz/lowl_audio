@@ -56,4 +56,12 @@ target_link_libraries(${PROJECT_NAME} portaudio_static)
 # dr_lib
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE third_party/dr_libs)
 
+# r8brain-free-src
+target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE third_party/r8brain-free-src)
+target_sources(${PROJECT_NAME}
+        PRIVATE
+        third_party/r8brain-free-src/pffft.cpp
+        third_party/r8brain-free-src/r8bbase.cpp
+        )
+
 add_subdirectory(demo)
