@@ -13,6 +13,7 @@
 namespace Lowl {
     class AudioMixer {
 
+
     private:
         bool running;
         SampleRate sample_rate;

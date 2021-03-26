@@ -25,7 +25,7 @@ void Lowl::AudioMixer::start_mix() {
     }
     running = true;
     // Creates the thread without using 'std::bind'
-    // TODO set thread priority / make int configureable
+    // TODO set thread priority / make it configurable
     thread = std::thread(&AudioMixer::mix_thread, this);
 }
 
@@ -50,13 +50,15 @@ bool Lowl::AudioMixer::mix_next_frame() {
     AudioMixerEvent event;
     while (events->try_dequeue(event)) {
         switch (event.type) {
-            case AudioMixerEvent::AudioStreamType: {
+            case AudioMixerEvent::MixAudioStream: {
                 std::shared_ptr<AudioStream> audio_stream = std::static_pointer_cast<AudioStream>(event.ptr);
                 streams.push_back(audio_stream);
+                break;
             }
-            case AudioMixerEvent::AudioDataType: {
+            case AudioMixerEvent::MixAudioData: {
                 std::shared_ptr<AudioData> audio_data = std::static_pointer_cast<AudioData>(event.ptr);
                 data.push_back(audio_data);
+                break;
             }
         }
     }
@@ -107,12 +109,13 @@ bool Lowl::AudioMixer::mix_next_frame() {
 void Lowl::AudioMixer::mix_thread() {
     while (running) {
         mix_next_frame();
+        // TODO perhaps some sleep or a way to signal all inputs are exhausted / and signal for new events available
     }
 }
 
 void Lowl::AudioMixer::mix_stream(std::shared_ptr<AudioStream> p_audio_stream) {
     AudioMixerEvent event = {};
-    event.type = AudioMixerEvent::AudioStreamType;
+    event.type = AudioMixerEvent::MixAudioStream;
     event.ptr = p_audio_stream;
     events->enqueue(event);
     // TODO validate input stream sample rate / channels and potentially adjust
@@ -120,7 +123,7 @@ void Lowl::AudioMixer::mix_stream(std::shared_ptr<AudioStream> p_audio_stream) {
 
 void Lowl::AudioMixer::mix_data(std::shared_ptr<AudioData> p_audio_data) {
     AudioMixerEvent event = {};
-    event.type = AudioMixerEvent::AudioDataType;
+    event.type = AudioMixerEvent::MixAudioData;
     event.ptr = p_audio_data;
     events->enqueue(event);
     // TODO validate input stream sample rate / channels and potentially adjust

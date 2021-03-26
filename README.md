@@ -2,10 +2,8 @@ LowL Audio
 ===
 Low Latency Audio - aims to provide audio playback - work in progress
 
-This readme is a draft and subject to change, it represents my current state of thinking, notes and ideas.
-
-
 ## Disclaimer
+This readme is a draft and subject to change, it represents my current state of thinking, notes and ideas.
 - no audio expert
 - just learning c++
 
@@ -15,8 +13,9 @@ process the samples so they can be consumed by the driver and lastly
 implement the audio driver for each platform.
 
 All of these tasks are somewhat solved but I still find it challenging to
-put it all together, and in the end a lot of 3rd party libraries impose licenses,
-which are not always easy to apply.
+put it all together. This project aims to use exiting 3rd party libraries to
+solve the hard problems and put them together into a framework, that provides
+a complete audio pipeline out of the box with extensibility in mind.
 
 The aim of this project is to be the glue between moving parts and provide:
 - common audio format parsing
@@ -33,7 +32,7 @@ The aim of this project is to be the glue between moving parts and provide:
   
 ## Classes
 
-### AAudioStream 
+### AudioStream 
 - a endless stream of audio data, AudioFrames can be pushed into it and read from. once a frame is read it is gone from the stream.
 
 ### AudioData 
@@ -41,11 +40,11 @@ The aim of this project is to be the glue between moving parts and provide:
 
 ### AudioMixer 
 - accepts AudioStream and AudioData, combines them to a single AudioStream
-- has a mixing thread that constantly mixes frames, `start_mix` and `stop_mix()` control this
-- it is thread safe to add AudioData or AudioStreams to the mixer via `mix_data()` and `mix_stream` method
+- has a mixing thread that constantly mixes frames, `start_mix()` and `stop_mix()` control this
+- it is thread safe to add AudioData or AudioStreams to the mixer via `mix_data()` and `mix_stream()` method
 - uses a lock free queue to pass events to the mixer, for adding AudioData or AudioStreams
-- `mix_all()` - function will mix all frames until every input is exhausted. (should probably not be used while mixing thread is active)
-- `mix_next_frame()` will mix a single frame from all available inputs, returns false if no frame has been mixed. (should probably not be used while mixing thread is active)
+- `mix_all()` - function will mix all frames until every input is exhausted. (dont use while mixing thread is active)
+- `mix_next_frame()` will mix a single frame from all available inputs, returns false if no frame has been mixed. (dont use while mixing thread is active)
 
 ### AudioDevice 
 - represents a device like headphones or speaker
@@ -68,20 +67,28 @@ The aim of this project is to be the glue between moving parts and provide:
 
 ## 3rd Party
 - [Port Audio](https://github.com/PortAudio/portaudio) 
-  - [MIT](https://github.com/PortAudio/portaudio/blob/master/LICENSE.txt)
-  - provides playback devices
-- [readerwriterqueue](https://github.com/cameron314/readerwriterqueue) 
-  - [simplified BSD](https://github.com/cameron314/readerwriterqueue/blob/master/LICENSE.md)
+  - License: [MIT](https://github.com/PortAudio/portaudio/blob/master/LICENSE.txt)
+  - portable audio I/O library designed for cross-platform support of audio.
+- [readerwriterqueue](https://github.com/cameron314/readerwriterqueue) & [concurrentqueue](https://github.com/cameron314/concurrentqueue)
+  - License: [simplified BSD](https://github.com/cameron314/readerwriterqueue/blob/master/LICENSE.md)
   - [Blog Post](https://moodycamel.com/blog/2013/a-fast-lock-free-queue-for-c++.htm) describing the queue is designed for audio sample transfer
-  - provides pushing frames to the driver
+  - industrial-strength lock-free queue for C++
 - [dr_libs](https://github.com/mackron/dr_libs)
-  - [Choice of public domain or MIT-0](https://github.com/mackron/dr_libs/blob/46f149034a9f27e873d2c4c6e6a34ae4823a2d8d/dr_wav.h#L6363)
-  - provide wav / mp3 / flac parsing
+  - License: [Choice of public domain or MIT-0](https://github.com/mackron/dr_libs/blob/46f149034a9f27e873d2c4c6e6a34ae4823a2d8d/dr_wav.h#L6363)
+  - audio decoding libraries
+- [r8brain-free-src](https://github.com/avaneev/r8brain-free-src)
+  - License: [MIT](https://github.com/avaneev/r8brain-free-src/blob/master/LICENSE)
+  - high-quality professional audio sample rate converter
 
-All third party libraries should be compatible with the MIT license,
-so that they can be included.
-If there is any issue including one of these projects under the MIT license,
-please let me know by opening an issue and I will remove it / perform required changes.
+## License
+All third party libraries come with own licenses and terms.
+You can find the respective license in the 3rd parties directory.
+For convenience the specific license for each project that is used can be found in the above link collection.
+However all 3rd party dependencies have been chosen to be as friendly as possible and in all cases retaining the
+license text / copyright notice when distributing them in source or binary form will have you covered.
+
+This project itself is licensed under the MIT license, that includes the .h and .cpp files, except for the content
+in the `third_party`-directory.
 
 ## Guidlines
 
@@ -136,5 +143,7 @@ a list of related information to audio programming
 - linux testing
 - .ogg format
 - c-api wrapper
-
+- potentially isolate 3rd party in wrapper.
+  - ex. LowlQueue -> wraps queue, etc. and provide a way to provide different implementation
+  - similar to driver / audio reader abstraction
 

@@ -41,7 +41,7 @@ std::shared_ptr<Lowl::AudioStream> mix(const std::string &audio_path_1, const st
 }
 
 int main() {
-    std::string audio_root = "/Users/railgun/dev/lowl_audio/demo/audio/";
+    std::string audio_root = "/Users/railgun/audio/";
 
     // mono
     // std::string audio_file = "PCM_FLOAT_32_1CH_SR44100_Juanitos_Exotica.wav";
