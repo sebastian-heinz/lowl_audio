@@ -147,3 +147,11 @@ a list of related information to audio programming
   - ex. LowlQueue -> wraps queue, etc. and provide a way to provide different implementation
   - similar to driver / audio reader abstraction
 
+## Ideas
+- workspace class
+  - add sound files from start (they will be resampled and convereted)
+  - specidy memory size, if not enough store tmp resampled data to disk
+  - single point for configuration and playback
+
+- try to have realtime resampler
+ - mixer can specify "resampling=true" if false, cause non compatible samples to be dismissed

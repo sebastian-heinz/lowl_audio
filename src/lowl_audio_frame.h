@@ -8,6 +8,10 @@ namespace Lowl {
         float left;
         float right;
 
+        _INLINE_ const float &operator[](int idx) const { return idx == 0 ? left : right; }
+
+        _INLINE_ float &operator[](int idx) { return idx == 0 ? left : right; }
+
         _INLINE_ AudioFrame operator+(const AudioFrame &p_frame) const {
             return AudioFrame(left + p_frame.left, right + p_frame.right);
         }

@@ -8,6 +8,7 @@
 #include "lowl_sample_rate.h"
 
 #include <readerwriterqueue.h>
+#include <CDSPResampler.h>
 
 #include <vector>
 
@@ -17,12 +18,21 @@ namespace Lowl {
 
     private:
         SampleRate sample_rate;
+        SampleRate output_sample_rate;
         Channel channel;
-        moodycamel::ReaderWriterQueue<AudioFrame> *buffer;
+        moodycamel::ReaderWriterQueue<AudioFrame> *frame_queue;
+        moodycamel::ReaderWriterQueue<AudioFrame> *resample_queue;
         uint32_t frames_in;
         uint32_t frames_out;
+        std::vector<std::unique_ptr<r8b::CDSPResampler24>> re_samplers;
+        int re_sampler_sample_buffer_size;
+        std::atomic_flag is_sample_rate_changing = ATOMIC_FLAG_INIT;
+        bool require_resampling;
+
 
     public:
+        void set_output_sample_rate(SampleRate p_output_sample_rate);
+
         uint32_t get_num_frame_write() const;
 
         uint32_t get_num_frame_read() const;
@@ -44,8 +54,6 @@ namespace Lowl {
         bool write(const AudioFrame &p_audio_frame);
 
         void write(const std::vector<AudioFrame> &p_audio_frames);
-
-        void drain();
 
         AudioStream(SampleRate p_sample_rate, Channel p_channel);
 

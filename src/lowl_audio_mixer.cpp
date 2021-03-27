@@ -1,6 +1,11 @@
 #include "lowl_audio_mixer.h"
 
-#include <CDSPResampler.h>
+
+#ifdef LOWL_PROFILING
+
+#include <chrono>
+
+#endif
 
 Lowl::AudioMixer::AudioMixer(SampleRate p_sample_rate, Channel p_channel) {
     sample_rate = p_sample_rate;
@@ -26,6 +31,15 @@ void Lowl::AudioMixer::start_mix() {
         return;
     }
     running = true;
+
+#ifdef LOWL_PROFILING
+    mix_frame_count = 0;
+    mix_total_duration = 0;
+    mix_max_duration = 0;
+    mix_min_duration = 0;
+    mix_avg_duration = 0;
+#endif
+
     // Creates the thread without using 'std::bind'
     // TODO set thread priority / make it configurable
     thread = std::thread(&AudioMixer::mix_thread, this);
@@ -48,6 +62,9 @@ Lowl::SampleRate Lowl::AudioMixer::get_sample_rate() const {
 }
 
 bool Lowl::AudioMixer::mix_next_frame() {
+#ifdef LOWL_PROFILING
+    auto t1 = std::chrono::high_resolution_clock::now();
+#endif
 
     AudioMixerEvent event;
     while (events->try_dequeue(event)) {
@@ -105,6 +122,22 @@ bool Lowl::AudioMixer::mix_next_frame() {
         mix_frame.right = 1.0;
     }
     out_stream->write(mix_frame);
+
+#ifdef LOWL_PROFILING
+    auto t2 = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> ms_double = t2 - t1;
+    double mix_duration = ms_double.count();
+    if (mix_max_duration < mix_duration) {
+        mix_max_duration = mix_duration;
+    }
+    if (mix_min_duration > mix_duration) {
+        mix_min_duration = mix_duration;
+    }
+    mix_total_duration += mix_duration;
+    mix_frame_count++;
+    mix_avg_duration = mix_total_duration / mix_frame_count;
+#endif
+
     return true;
 }
 
@@ -147,37 +180,39 @@ void Lowl::AudioMixer::mix_all() {
     }
 }
 
-std::shared_ptr<Lowl::AudioData> Lowl::AudioMixer::resample(std::shared_ptr<AudioData> p_audio_data) {
-
-    std::vector<AudioFrame> frames = p_audio_data->get_frames();
-    std::vector<double> r_frames = std::vector<double>();
-    std::vector<double> l_frames = std::vector<double>();
-    for (AudioFrame frame : frames) {
-        r_frames.push_back(frame.right);
-        l_frames.push_back(frame.left);
-    }
-    int size = r_frames.size();
-    double *r_ptr = r_frames.data();
-    double *l_ptr = l_frames.data();
-    r8b::CDSPResampler24 *r_sampler = new r8b::CDSPResampler24(p_audio_data->get_sample_rate(), sample_rate, size);
-    r8b::CDSPResampler24 *l_sampler = new r8b::CDSPResampler24(p_audio_data->get_sample_rate(), sample_rate, size);
-    double *r_out_ptr = new double[size];
-    double *l_out_ptr = new double[size];
-    r_sampler->oneshot(r_ptr, size, r_out_ptr, size);
-    l_sampler->oneshot(l_ptr, size, l_out_ptr, size);
-
-    std::vector<AudioFrame> frames_out = std::vector<AudioFrame>();
-    for (int i = 0; i < size; i++) {
-        AudioFrame frame = {};
-        frame.right = r_ptr[i];
-        frame.left = l_out_ptr[i];
-        frames_out.push_back(frame);
-    }
-
-    std::shared_ptr<AudioData> audio_data_out = std::make_shared<AudioData>(
-            frames_out, sample_rate, p_audio_data->get_channel()
-
-    );
-    return audio_data_out;
-}
+//std::shared_ptr<Lowl::AudioData> Lowl::AudioMixer::resample(std::shared_ptr<AudioData> p_audio_data) {
+//
+//    std::vector<AudioFrame> frames = p_audio_data->get_frames();
+//    std::vector<double> r_frames = std::vector<double>();
+//    std::vector<double> l_frames = std::vector<double>();
+//    for (AudioFrame frame : frames) {
+//
+//        // TODO make frames accessable by index for looping over each channel
+//        r_frames.push_back(frame.right);
+//        l_frames.push_back(frame.left);
+//    }
+//    int size = r_frames.size();
+//    double *r_ptr = r_frames.data();
+//    double *l_ptr = l_frames.data();
+//    r8b::CDSPResampler24 *r_sampler = new r8b::CDSPResampler24(p_audio_data->get_sample_rate(), sample_rate, size);
+//    r8b::CDSPResampler24 *l_sampler = new r8b::CDSPResampler24(p_audio_data->get_sample_rate(), sample_rate, size);
+//    double *r_out_ptr = new double[size];
+//    double *l_out_ptr = new double[size];
+//    r_sampler->oneshot(r_ptr, size, r_out_ptr, size);
+//    l_sampler->oneshot(l_ptr, size, l_out_ptr, size);
+//
+//    std::vector<AudioFrame> frames_out = std::vector<AudioFrame>();
+//    for (int i = 0; i < size; i++) {
+//        AudioFrame frame = {};
+//        frame.right = r_ptr[i];
+//        frame.left = l_out_ptr[i];
+//        frames_out.push_back(frame);
+//    }
+//
+//    std::shared_ptr<AudioData> audio_data_out = std::make_shared<AudioData>(
+//            frames_out, sample_rate, p_audio_data->get_channel()
+//
+//    );
+//    return audio_data_out;
+//}
 

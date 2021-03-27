@@ -23,6 +23,7 @@ namespace Lowl {
         std::vector<std::shared_ptr<AudioData>> data;
         std::shared_ptr<AudioStream> out_stream;
         std::unique_ptr<moodycamel::ConcurrentQueue<AudioMixerEvent>> events;
+
         std::shared_ptr<AudioData> resample(std::shared_ptr<AudioData> p_audio_data);
 
     protected:
@@ -69,6 +70,14 @@ namespace Lowl {
 
         AudioMixer(SampleRate p_sample_rate, Channel p_channel);
 
+#ifdef LOWL_PROFILING
+    public:
+        uint64_t mix_frame_count;
+        double mix_total_duration;
+        double mix_max_duration;
+        double mix_min_duration;
+        double mix_avg_duration;
+#endif
     };
 }
 

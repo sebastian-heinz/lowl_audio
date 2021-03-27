@@ -36,6 +36,15 @@ std::shared_ptr<Lowl::AudioStream> mix(const std::string &audio_path_1, const st
     mixer->mix_stream(stream_2);
     mixer->mix_all();
 
+#ifdef LOWL_PROFILING
+    std::cout << "LOWL_PROFILING: mix_frame_count:" + std::to_string(mixer->mix_frame_count) + "\n";
+    std::cout << "LOWL_PROFILING: mix_total_duration:" + std::to_string(mixer->mix_total_duration) + "\n";
+    std::cout << "LOWL_PROFILING: mix_avg_duration:" + std::to_string(mixer->mix_avg_duration) + "\n";
+    std::cout << "LOWL_PROFILING: mix_max_duration:" + std::to_string(mixer->mix_max_duration) + "\n";
+    std::cout << "LOWL_PROFILING: mix_min_duration:" + std::to_string(mixer->mix_min_duration) + "\n";
+#endif
+
+
     return mixer->get_out_stream();
 
 }
@@ -50,7 +59,7 @@ int main() {
     // std::string audio_file = "PCM_INT_16_1CH_SR44100_Juanitos_Exotica.wav";
 
     // stereo
-    // std::string audio_file = "PCM_FLOAT_32_2CH_SR44100_Juanitos_Exotica.wav";
+    std::string audio_file = "PCM_FLOAT_32_2CH_SR44100_Juanitos_Exotica.wav";
     // std::string audio_file = "PCM_INT_32_2CH_SR44100_Juanitos_Exotica.wav";
     // std::string audio_file = "PCM_INT_24_2CH_SR44100_Juanitos_Exotica.wav";
     // std::string audio_file = "PCM_INT_16_2CH_SR44100_Juanitos_Exotica.wav";
@@ -59,15 +68,17 @@ int main() {
     //std::string audio_file = "MP3_CBITRATE128_SR44100_Juanitos_Exotica.mp3";
 
     // flac
-    std::string audio_file = "FLAC_2CH_SR44100_Juanitos_Exotica.flac";
+    //std::string audio_file = "FLAC_2CH_SR44100_Juanitos_Exotica.flac";
 
     ///
 
-    //  std::shared_ptr<Lowl::AudioStream> stream = play(audio_file);
-    std::shared_ptr<Lowl::AudioStream> stream = mix(
-            "/Users/railgun/Downloads/StarWars60.wav",
-            "/Users/railgun/Downloads/CantinaBand60.wav"
-    );
+    std::shared_ptr<Lowl::AudioStream> stream = play(audio_root + audio_file);
+
+
+    //std::shared_ptr<Lowl::AudioStream> stream = mix(
+    //        "/Users/railgun/Downloads/StarWars60.wav",
+    //        "/Users/railgun/Downloads/CantinaBand60.wav"
+    //);
 
     ///
 
@@ -109,7 +120,7 @@ int main() {
     // std::string user_input;
     // std::getline(std::cin, user_input);
     // int selected_index = std::stoi(user_input);
-    int selected_index = 1;
+    int selected_index = 3;
 
     Lowl::Device *device = all_devices[selected_index];
 
@@ -125,9 +136,14 @@ int main() {
         return -1;
     }
 
+    bool set = false;
     while (device->is_playing()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         std::cout << "frames_played: \n" + std::to_string(stream->get_num_frame_queued()) + "\n";
+        if (!set && stream->get_num_frame_queued() < 9000000) {
+            stream->set_output_sample_rate(22000.0);
+            set = true;
+        }
     }
 
     device->stop(error);

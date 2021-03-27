@@ -33,13 +33,15 @@ target_include_directories(${PROJECT_NAME} PUBLIC "$<BUILD_INTERFACE:${CMAKE_CUR
 add_definitions(-DLOWL_DRIVER_DUMMY)
 add_definitions(-DLOWL_DRIVER_PORTAUDIO)
 
-IF(WIN32)
-add_definitions(-DLOWL_WIN)
-ENDIF()
+add_definitions(-DLOWL_PROFILING)
 
-IF(UNIX)
-add_definitions(-DLOWL_UNIX)
-ENDIF()
+IF (WIN32)
+    add_definitions(-DLOWL_WIN)
+ENDIF ()
+
+IF (UNIX)
+    add_definitions(-DLOWL_UNIX)
+ENDIF ()
 
 # readerwriterqueue
 add_subdirectory(third_party/readerwriterqueue)
@@ -54,10 +56,10 @@ add_subdirectory(third_party/portaudio)
 target_link_libraries(${PROJECT_NAME} portaudio_static)
 
 # dr_lib
-target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE third_party/dr_libs)
+target_include_directories(${PROJECT_NAME} PRIVATE third_party/dr_libs)
 
 # r8brain-free-src
-target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE third_party/r8brain-free-src)
+target_include_directories(${PROJECT_NAME} PUBLIC third_party/r8brain-free-src)
 target_sources(${PROJECT_NAME}
         PRIVATE
         third_party/r8brain-free-src/pffft.cpp
