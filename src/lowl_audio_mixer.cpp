@@ -36,7 +36,7 @@ void Lowl::AudioMixer::start_mix() {
     mix_frame_count = 0;
     mix_total_duration = 0;
     mix_max_duration = 0;
-    mix_min_duration = 0;
+    mix_min_duration = std::numeric_limits<double>::max();;
     mix_avg_duration = 0;
 #endif
 

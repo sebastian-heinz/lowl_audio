@@ -31,6 +31,16 @@ namespace Lowl {
         Device() = default;
 
         virtual ~Device() = default;
+
+#ifdef LOWL_PROFILING
+    public:
+        uint64_t callback_count;
+        double callback_total_duration;
+        double callback_max_duration;
+        double callback_min_duration;
+        double callback_avg_duration;
+        double time_request_ms;
+#endif
     };
 }
 

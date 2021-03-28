@@ -114,42 +114,45 @@ int main() {
         }
     }
 
-    std::cout << "Select Device:\n";
-    std::string user_input;
-    std::getline(std::cin, user_input);
-    int selected_index = std::stoi(user_input);
-
+    int selected_index = 0;
+    if (false) {
+        std::cout << "Select Device:\n";
+        std::string user_input;
+        std::getline(std::cin, user_input);
+        selected_index = std::stoi(user_input);
+    }
 
     Lowl::Device *device = all_devices[selected_index];
-
     device->set_stream(stream, error);
     if (error.has_error()) {
         std::cout << "Err: device->set_stream\n";
         return -1;
     }
-    stream->set_output_sample_rate(22000.0);
+    stream->set_output_sample_rate(10000.0);
     device->start(error);
     if (error.has_error()) {
         std::cout << "Err: device->start\n";
         return -1;
     }
 
-    bool set = false;
     while (device->is_playing()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         std::cout << "==PLAYING==\n";
-        std::cout << "frames_played: \n" + std::to_string(stream->get_num_frame_queued()) + "\n";
+        std::cout << "frames remaining: \n" + std::to_string(stream->get_num_frame_queued()) + "\n";
 #ifdef LOWL_PROFILING
         std::cout << "LOWL_PROFILING: produce_count:" + std::to_string(stream->produce_count) + "\n";
         std::cout << "LOWL_PROFILING: produce_total_duration:" + std::to_string(stream->produce_total_duration) + "\n";
         std::cout << "LOWL_PROFILING: produce_max_duration:" + std::to_string(stream->produce_max_duration) + "\n";
         std::cout << "LOWL_PROFILING: produce_min_duration:" + std::to_string(stream->produce_min_duration) + "\n";
         std::cout << "LOWL_PROFILING: produce_avg_duration:" + std::to_string(stream->produce_avg_duration) + "\n";
+        std::cout << "==\n";
+        std::cout << "LOWL_PROFILING: callback_count:" + std::to_string(device->callback_count) + "\n";
+        std::cout << "LOWL_PROFILING: callback_total_duration:" + std::to_string(device->callback_total_duration) + "\n";
+        std::cout << "LOWL_PROFILING: callback_max_duration:" + std::to_string(device->callback_max_duration) + "\n";
+        std::cout << "LOWL_PROFILING: callback_min_duration:" + std::to_string(device->callback_min_duration) + "\n";
+        std::cout << "LOWL_PROFILING: callback_avg_duration:" + std::to_string(device->callback_avg_duration) + "\n";
+        std::cout << "LOWL_PROFILING: time_request_ms:" + std::to_string(device->time_request_ms) + "\n";
 #endif
-        // if (!set && stream->get_num_frame_queued() < 9000000) {
-        //     stream->set_output_sample_rate(22000.0);
-        //     set = true;
-        // }
     }
 
     device->stop(error);

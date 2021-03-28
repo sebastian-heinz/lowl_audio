@@ -17,18 +17,22 @@ Lowl::AudioStream::AudioStream(SampleRate p_sample_rate, Channel p_channel, size
     re_samplers = std::vector<std::unique_ptr<r8b::CDSPResampler24>>();
     re_sampler_sample_buffer_size = p_re_sampler_sample_buffer_size;
     require_resampling = false;
+    resamples = std::vector<AudioFrame>(re_sampler_sample_buffer_size);
+    samples = std::vector<std::vector<double>>(
+            Lowl::get_channel_num(channel), std::vector<double>(re_sampler_sample_buffer_size)
+    );
 
 #ifdef LOWL_PROFILING
     produce_count = 0;
     produce_total_duration = 0;
     produce_max_duration = 0;
-    produce_min_duration = 0;
+    produce_min_duration = std::numeric_limits<double>::max();
     produce_avg_duration = 0;
 #endif
 }
 
 Lowl::AudioStream::AudioStream(SampleRate p_sample_rate, Channel p_channel)
-        : AudioStream(p_sample_rate, p_channel, 256) {};
+        : AudioStream(p_sample_rate, p_channel, 32) {};
 
 Lowl::AudioStream::~AudioStream() {
     delete frame_queue;
@@ -62,15 +66,13 @@ bool Lowl::AudioStream::read(AudioFrame &audio_frame) {
 #endif
         int channel_count = get_channel_num();
         bool frame_available = false;
-        std::vector<AudioFrame> resamples = std::vector<AudioFrame>(re_sampler_sample_buffer_size);
-        std::vector<std::vector<double>> samples(channel_count, std::vector<double>(re_sampler_sample_buffer_size));
         for (int sample_num = 0; sample_num < re_sampler_sample_buffer_size; sample_num++) {
             AudioFrame next_frame;
             if (!frame_queue->try_dequeue(next_frame)) {
                 break;
             }
             frame_available = true;
-            for (int channel_num = 0; channel_num < get_channel_num(); channel_num++) {
+            for (int channel_num = 0; channel_num < channel_count; channel_num++) {
                 samples[channel_num][sample_num] = next_frame[channel_num];
             }
         }
@@ -80,12 +82,18 @@ bool Lowl::AudioStream::read(AudioFrame &audio_frame) {
             return false;
         }
         int samples_resampled;
-        for (int channel_num = 0; channel_num < get_channel_num(); channel_num++) {
+        for (int channel_num = 0; channel_num < channel_count; channel_num++) {
             double *sample_in_ptr = samples[channel_num].data();
             double *sample_out_ptr;
             samples_resampled = re_samplers[channel_num]->process(
                     sample_in_ptr, re_sampler_sample_buffer_size, sample_out_ptr
             );
+            if(samples_resampled >= re_sampler_sample_buffer_size){
+                // TODO err
+                int i = 1;
+            }
+            // TODO 0 samples might be produced
+            // TODO  calls resampling process until output buffer is filled
             for (int sample_num = 0; sample_num < samples_resampled; sample_num++) {
                 resamples[sample_num][channel_num] = sample_out_ptr[sample_num];
             }
