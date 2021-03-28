@@ -1,6 +1,12 @@
 #include "lowl_audio_stream.h"
 
-Lowl::AudioStream::AudioStream(SampleRate p_sample_rate, Channel p_channel) {
+#ifdef LOWL_PROFILING
+
+#include <chrono>
+
+#endif
+
+Lowl::AudioStream::AudioStream(SampleRate p_sample_rate, Channel p_channel, size_t p_re_sampler_sample_buffer_size) {
     sample_rate = p_sample_rate;
     output_sample_rate = p_sample_rate;
     channel = p_channel;
@@ -9,9 +15,20 @@ Lowl::AudioStream::AudioStream(SampleRate p_sample_rate, Channel p_channel) {
     frames_in = 0;
     frames_out = 0;
     re_samplers = std::vector<std::unique_ptr<r8b::CDSPResampler24>>();
-    re_sampler_sample_buffer_size = 256;
+    re_sampler_sample_buffer_size = p_re_sampler_sample_buffer_size;
     require_resampling = false;
+
+#ifdef LOWL_PROFILING
+    produce_count = 0;
+    produce_total_duration = 0;
+    produce_max_duration = 0;
+    produce_min_duration = 0;
+    produce_avg_duration = 0;
+#endif
 }
+
+Lowl::AudioStream::AudioStream(SampleRate p_sample_rate, Channel p_channel)
+        : AudioStream(p_sample_rate, p_channel, 256) {};
 
 Lowl::AudioStream::~AudioStream() {
     delete frame_queue;
@@ -40,6 +57,9 @@ bool Lowl::AudioStream::read(AudioFrame &audio_frame) {
     }
     if (require_resampling) {
         // produce resamples
+#ifdef LOWL_PROFILING
+        auto t1_produce = std::chrono::high_resolution_clock::now();
+#endif
         int channel_count = get_channel_num();
         bool frame_available = false;
         std::vector<AudioFrame> resamples = std::vector<AudioFrame>(re_sampler_sample_buffer_size);
@@ -76,6 +96,20 @@ bool Lowl::AudioStream::read(AudioFrame &audio_frame) {
                 break;
             }
         }
+#ifdef LOWL_PROFILING
+        auto t2_produce = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> ms_double = t2_produce - t1_produce;
+        double produce_duration = ms_double.count();
+        if (produce_max_duration < produce_duration) {
+            produce_max_duration = produce_duration;
+        }
+        if (produce_min_duration > produce_duration) {
+            produce_min_duration = produce_duration;
+        }
+        produce_total_duration += produce_duration;
+        produce_count++;
+        produce_avg_duration = produce_total_duration / produce_count;
+#endif
         if (resample_queue->try_dequeue(audio_frame)) {
             frames_out++;
             is_sample_rate_changing.clear(std::memory_order_release);
@@ -122,7 +156,7 @@ size_t Lowl::AudioStream::get_num_frame_queued() const {
     return frame_queue->size_approx();
 }
 
-std::vector<Lowl::AudioFrame> Lowl::AudioStream::read() {
+std::vector<Lowl::AudioFrame> Lowl::AudioStream::read_all() {
     std::vector<AudioFrame> frames = std::vector<AudioFrame>();
     AudioFrame frame;
     while (read(frame)) {
@@ -152,4 +186,8 @@ void Lowl::AudioStream::set_output_sample_rate(Lowl::SampleRate p_output_sample_
         require_resampling = false;
     }
     is_sample_rate_changing.clear(std::memory_order_release);
+}
+
+Lowl::SampleRate Lowl::AudioStream::get_output_sample_rate() const {
+    return output_sample_rate;
 }

@@ -137,7 +137,7 @@ void Lowl::PaDevice::open_stream(Error &error) {
             &stream,
             nullptr, /* no input */
             &output_parameter,
-            audio_stream->get_sample_rate(),
+            audio_stream->get_output_sample_rate(),
             frames_per_buffer,
             stream_flags,
             &audio_callback,

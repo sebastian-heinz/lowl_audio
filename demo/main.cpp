@@ -43,8 +43,6 @@ std::shared_ptr<Lowl::AudioStream> mix(const std::string &audio_path_1, const st
     std::cout << "LOWL_PROFILING: mix_max_duration:" + std::to_string(mixer->mix_max_duration) + "\n";
     std::cout << "LOWL_PROFILING: mix_min_duration:" + std::to_string(mixer->mix_min_duration) + "\n";
 #endif
-
-
     return mixer->get_out_stream();
 
 }
@@ -117,10 +115,10 @@ int main() {
     }
 
     std::cout << "Select Device:\n";
-    // std::string user_input;
-    // std::getline(std::cin, user_input);
-    // int selected_index = std::stoi(user_input);
-    int selected_index = 3;
+    std::string user_input;
+    std::getline(std::cin, user_input);
+    int selected_index = std::stoi(user_input);
+
 
     Lowl::Device *device = all_devices[selected_index];
 
@@ -129,7 +127,7 @@ int main() {
         std::cout << "Err: device->set_stream\n";
         return -1;
     }
-
+    stream->set_output_sample_rate(22000.0);
     device->start(error);
     if (error.has_error()) {
         std::cout << "Err: device->start\n";
@@ -138,12 +136,20 @@ int main() {
 
     bool set = false;
     while (device->is_playing()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        std::cout << "==PLAYING==\n";
         std::cout << "frames_played: \n" + std::to_string(stream->get_num_frame_queued()) + "\n";
-        if (!set && stream->get_num_frame_queued() < 9000000) {
-            stream->set_output_sample_rate(22000.0);
-            set = true;
-        }
+#ifdef LOWL_PROFILING
+        std::cout << "LOWL_PROFILING: produce_count:" + std::to_string(stream->produce_count) + "\n";
+        std::cout << "LOWL_PROFILING: produce_total_duration:" + std::to_string(stream->produce_total_duration) + "\n";
+        std::cout << "LOWL_PROFILING: produce_max_duration:" + std::to_string(stream->produce_max_duration) + "\n";
+        std::cout << "LOWL_PROFILING: produce_min_duration:" + std::to_string(stream->produce_min_duration) + "\n";
+        std::cout << "LOWL_PROFILING: produce_avg_duration:" + std::to_string(stream->produce_avg_duration) + "\n";
+#endif
+        // if (!set && stream->get_num_frame_queued() < 9000000) {
+        //     stream->set_output_sample_rate(22000.0);
+        //     set = true;
+        // }
     }
 
     device->stop(error);

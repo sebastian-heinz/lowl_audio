@@ -25,7 +25,7 @@ namespace Lowl {
         uint32_t frames_in;
         uint32_t frames_out;
         std::vector<std::unique_ptr<r8b::CDSPResampler24>> re_samplers;
-        int re_sampler_sample_buffer_size;
+        size_t re_sampler_sample_buffer_size;
         std::atomic_flag is_sample_rate_changing = ATOMIC_FLAG_INIT;
         bool require_resampling;
 
@@ -41,6 +41,8 @@ namespace Lowl {
 
         SampleRate get_sample_rate() const;
 
+        SampleRate get_output_sample_rate() const;
+
         Channel get_channel() const;
 
         int get_channel_num() const;
@@ -49,15 +51,26 @@ namespace Lowl {
 
         bool read(AudioFrame &audio_frame);
 
-        std::vector<AudioFrame> read();
+        std::vector<AudioFrame> read_all();
 
         bool write(const AudioFrame &p_audio_frame);
 
         void write(const std::vector<AudioFrame> &p_audio_frames);
 
+        AudioStream(SampleRate p_sample_rate, Channel p_channel, size_t p_re_sampler_sample_buffer_size);
+
         AudioStream(SampleRate p_sample_rate, Channel p_channel);
 
         ~AudioStream();
+
+#ifdef LOWL_PROFILING
+    public:
+        uint64_t produce_count;
+        double produce_total_duration;
+        double produce_max_duration;
+        double produce_min_duration;
+        double produce_avg_duration;
+#endif
     };
 }
 
