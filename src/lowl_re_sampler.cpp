@@ -9,8 +9,9 @@ Lowl::ReSampler::ReSampler(Lowl::SampleRate p_sample_rate_src, Lowl::SampleRate 
     sample_rate_dst = p_sample_rate_dst;
     channel = p_channel;
     num_channel = Lowl::get_channel_num(channel);
-    resample_queue = new moodycamel::ReaderWriterQueue<AudioFrame>(sample_buffer_size * 2);
     sample_buffer_size = p_sample_buffer_size;
+
+    resample_queue = new moodycamel::ReaderWriterQueue<AudioFrame>(sample_buffer_size * 2);
     resamples = std::vector<AudioFrame>(sample_buffer_size);
     samples = std::vector<std::vector<double>>(
             Lowl::get_channel_num(channel), std::vector<double>(sample_buffer_size)
@@ -20,7 +21,8 @@ Lowl::ReSampler::ReSampler(Lowl::SampleRate p_sample_rate_src, Lowl::SampleRate 
         std::unique_ptr<r8b::CDSPResampler24> re_sampler = std::make_unique<r8b::CDSPResampler24>(
                 sample_rate_src,
                 sample_rate_dst,
-                sample_buffer_size
+                sample_buffer_size,
+                8.0
         );
         re_samplers.push_back(std::move(re_sampler));
     }
@@ -55,8 +57,9 @@ bool Lowl::ReSampler::write(const AudioFrame &p_audio_frame, size_t p_required_f
 
     size_t sample_available = resample_queue->size_approx();
     for (int sample_num = 0; sample_num < samples_resampled; sample_num++) {
-        if (!resample_queue->try_enqueue(resamples[sample_num])) {
+        if (!resample_queue->enqueue(resamples[sample_num])) {
             // TODO error
+            throw "TODO Error";
             break;
         }
         sample_available++;

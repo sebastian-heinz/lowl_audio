@@ -65,7 +65,7 @@ bool Lowl::AudioStream::read(AudioFrame &audio_frame) {
                 re_sampler->finish();
                 break;
             }
-            if (re_sampler->write(frame, 32)) {
+            if (re_sampler->write(frame, 15)) {
                 // have frames
                 break;
             }
