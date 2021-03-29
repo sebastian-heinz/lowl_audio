@@ -2,6 +2,12 @@ LowL Audio
 ===
 Low Latency Audio - Framework for solving audio tasks
 
+# mostly working but still WIP, looking for help
+- speed up code, but prefer simplicity
+- feedback on API surface / user friendly / self explaining
+- testing under different systems (osx / unix / win)
+- finding / fixing bugs - make it more robust
+
 ## Goal
 This project aims to use exiting 3rd party libraries and combine them into an audio framework.
 

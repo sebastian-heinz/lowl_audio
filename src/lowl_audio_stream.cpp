@@ -62,8 +62,8 @@ bool Lowl::AudioStream::read(AudioFrame &audio_frame) {
         AudioFrame frame;
         while (true) {
             if (!frame_queue->try_dequeue(frame)) {
-                // TODO no more frames, push 0 frames
-                frame = {};
+                re_sampler->finish();
+                break;
             }
             if (re_sampler->write(frame, 32)) {
                 // have frames

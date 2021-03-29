@@ -3,6 +3,8 @@
 Lowl::ReSampler::ReSampler(Lowl::SampleRate p_sample_rate_src, Lowl::SampleRate p_sample_rate_dst,
                            Lowl::Channel p_channel, size_t p_sample_buffer_size) {
     current_frame = 0;
+    total_frames_in = 0;
+    total_re_sampled_frames = 0;
     sample_rate_src = p_sample_rate_src;
     sample_rate_dst = p_sample_rate_dst;
     channel = p_channel;
@@ -25,10 +27,10 @@ Lowl::ReSampler::ReSampler(Lowl::SampleRate p_sample_rate_src, Lowl::SampleRate 
 }
 
 bool Lowl::ReSampler::write(const AudioFrame &p_audio_frame, size_t p_required_frames) {
-
     for (int channel_num = 0; channel_num < num_channel; channel_num++) {
         samples[channel_num][current_frame] = p_audio_frame[channel_num];
     }
+    total_frames_in++;
     current_frame++;
     if (current_frame < sample_buffer_size) {
         // collect more frames till buffer is filled
@@ -36,7 +38,6 @@ bool Lowl::ReSampler::write(const AudioFrame &p_audio_frame, size_t p_required_f
     }
     current_frame = 0;
 
-    size_t sample_available = resample_queue->size_approx();
     int samples_resampled = 0;
     for (int channel_num = 0; channel_num < num_channel; channel_num++) {
         double *sample_in_ptr = samples[channel_num].data();
@@ -52,12 +53,14 @@ bool Lowl::ReSampler::write(const AudioFrame &p_audio_frame, size_t p_required_f
         }
     }
 
+    size_t sample_available = resample_queue->size_approx();
     for (int sample_num = 0; sample_num < samples_resampled; sample_num++) {
         if (!resample_queue->try_enqueue(resamples[sample_num])) {
             // TODO error
             break;
         }
         sample_available++;
+        total_re_sampled_frames++;
     }
 
     if (sample_available < p_required_frames) {
@@ -68,5 +71,16 @@ bool Lowl::ReSampler::write(const AudioFrame &p_audio_frame, size_t p_required_f
 }
 
 bool Lowl::ReSampler::read(Lowl::AudioFrame &audio_frame) {
-    return resample_queue->try_dequeue(audio_frame);
+    if (!resample_queue->try_dequeue(audio_frame)) {
+        return false;
+    }
+    return true;
+}
+
+void Lowl::ReSampler::finish() {
+    size_t expected_frames_resampled = total_frames_in * sample_rate_dst / sample_rate_src;
+    size_t frames_remaining = expected_frames_resampled - total_re_sampled_frames;
+    while (!write({}, frames_remaining)) {
+        // push empty frames
+    }
 }
