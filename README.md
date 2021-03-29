@@ -1,36 +1,32 @@
 LowL Audio
 ===
-Low Latency Audio - aims to provide audio playback - work in progress
-
-## Disclaimer
-This readme is a draft and subject to change, it represents my current state of thinking, notes and ideas.
-- no audio expert
-- just learning c++
+Low Latency Audio - Framework for solving audio tasks
 
 ## Goal
-Providing audio output is quite difficult, one needs to parse sound files, 
-process the samples so they can be consumed by the driver and lastly 
-implement the audio driver for each platform.
+This project aims to use exiting 3rd party libraries and combine them into an audio framework.
 
-All of these tasks are somewhat solved but I still find it challenging to
-put it all together. This project aims to use exiting 3rd party libraries to
-solve the hard problems and put them together into a framework, that provides
-a complete audio pipeline out of the box with extensibility in mind.
-
-The aim of this project is to be the glue between moving parts and provide:
-- common audio format parsing
+- audio format parsing
 - sample conversation
 - playback
 - unix/osx/win support
-- easy to understand/reason about code
-- MIT licensed and only utilize libraries that are compatible with MIT license
-- this library should focus on being the "glue" by utilizing open source projects
-- it should be designed in a modular way
-  - custom audio frame extraction support (dr_wav.. etc are just plug and play modules)
-  - custom driver 
-  - etc
-  
+- easy to reason about code
+- only utilize libraries that are compatible/comparable with MIT license
+- modular
+
+## Features
+- .wav / .mp3 / .flac parsing to AudioFrames
+- audio playback
+- sample rate conversion
+- mixer that combines multiple input sources
+- sample bit depth converter
+
+## Requirements
+- all operations are performed over float32 audio frames
+  - input files via the `AudioReader` are converted to float32 audio frames
+  - `AudioFrame`s that have been generated through algorithms require to be in float32 format
+
 ## Classes
+brief overview of the included classes
 
 ### AudioStream 
 - a endless stream of audio data, AudioFrames can be pushed into it and read from. once a frame is read it is gone from the stream.
@@ -45,6 +41,11 @@ The aim of this project is to be the glue between moving parts and provide:
 - uses a lock free queue to pass events to the mixer, for adding AudioData or AudioStreams
 - `mix_all()` - function will mix all frames until every input is exhausted. (dont use while mixing thread is active)
 - `mix_next_frame()` will mix a single frame from all available inputs, returns false if no frame has been mixed. (dont use while mixing thread is active)
+
+### ReSampler
+- re samples AudioFrames from one SampleRate to another one.
+- call `write(const AudioFrame &p_audio_frame, size_t p_required_frames)`, repeatedly, it will return true once the `required_frames` have been produced.
+- initially the `ReSampler` has to be feed more frames to produce output.
 
 ### AudioDevice 
 - represents a device like headphones or speaker
@@ -103,23 +104,6 @@ from local to global, each subsection in alphabetical order, i.e.:
 ![](./doc/system.jpg)
 created with [draw.io](https://draw.io/)
 
-## Features / Out of the box
-
-### File Formats
-- .wav parsing (float 32bit, int 16bit) (mono, stereo)
-- .mp3
-- .flac
-
-When reading data the library will extract the audio samples and convert them to
-sample format of 32bit float. This process will only happen once on reading, as 
-every internal function is designed to operate on 32bit float samples.
-
-### Driver
-- PortAudio
-
-### Mixer
-- Lowl::AudioMixer - mixes multiple `Lowl::AudioStream` and `Lowl::AudioData` into a single output stream
-
 ## Definitions
 - Audio Sample = smallest audio unit, depends on bit depth
 - Audio Frame = contains Audio Samples (2Channel/Stereo audio at 16bit depth contains two samples, each 2bytes. The Frame would be 4byte)
@@ -149,9 +133,6 @@ a list of related information to audio programming
 
 ## Ideas
 - workspace class
-  - add sound files from start (they will be resampled and convereted)
-  - specidy memory size, if not enough store tmp resampled data to disk
+  - add sound files from start (they will be resampled and converted)
+  - specify memory size, if not enough store tmp resampled data to disk
   - single point for configuration and playback
-
-- try to have realtime resampler
- - mixer can specify "resampling=true" if false, cause non compatible samples to be dismissed

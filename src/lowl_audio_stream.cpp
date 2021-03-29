@@ -70,8 +70,6 @@ bool Lowl::AudioStream::read(AudioFrame &audio_frame) {
                 break;
             }
         }
-
-
 #ifdef LOWL_PROFILING
         auto t2_produce = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::milli> ms_double = t2_produce - t1_produce;
