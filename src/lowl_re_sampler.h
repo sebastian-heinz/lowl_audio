@@ -15,11 +15,17 @@
 namespace Lowl {
     class ReSampler {
     private:
+        SampleRate sample_rate_src;
+        SampleRate sample_rate_dst;
+        Channel channel;
+        int num_channel;
+        size_t current_frame;
+        size_t sample_available;
         std::vector<AudioFrame> resamples;
         std::vector<std::vector<double>> samples;
         std::vector<std::unique_ptr<r8b::CDSPResampler24>> re_samplers;
-        size_t re_sampler_sample_buffer_size;
-        moodycamel::ReaderWriterQueue <AudioFrame> *resample_queue;
+        size_t sample_buffer_size;
+        moodycamel::ReaderWriterQueue<AudioFrame> *resample_queue;
 
 
     public:
@@ -29,9 +35,13 @@ namespace Lowl {
                   size_t p_sample_buffer_size
         );
 
+
         bool read(AudioFrame &audio_frame);
 
-        bool write(const AudioFrame &p_audio_frame);
+        /**
+         * Returns true if number of required_frames is available
+         */
+        bool write(const AudioFrame &p_audio_frame, size_t p_required_frames);
 
         virtual ~ReSampler() = default;
     };

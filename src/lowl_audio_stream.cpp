@@ -11,16 +11,9 @@ Lowl::AudioStream::AudioStream(SampleRate p_sample_rate, Channel p_channel, size
     output_sample_rate = p_sample_rate;
     channel = p_channel;
     frame_queue = new moodycamel::ReaderWriterQueue<AudioFrame>(100);
-    resample_queue = new moodycamel::ReaderWriterQueue<AudioFrame>(100);
     frames_in = 0;
     frames_out = 0;
-    re_samplers = std::vector<std::unique_ptr<r8b::CDSPResampler24>>();
-    re_sampler_sample_buffer_size = p_re_sampler_sample_buffer_size;
     require_resampling = false;
-    resamples = std::vector<AudioFrame>(re_sampler_sample_buffer_size);
-    samples = std::vector<std::vector<double>>(
-            Lowl::get_channel_num(channel), std::vector<double>(re_sampler_sample_buffer_size)
-    );
 
 #ifdef LOWL_PROFILING
     produce_count = 0;
@@ -51,11 +44,13 @@ Lowl::SampleFormat Lowl::AudioStream::get_sample_format() const {
 }
 
 bool Lowl::AudioStream::read(AudioFrame &audio_frame) {
-    if (resample_queue->try_dequeue(audio_frame)) {
+
+    if (re_sampler->read(audio_frame)) {
         // serve any remaining resamples
         frames_out++;
         return true;
     }
+
     while (is_sample_rate_changing.test_and_set(std::memory_order_acquire)) {
         // spin lock
     }
@@ -64,46 +59,19 @@ bool Lowl::AudioStream::read(AudioFrame &audio_frame) {
 #ifdef LOWL_PROFILING
         auto t1_produce = std::chrono::high_resolution_clock::now();
 #endif
-        int channel_count = get_channel_num();
-        bool frame_available = false;
-        for (int sample_num = 0; sample_num < re_sampler_sample_buffer_size; sample_num++) {
-            AudioFrame next_frame;
-            if (!frame_queue->try_dequeue(next_frame)) {
-                break;
+        AudioFrame frame;
+        while (true) {
+            if (!frame_queue->try_dequeue(frame)) {
+                // TODO no more frames, push 0 frames
+                frame = {};
             }
-            frame_available = true;
-            for (int channel_num = 0; channel_num < channel_count; channel_num++) {
-                samples[channel_num][sample_num] = next_frame[channel_num];
-            }
-        }
-        if (!frame_available) {
-            // no more frames in resample_queue or frame_queue
-            is_sample_rate_changing.clear(std::memory_order_release);
-            return false;
-        }
-        int samples_resampled;
-        for (int channel_num = 0; channel_num < channel_count; channel_num++) {
-            double *sample_in_ptr = samples[channel_num].data();
-            double *sample_out_ptr;
-            samples_resampled = re_samplers[channel_num]->process(
-                    sample_in_ptr, re_sampler_sample_buffer_size, sample_out_ptr
-            );
-            if(samples_resampled >= re_sampler_sample_buffer_size){
-                // TODO err
-                int i = 1;
-            }
-            // TODO 0 samples might be produced
-            // TODO  calls resampling process until output buffer is filled
-            for (int sample_num = 0; sample_num < samples_resampled; sample_num++) {
-                resamples[sample_num][channel_num] = sample_out_ptr[sample_num];
-            }
-        }
-        for (int sample_num = 0; sample_num < samples_resampled; sample_num++) {
-            if (!resample_queue->try_enqueue(resamples[sample_num])) {
-                // TODO error
+            if (re_sampler->write(frame, 32)) {
+                // have frames
                 break;
             }
         }
+
+
 #ifdef LOWL_PROFILING
         auto t2_produce = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::milli> ms_double = t2_produce - t1_produce;
@@ -118,7 +86,7 @@ bool Lowl::AudioStream::read(AudioFrame &audio_frame) {
         produce_count++;
         produce_avg_duration = produce_total_duration / produce_count;
 #endif
-        if (resample_queue->try_dequeue(audio_frame)) {
+        if (re_sampler->read(audio_frame)) {
             frames_out++;
             is_sample_rate_changing.clear(std::memory_order_release);
             return true;
@@ -179,18 +147,11 @@ void Lowl::AudioStream::set_output_sample_rate(Lowl::SampleRate p_output_sample_
     }
     if (p_output_sample_rate != sample_rate) {
         output_sample_rate = p_output_sample_rate;
-        re_samplers.clear();
-        for (int channel_num = 0; channel_num < get_channel_num(); channel_num++) {
-            std::unique_ptr<r8b::CDSPResampler24> re_sampler = std::make_unique<r8b::CDSPResampler24>(
-                    sample_rate,
-                    output_sample_rate,
-                    re_sampler_sample_buffer_size
-            );
-            re_samplers.push_back(std::move(re_sampler));
-        }
+        re_sampler = std::make_unique<ReSampler>(
+                sample_rate, output_sample_rate, channel, 32
+        );
         require_resampling = true;
     } else {
-        re_samplers.clear();
         require_resampling = false;
     }
     is_sample_rate_changing.clear(std::memory_order_release);
