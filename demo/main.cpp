@@ -15,6 +15,30 @@ std::shared_ptr<Lowl::AudioStream> play(const std::string &audio_path) {
     return stream;
 }
 
+std::shared_ptr<Lowl::AudioStream> node(const std::string &audio_path) {
+
+    std::shared_ptr<Lowl::AudioStream> stream = play(audio_path);
+
+    std::shared_ptr<Lowl::NodeInStream> in = std::make_shared<Lowl::NodeInStream>(stream);
+
+    Lowl::SampleRate out_sample_rate = 22100;
+    std::shared_ptr<Lowl::NodeReSampler> sampler = std::make_shared<Lowl::NodeReSampler>(
+            stream->get_sample_rate(),
+            out_sample_rate,
+            stream->get_channel(),
+            32,
+            8
+    );
+
+    std::shared_ptr<Lowl::NodeOutStream> out = std::make_shared<Lowl::NodeOutStream>(
+            out_sample_rate, stream->get_channel()
+    );
+
+    in->connect(sampler)->connect(out);
+
+    return out->get_stream();
+}
+
 std::shared_ptr<Lowl::AudioStream> mix(const std::string &audio_path_1, const std::string &audio_path_2) {
 
     Lowl::Error error;
@@ -48,30 +72,9 @@ std::shared_ptr<Lowl::AudioStream> mix(const std::string &audio_path_1, const st
 }
 
 int main() {
-    std::string audio_root = "/Users/railgun/audio/";
+    // std::shared_ptr<Lowl::AudioStream> stream = play(audio_root + audio_file);
 
-    // mono
-    // std::string audio_file = "PCM_FLOAT_32_1CH_SR44100_Juanitos_Exotica.wav";
-    // std::string audio_file = "PCM_INT_32_1CH_SR44100_Juanitos_Exotica.wav";
-    // std::string audio_file = "PCM_INT_24_1CH_SR44100_Juanitos_Exotica.wav";
-    // std::string audio_file = "PCM_INT_16_1CH_SR44100_Juanitos_Exotica.wav";
-
-    // stereo
-    std::string audio_file = "PCM_FLOAT_32_2CH_SR44100_Juanitos_Exotica.wav";
-    // std::string audio_file = "PCM_INT_32_2CH_SR44100_Juanitos_Exotica.wav";
-    // std::string audio_file = "PCM_INT_24_2CH_SR44100_Juanitos_Exotica.wav";
-    // std::string audio_file = "PCM_INT_16_2CH_SR44100_Juanitos_Exotica.wav";
-
-    // mp3
-    //std::string audio_file = "MP3_CBITRATE128_SR44100_Juanitos_Exotica.mp3";
-
-    // flac
-    //std::string audio_file = "FLAC_2CH_SR44100_Juanitos_Exotica.flac";
-
-    ///
-
-    std::shared_ptr<Lowl::AudioStream> stream = play(audio_root + audio_file);
-
+    std::shared_ptr<Lowl::AudioStream> stream = node("/Users/railgun/Downloads/StarWars60.wav");
 
     //std::shared_ptr<Lowl::AudioStream> stream = mix(
     //        "/Users/railgun/Downloads/StarWars60.wav",
@@ -128,7 +131,7 @@ int main() {
         std::cout << "Err: device->set_stream\n";
         return -1;
     }
-   // stream->set_output_sample_rate(88200.0);
+    // stream->set_output_sample_rate(88200.0);
     device->start(error);
     if (error.has_error()) {
         std::cout << "Err: device->start\n";
@@ -140,14 +143,15 @@ int main() {
         std::cout << "==PLAYING==\n";
         std::cout << "frames remaining: \n" + std::to_string(stream->get_num_frame_queued()) + "\n";
 #ifdef LOWL_PROFILING
-       // std::cout << "LOWL_PROFILING: produce_count:" + std::to_string(stream->produce_count) + "\n";
-       // std::cout << "LOWL_PROFILING: produce_total_duration:" + std::to_string(stream->produce_total_duration) + "\n";
-       // std::cout << "LOWL_PROFILING: produce_max_duration:" + std::to_string(stream->produce_max_duration) + "\n";
-       // std::cout << "LOWL_PROFILING: produce_min_duration:" + std::to_string(stream->produce_min_duration) + "\n";
-       // std::cout << "LOWL_PROFILING: produce_avg_duration:" + std::to_string(stream->produce_avg_duration) + "\n";
+        // std::cout << "LOWL_PROFILING: produce_count:" + std::to_string(stream->produce_count) + "\n";
+        // std::cout << "LOWL_PROFILING: produce_total_duration:" + std::to_string(stream->produce_total_duration) + "\n";
+        // std::cout << "LOWL_PROFILING: produce_max_duration:" + std::to_string(stream->produce_max_duration) + "\n";
+        // std::cout << "LOWL_PROFILING: produce_min_duration:" + std::to_string(stream->produce_min_duration) + "\n";
+        // std::cout << "LOWL_PROFILING: produce_avg_duration:" + std::to_string(stream->produce_avg_duration) + "\n";
         std::cout << "==\n";
         std::cout << "LOWL_PROFILING: callback_count:" + std::to_string(device->callback_count) + "\n";
-        std::cout << "LOWL_PROFILING: callback_total_duration:" + std::to_string(device->callback_total_duration) + "\n";
+        std::cout
+                << "LOWL_PROFILING: callback_total_duration:" + std::to_string(device->callback_total_duration) + "\n";
         std::cout << "LOWL_PROFILING: callback_max_duration:" + std::to_string(device->callback_max_duration) + "\n";
         std::cout << "LOWL_PROFILING: callback_min_duration:" + std::to_string(device->callback_min_duration) + "\n";
         std::cout << "LOWL_PROFILING: callback_avg_duration:" + std::to_string(device->callback_avg_duration) + "\n";

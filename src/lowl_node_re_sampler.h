@@ -3,11 +3,12 @@
 
 #include "lowl_audio_frame.h"
 #include "lowl_re_sampler.h"
+#include "lowl_node.h"
 
 #include <memory>
 
 namespace Lowl {
-    class NodeReSampler {
+    class NodeReSampler : public Node {
 
     private:
         std::unique_ptr<ReSampler> re_sampler;
@@ -15,8 +16,7 @@ namespace Lowl {
         SampleRate input_sample_rate;
 
     public:
-
-        bool process(AudioFrame &p_audio_frame);
+        void process(AudioFrame p_audio_frame) override;
 
         NodeReSampler(SampleRate p_sample_rate_src,
                       SampleRate p_sample_rate_dst,

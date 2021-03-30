@@ -14,12 +14,11 @@ Lowl::NodeReSampler::NodeReSampler(SampleRate p_sample_rate_src,
     );
 }
 
-bool Lowl::NodeReSampler::process(Lowl::AudioFrame &p_audio_frame) {
-    re_sampler->write(p_audio_frame, 15);
+void Lowl::NodeReSampler::process(Lowl::AudioFrame p_audio_frame) {
+    re_sampler->write(p_audio_frame, 1);
     if (re_sampler->read(p_audio_frame)) {
-        return true;
+        output(p_audio_frame);
     }
-    return false;
 }
 
 

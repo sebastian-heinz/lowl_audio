@@ -24,6 +24,8 @@ set(LOWL_SOURCES
         src/lowl_file_unix.cpp
         src/lowl_file_win.cpp
         src/lowl_node.cpp
+        src/lowl_node_in_stream.cpp
+        src/lowl_node_out_stream.cpp
         src/lowl_node_re_sampler.cpp
         src/lowl_re_sampler.cpp
         src/lowl_sample_converter.cpp

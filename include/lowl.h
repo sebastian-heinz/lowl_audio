@@ -7,6 +7,10 @@
 #include "../src/lowl_driver.h"
 #include "../src/lowl_file_format.h"
 #include "../src/lowl_audio_mixer.h"
+#include "../src/lowl_node.h"
+#include "../src/lowl_node_in_stream.h"
+#include "../src/lowl_node_out_stream.h"
+#include "../src/lowl_node_re_sampler.h"
 
 #include <vector>
 
