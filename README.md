@@ -1,6 +1,6 @@
 LowL Audio
 ===
-Low Latency Audio - Framework for solving audio tasks
+Low Latency Audio - Audio Framework / Audio Engine
 
 # mostly working but still WIP, looking for help
 - speed up code, but prefer simplicity
