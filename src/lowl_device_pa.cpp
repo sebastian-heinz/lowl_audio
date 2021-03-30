@@ -75,7 +75,7 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
     callback_total_duration += duration;
     callback_count++;
     callback_avg_duration = callback_total_duration / callback_count;
-    time_request_ms = (p_frames_per_buffer / audio_stream->get_output_sample_rate()) * 1000;
+    time_request_ms = (p_frames_per_buffer / audio_stream->get_sample_rate()) * 1000;
 #endif
 
     return paContinue;
@@ -163,7 +163,7 @@ void Lowl::PaDevice::open_stream(Error &error) {
             &stream,
             nullptr, /* no input */
             &output_parameter,
-            audio_stream->get_output_sample_rate(),
+            audio_stream->get_sample_rate(),
             frames_per_buffer,
             stream_flags,
             &audio_callback,

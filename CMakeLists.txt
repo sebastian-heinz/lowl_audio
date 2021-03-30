@@ -23,6 +23,8 @@ set(LOWL_SOURCES
         src/lowl_error.cpp
         src/lowl_file_unix.cpp
         src/lowl_file_win.cpp
+        src/lowl_node.cpp
+        src/lowl_node_re_sampler.cpp
         src/lowl_re_sampler.cpp
         src/lowl_sample_converter.cpp
         )
@@ -66,6 +68,6 @@ target_sources(${PROJECT_NAME}
         third_party/r8brain-free-src/r8bbase.cpp
         )
 # https://github.com/avaneev/r8brain-free-src#usage-information
-add_definitions(-DR8B_PFFFT=1)
+#add_definitions(-DR8B_PFFFT=1)
 
 add_subdirectory(demo)

@@ -1,7 +1,7 @@
 #include "lowl_re_sampler.h"
 
 Lowl::ReSampler::ReSampler(Lowl::SampleRate p_sample_rate_src, Lowl::SampleRate p_sample_rate_dst,
-                           Lowl::Channel p_channel, size_t p_sample_buffer_size) {
+                           Lowl::Channel p_channel, size_t p_sample_buffer_size, double p_req_trans_band) {
     current_frame = 0;
     total_frames_in = 0;
     total_re_sampled_frames = 0;
@@ -10,7 +10,6 @@ Lowl::ReSampler::ReSampler(Lowl::SampleRate p_sample_rate_src, Lowl::SampleRate 
     channel = p_channel;
     num_channel = Lowl::get_channel_num(channel);
     sample_buffer_size = p_sample_buffer_size;
-
     resample_queue = new moodycamel::ReaderWriterQueue<AudioFrame>(sample_buffer_size * 2);
     resamples = std::vector<AudioFrame>(sample_buffer_size);
     samples = std::vector<std::vector<double>>(
@@ -22,7 +21,7 @@ Lowl::ReSampler::ReSampler(Lowl::SampleRate p_sample_rate_src, Lowl::SampleRate 
                 sample_rate_src,
                 sample_rate_dst,
                 sample_buffer_size,
-                8.0
+                p_req_trans_band
         );
         re_samplers.push_back(std::move(re_sampler));
     }

@@ -32,7 +32,8 @@ namespace Lowl {
         ReSampler(SampleRate p_sample_rate_src,
                   SampleRate p_sample_rate_dst,
                   Channel p_channel,
-                  size_t p_sample_buffer_size
+                  size_t p_sample_buffer_size,
+                  double p_req_trans_band
         );
 
         bool read(AudioFrame &audio_frame);
