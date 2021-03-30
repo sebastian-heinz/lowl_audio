@@ -29,6 +29,7 @@ set(LOWL_SOURCES
         src/lowl_node_re_sampler.cpp
         src/lowl_re_sampler.cpp
         src/lowl_sample_converter.cpp
+        src/lowl_space.cpp
         )
 
 add_library(${PROJECT_NAME} ${LOWL_SOURCES})
