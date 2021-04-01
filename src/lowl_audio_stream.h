@@ -6,7 +6,6 @@
 #include "lowl_audio_frame.h"
 #include "lowl_channel.h"
 #include "lowl_sample_rate.h"
-#include "lowl_re_sampler.h"
 
 #include <readerwriterqueue.h>
 

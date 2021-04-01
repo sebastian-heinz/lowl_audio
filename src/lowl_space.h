@@ -27,7 +27,7 @@ namespace Lowl {
      */
     class Space {
     public:
-        const SpaceId InvalidSpaceId = 0;
+        static const SpaceId InvalidSpaceId = 0;
 
     private:
         size_t p_memory_mb;
@@ -44,9 +44,9 @@ namespace Lowl {
 
         void stop(SpaceId p_id);
 
-        SpaceId add_audio(const std::string &p_path);
+        SpaceId add_audio(const std::string &p_path, Error &error);
 
-        SpaceId add_audio(std::unique_ptr<AudioData> p_audio_data);
+        SpaceId add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error);
 
         void load();
 

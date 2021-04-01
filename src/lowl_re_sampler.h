@@ -6,6 +6,7 @@
 #include "lowl_audio_frame.h"
 #include "lowl_channel.h"
 #include "lowl_sample_rate.h"
+#include "lowl_audio_data.h"
 
 #include <readerwriterqueue.h>
 #include <CDSPResampler.h>
@@ -28,6 +29,7 @@ namespace Lowl {
         size_t total_re_sampled_frames;
         moodycamel::ReaderWriterQueue<AudioFrame> *resample_queue;
 
+
     public:
         ReSampler(SampleRate p_sample_rate_src,
                   SampleRate p_sample_rate_dst,
@@ -35,6 +37,10 @@ namespace Lowl {
                   size_t p_sample_buffer_size,
                   double p_req_trans_band
         );
+
+
+        static std::unique_ptr<Lowl::AudioData>
+        resample(std::shared_ptr<AudioData> p_audio_data, SampleRate p_sample_rate_dst, size_t p_sample_buffer_size);
 
         bool read(AudioFrame &audio_frame);
 
@@ -50,7 +56,8 @@ namespace Lowl {
          */
         void finish();
 
-        virtual ~ReSampler() = default;
+        virtual ~ReSampler() =
+        default;
     };
 }
 

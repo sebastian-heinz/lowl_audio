@@ -9,6 +9,7 @@
 #include "lowl_audio_stream.h"
 
 #include <vector>
+#include <memory>
 
 namespace Lowl {
 
