@@ -7,7 +7,7 @@
 #include <dr_flac.h>
 
 
-std::unique_ptr<Lowl::AudioStream>
+std::unique_ptr<Lowl::AudioData>
 Lowl::AudioReaderFlac::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Error &error) {
 
     drflac *flac = drflac_open_memory(p_buffer.get(), p_size, nullptr);
@@ -51,10 +51,8 @@ Lowl::AudioReaderFlac::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, 
         return nullptr;
     }
 
-    std::unique_ptr<AudioStream> audio_stream = std::make_unique<AudioStream>(sample_rate, channel);
-    audio_stream->write(audio_frames);
-
-    return audio_stream;
+    std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(audio_frames, sample_rate, channel);
+    return audio_data;
 }
 
 bool Lowl::AudioReaderFlac::support(Lowl::FileFormat p_file_format) const {

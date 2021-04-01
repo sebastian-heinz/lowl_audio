@@ -8,7 +8,7 @@ namespace Lowl {
     class AudioReaderFlac : public AudioReader {
 
     public:
-        std::unique_ptr<AudioStream> read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Error &error) override;
+        std::unique_ptr<AudioData> read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Error &error) override;
 
         bool support(FileFormat p_file_format) const override;
     };

@@ -51,3 +51,9 @@ Lowl::SampleFormat Lowl::AudioData::get_sample_format() const {
 std::vector<Lowl::AudioFrame> Lowl::AudioData::get_frames() {
     return std::vector<AudioFrame>(frames);
 }
+
+std::unique_ptr<Lowl::AudioStream> Lowl::AudioData::to_stream() {
+    std::unique_ptr<AudioStream> stream = std::make_unique<AudioStream>(sample_rate, channel);
+    stream->write(get_frames());
+    return stream;
+}

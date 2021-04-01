@@ -1,8 +1,11 @@
 #include "lowl_audio_reader.h"
 
 #include "lowl_file.h"
+#include "lowl_audio_reader_wav.h"
+#include "lowl_audio_reader_mp3.h"
+#include "lowl_audio_reader_flac.h"
 
-std::unique_ptr<Lowl::AudioStream> Lowl::AudioReader::read_file(const std::string &p_path, Error &error) {
+std::unique_ptr<Lowl::AudioData> Lowl::AudioReader::read_file(const std::string &p_path, Error &error) {
     LowlFile file = LowlFile();
     file.open(p_path, error);
     if (error.has_error()) {
@@ -10,15 +13,15 @@ std::unique_ptr<Lowl::AudioStream> Lowl::AudioReader::read_file(const std::strin
     }
     size_t length = file.get_length();
     std::unique_ptr<uint8_t[]> buffer = file.read_buffer(length);
-    std::unique_ptr<AudioStream> stream = read(std::move(buffer), length, error);
+    std::unique_ptr<AudioData> audio_data = read(std::move(buffer), length, error);
     if (error.has_error()) {
         return nullptr;
     }
-    if (!stream) {
+    if (!audio_data) {
         error.set_error(ErrorCode::Error);
         return nullptr;
     }
-    return stream;
+    return audio_data;
 }
 
 void Lowl::AudioReader::set_sample_converter(std::unique_ptr<SampleConverter> p_sample_converter) {
@@ -124,4 +127,90 @@ Lowl::AudioReader::read_frames(AudioFormat p_audio_format, SampleFormat p_sample
     }
 
     return frames;
+}
+
+std::unique_ptr<Lowl::AudioReader> Lowl::AudioReader::create_reader(FileFormat format, Error &error) {
+    std::unique_ptr<AudioReader> reader = std::unique_ptr<AudioReader>();
+    switch (format) {
+        case FileFormat::UNKNOWN: {
+            error.set_error(ErrorCode::Error);
+            break;
+        }
+        case FileFormat::WAV: {
+            reader = std::make_unique<AudioReaderWav>();
+            break;
+        }
+        case FileFormat::MP3: {
+            reader = std::make_unique<AudioReaderMp3>();
+            break;
+        }
+        case FileFormat::FLAC: {
+            reader = std::make_unique<AudioReaderFlac>();
+            break;
+        }
+    }
+    return reader;
+}
+
+Lowl::FileFormat Lowl::AudioReader::detect_format(const std::string &p_path, Error &error) {
+    std::string::size_type idx;
+    idx = p_path.rfind('.');
+    if (idx != std::string::npos) {
+        std::string extension = p_path.substr(idx + 1);
+        std::transform(extension.begin(), extension.end(), extension.begin(), std::tolower);
+        if (extension == "wav") {
+            return FileFormat::WAV;
+        } else if (extension == "mp3") {
+            return FileFormat::MP3;
+        } else if (extension == "flac") {
+            return FileFormat::FLAC;
+        }
+    }
+    return FileFormat::UNKNOWN;
+}
+
+std::unique_ptr<Lowl::AudioData> Lowl::AudioReader::create_data(const std::string &p_path, Lowl::Error &error) {
+    FileFormat format = detect_format(p_path, error);
+    if (error.has_error()) {
+        return nullptr;
+    }
+    if (format == FileFormat::UNKNOWN) {
+        error.set_error(ErrorCode::Error);
+        return nullptr;
+    }
+    std::unique_ptr<AudioReader> reader = create_reader(format, error);
+    if (error.has_error()) {
+        return nullptr;
+    }
+    if (!reader) {
+        error.set_error(ErrorCode::Error);
+        return nullptr;
+    }
+    std::unique_ptr<AudioData> audio_data = reader->read_file(p_path, error);
+    if (error.has_error()) {
+        return nullptr;
+    }
+    if (!audio_data) {
+        error.set_error(ErrorCode::Error);
+        return nullptr;
+    }
+    return audio_data;
+}
+
+std::unique_ptr<Lowl::AudioData>
+Lowl::AudioReader::create_data(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Lowl::FileFormat p_format,
+                               Lowl::Error &error) {
+    std::unique_ptr<AudioReader> reader = create_reader(p_format, error);
+    if (error.has_error()) {
+        return nullptr;
+    }
+    if (!reader) {
+        error.set_error(ErrorCode::Error);
+        return nullptr;
+    }
+    std::unique_ptr<AudioData> audio_data = reader->read(std::move(p_buffer), p_size, error);
+    if (error.has_error()) {
+        return nullptr;
+    }
+    return audio_data;
 }

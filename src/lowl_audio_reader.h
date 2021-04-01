@@ -5,6 +5,7 @@
 #include "lowl_file_format.h"
 #include "lowl_sample_converter.h"
 #include "lowl_audio_format.h"
+#include "lowl_audio_data.h"
 
 #include <vector>
 
@@ -15,10 +16,20 @@ namespace Lowl {
         std::unique_ptr<SampleConverter> sample_converter;
 
     public:
+        static std::unique_ptr<AudioReader> create_reader(FileFormat p_format, Error &error);
+
+        static FileFormat detect_format(const std::string &p_path, Error &error);
+
+        static std::unique_ptr<Lowl::AudioData> create_data(const std::string &p_path, Error &error);
+
+        static std::unique_ptr<AudioData>
+        create_data(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, FileFormat p_format, Error &error);
+
+    public:
         /**
          * read data as supported file format.
          */
-        virtual std::unique_ptr<AudioStream>
+        virtual std::unique_ptr<AudioData>
         read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_length, Error &error) = 0;
 
         /**
@@ -36,7 +47,7 @@ namespace Lowl {
     public:
         AudioReader();
 
-        std::unique_ptr<AudioStream> read_file(const std::string &p_path, Error &error);
+        std::unique_ptr<AudioData> read_file(const std::string &p_path, Error &error);
 
         void set_sample_converter(std::unique_ptr<SampleConverter> p_sample_converter);
     };

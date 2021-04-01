@@ -28,18 +28,14 @@ namespace Lowl {
 
         static void terminate(Error &error);
 
-        static std::unique_ptr<AudioStream>
-        create_stream(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, FileFormat p_format, Error &error);
+        static std::unique_ptr<AudioData>
+        create_data(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, FileFormat p_format, Error &error);
 
-        static std::unique_ptr<AudioStream> create_stream(const std::string &p_path, Error &error);
-
-        static std::unique_ptr<AudioData> to_data(std::unique_ptr<AudioStream> p_audio_stream, Error &error);
+        static std::unique_ptr<AudioData> create_data(const std::string &p_path, Error &error);
 
         static std::unique_ptr<AudioReader> create_reader(FileFormat p_format, Error &error);
 
         static FileFormat detect_format(const std::string &p_path, Error &error);
     };
-
-
 }
 #endif /* LOWL_H */

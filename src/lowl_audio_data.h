@@ -6,6 +6,7 @@
 #include "lowl_audio_frame.h"
 #include "lowl_channel.h"
 #include "lowl_sample_rate.h"
+#include "lowl_audio_stream.h"
 
 #include <vector>
 
@@ -43,6 +44,11 @@ namespace Lowl {
          * returns all frames.
          */
         std::vector<AudioFrame> get_frames();
+
+        /**
+         * returns all frames.
+         */
+        std::unique_ptr<AudioStream> to_stream();
 
         /**
          * reads a frame

@@ -48,97 +48,19 @@ void Lowl::Lib::terminate(Error &error) {
 #endif
 }
 
-std::unique_ptr<Lowl::AudioStream>
-Lowl::Lib::create_stream(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Lowl::FileFormat p_format,
-                         Lowl::Error &error) {
-    std::unique_ptr<AudioReader> reader = create_reader(p_format, error);
-    if (error.has_error()) {
-        return nullptr;
-    }
-    if (!reader) {
-        error.set_error(ErrorCode::Error);
-        return nullptr;
-    }
-    std::unique_ptr<AudioStream> stream = reader->read(std::move(p_buffer), p_size, error);
-    if (error.has_error()) {
-        return nullptr;
-    }
-    return stream;
+std::unique_ptr<Lowl::AudioReader> Lowl::Lib::create_reader(Lowl::FileFormat p_format, Lowl::Error &error) {
+    return AudioReader::create_reader(p_format, error);
 }
 
-std::unique_ptr<Lowl::AudioStream> Lowl::Lib::create_stream(const std::string &p_path, Error &error) {
-    FileFormat format = detect_format(p_path, error);
-    if (error.has_error()) {
-        return nullptr;
-    }
-    if (format == FileFormat::UNKNOWN) {
-        error.set_error(ErrorCode::Error);
-        return nullptr;
-    }
-    std::unique_ptr<AudioReader> reader = create_reader(format, error);
-    if (error.has_error()) {
-        return nullptr;
-    }
-    if (!reader) {
-        error.set_error(ErrorCode::Error);
-        return nullptr;
-    }
-    std::unique_ptr<AudioStream> stream = reader->read_file(p_path, error);
-    if (error.has_error()) {
-        return nullptr;
-    }
-    if (!stream) {
-        error.set_error(ErrorCode::Error);
-        return nullptr;
-    }
-    return stream;
+Lowl::FileFormat Lowl::Lib::detect_format(const std::string &p_path, Lowl::Error &error) {
+    return AudioReader::detect_format(p_path, error);
 }
 
-std::unique_ptr<Lowl::AudioReader> Lowl::Lib::create_reader(FileFormat format, Error &error) {
-    std::unique_ptr<AudioReader> reader = std::unique_ptr<AudioReader>();
-    switch (format) {
-        case FileFormat::UNKNOWN: {
-            error.set_error(ErrorCode::Error);
-            break;
-        }
-        case FileFormat::WAV: {
-            reader = std::make_unique<AudioReaderWav>();
-            break;
-        }
-        case FileFormat::MP3: {
-            reader = std::make_unique<AudioReaderMp3>();
-            break;
-        }
-        case FileFormat::FLAC: {
-            reader = std::make_unique<AudioReaderFlac>();
-            break;
-        }
-    }
-    return reader;
+std::unique_ptr<Lowl::AudioData>
+Lowl::Lib::create_data(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, FileFormat p_format, Error &error) {
+    return AudioReader::create_data(std::move(p_buffer), p_size, p_format, error);
 }
 
-Lowl::FileFormat Lowl::Lib::detect_format(const std::string &p_path, Error &error) {
-    std::string::size_type idx;
-    idx = p_path.rfind('.');
-    if (idx != std::string::npos) {
-        std::string extension = p_path.substr(idx + 1);
-        std::transform(extension.begin(), extension.end(), extension.begin(), std::tolower);
-        if (extension == "wav") {
-            return FileFormat::WAV;
-        } else if (extension == "mp3") {
-            return FileFormat::MP3;
-        } else if (extension == "flac") {
-            return FileFormat::FLAC;
-        }
-    }
-    return FileFormat::UNKNOWN;
-}
-
-std::unique_ptr<Lowl::AudioData> Lowl::Lib::to_data(std::unique_ptr<AudioStream> p_audio_stream, Lowl::Error &error) {
-    std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(
-            p_audio_stream->read_all(),
-            p_audio_stream->get_sample_rate(),
-            p_audio_stream->get_channel()
-    );
-    return audio_data;
+std::unique_ptr<Lowl::AudioData> Lowl::Lib::create_data(const std::string &p_path, Error &error) {
+    return Lowl::AudioReader::create_data(p_path, error);
 }

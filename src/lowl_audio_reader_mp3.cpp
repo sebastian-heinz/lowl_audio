@@ -10,7 +10,7 @@
 #define ENCODED_BUFFER_DECODING_STEP (16384)
 #define DECODED_BUFFER_SIZE (ENCODED_BUFFER_DECODING_STEP*32*8)
 
-std::unique_ptr<Lowl::AudioStream>
+std::unique_ptr<Lowl::AudioData>
 Lowl::AudioReaderMp3::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Error &error) {
 
     size_t bytes_read = 0;
@@ -33,14 +33,12 @@ Lowl::AudioReaderMp3::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, E
     bytes_read += frame_info.frame_bytes;
     size_t pcm_buffer_size = pcm_frames_read * bytes_per_frame;
 
-    std::unique_ptr<AudioStream> audio_stream = std::make_unique<AudioStream>(sample_rate, channel);
     std::vector<AudioFrame> audio_frames = read_frames(
             audio_format, sample_format, channel, pcm_buffer, pcm_buffer_size, error
     );
     if (error.has_error()) {
         return nullptr;
     }
-    audio_stream->write(audio_frames);
 
     // read remaining frames
     while (bytes_read <= p_size) {
@@ -49,16 +47,17 @@ Lowl::AudioReaderMp3::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, E
         );
         bytes_read += frame_info.frame_bytes;
         pcm_buffer_size = pcm_frames_read * bytes_per_frame;
-        audio_frames = read_frames(
+        std::vector<AudioFrame> frames = read_frames(
                 audio_format, sample_format, channel, pcm_buffer, pcm_buffer_size, error
         );
         if (error.has_error()) {
             return nullptr;
         }
-        audio_stream->write(audio_frames);
+        audio_frames.insert(audio_frames.end(), frames.begin(), frames.end());
     }
 
-    return audio_stream;
+    std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(audio_frames, sample_rate, channel);
+    return audio_data;
 }
 
 bool Lowl::AudioReaderMp3::support(Lowl::FileFormat p_file_format) const {

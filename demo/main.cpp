@@ -7,12 +7,12 @@
 
 std::shared_ptr<Lowl::AudioStream> play(const std::string &audio_path) {
     Lowl::Error error;
-    std::shared_ptr<Lowl::AudioStream> stream = Lowl::Lib::create_stream(audio_path, error);
+    std::shared_ptr<Lowl::AudioData> data = Lowl::Lib::create_data(audio_path, error);
     if (error.has_error()) {
         std::cout << "Err:  Lowl::create_stream\n";
         return nullptr;
     }
-    return stream;
+    return data->to_stream();
 }
 
 std::shared_ptr<Lowl::AudioStream> node(const std::string &audio_path) {
@@ -42,13 +42,13 @@ std::shared_ptr<Lowl::AudioStream> node(const std::string &audio_path) {
 std::shared_ptr<Lowl::AudioStream> mix(const std::string &audio_path_1, const std::string &audio_path_2) {
 
     Lowl::Error error;
-    std::shared_ptr<Lowl::AudioStream> stream_1 = Lowl::Lib::create_stream(audio_path_1, error);
+    std::shared_ptr<Lowl::AudioData> stream_1 = Lowl::Lib::create_data(audio_path_1, error);
     if (error.has_error()) {
         std::cout << "Err: mix:audio_path_1 -> Lowl::create_stream\n";
         return nullptr;
     }
 
-    std::shared_ptr<Lowl::AudioStream> stream_2 = Lowl::Lib::create_stream(audio_path_2, error);
+    std::shared_ptr<Lowl::AudioData> stream_2 = Lowl::Lib::create_data(audio_path_2, error);
     if (error.has_error()) {
         std::cout << "Err: mix:audio_path_2 -> Lowl::create_stream\n";
         return nullptr;
@@ -56,8 +56,8 @@ std::shared_ptr<Lowl::AudioStream> mix(const std::string &audio_path_1, const st
 
     Lowl::AudioMixer *mixer = new Lowl::AudioMixer(stream_1->get_sample_rate(), stream_1->get_channel());
 
-    mixer->mix_stream(stream_1);
-    mixer->mix_stream(stream_2);
+    mixer->mix_stream(stream_1->to_stream());
+    mixer->mix_stream(stream_2->to_stream());
     mixer->mix_all();
 
 #ifdef LOWL_PROFILING

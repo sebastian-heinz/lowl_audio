@@ -3,9 +3,10 @@
 #include "lowl_audio_format.h"
 
 #define DR_WAV_IMPLEMENTATION
+
 #include <dr_wav.h>
 
-std::unique_ptr<Lowl::AudioStream>
+std::unique_ptr<Lowl::AudioData>
 Lowl::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Error &error) {
 
     drwav wav;
@@ -107,11 +108,11 @@ Lowl::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, E
         return nullptr;
     }
 
-    std::unique_ptr<AudioStream> audio_stream = std::make_unique<AudioStream>(sample_rate, channel);
-    audio_stream->write(audio_frames);
+    std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(audio_frames, sample_rate, channel);
+
 
     drwav_uninit(&wav);
-    return audio_stream;
+    return audio_data;
 }
 
 bool Lowl::AudioReaderWav::support(Lowl::FileFormat p_file_format) const {
