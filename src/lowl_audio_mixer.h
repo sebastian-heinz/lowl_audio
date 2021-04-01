@@ -24,8 +24,6 @@ namespace Lowl {
         std::shared_ptr<AudioStream> out_stream;
         std::unique_ptr<moodycamel::ConcurrentQueue<AudioMixerEvent>> events;
 
-        std::shared_ptr<AudioData> resample(std::shared_ptr<AudioData> p_audio_data);
-
     protected:
         virtual void mix_thread();
 

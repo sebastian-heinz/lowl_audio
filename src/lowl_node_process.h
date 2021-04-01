@@ -4,6 +4,7 @@
 #include "lowl_audio_frame.h"
 
 #include <vector>
+#include <thread>
 
 namespace Lowl {
     class NodeProcess {
