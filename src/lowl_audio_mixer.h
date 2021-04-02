@@ -7,25 +7,19 @@
 
 #include <concurrentqueue.h>
 
-#include <thread>
 #include <vector>
 
 namespace Lowl {
+
     class AudioMixer {
 
-
     private:
-        bool running;
         SampleRate sample_rate;
         Channel channel;
-        std::thread thread;
         std::vector<std::shared_ptr<AudioStream>> streams;
         std::vector<std::shared_ptr<AudioData>> data;
         std::shared_ptr<AudioStream> out_stream;
         std::unique_ptr<moodycamel::ConcurrentQueue<AudioMixerEvent>> events;
-
-    protected:
-        virtual void mix_thread();
 
     public:
         virtual ~AudioMixer();
@@ -34,16 +28,6 @@ namespace Lowl {
          * mixes a single frame from all sources
          */
         virtual bool mix_next_frame();
-
-        /**
-         * starts to continuously mixing all inputs
-         */
-        virtual void start_mix();
-
-        /**
-         * stops all mixing operations instantly and clears all data.
-         */
-        virtual void stop_mix();
 
         /**
          * mixes until all inputs are exhausted

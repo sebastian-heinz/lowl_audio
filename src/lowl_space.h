@@ -33,7 +33,7 @@ namespace Lowl {
         size_t p_memory_mb;
         std::string p_tmp_path;
         std::vector<std::shared_ptr<AudioData>> audio_data_lookup;
-        std::unique_ptr<AudioMixer> mixer;
+        std::shared_ptr<AudioMixer> mixer;
         SpaceId current_id;
         bool is_loaded;
         SampleRate sample_rate;
@@ -54,11 +54,11 @@ namespace Lowl {
 
         void set_channel(Channel p_channel);
 
-        std::shared_ptr<Lowl::AudioStream> get_out_stream();
+        std::shared_ptr<Lowl::AudioMixer> get_mixer();
 
         Space();
 
-        ~Space() = default;
+        ~Space();
     };
 }
 

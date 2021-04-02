@@ -12,47 +12,11 @@ Lowl::AudioMixer::AudioMixer(SampleRate p_sample_rate, Channel p_channel) {
     channel = p_channel;
     streams = std::vector<std::shared_ptr<AudioStream>>();
     data = std::vector<std::shared_ptr<AudioData>>();
-    running = false;
     out_stream = std::make_shared<AudioStream>(sample_rate, channel);
     events = std::make_unique<moodycamel::ConcurrentQueue<AudioMixerEvent>>();
 }
 
 Lowl::AudioMixer::~AudioMixer() {
-    running = false;
-    if (thread.joinable()) {
-        thread.join();
-    }
-    streams.clear();
-    data.clear();
-}
-
-void Lowl::AudioMixer::start_mix() {
-    if (running) {
-        return;
-    }
-    running = true;
-
-#ifdef LOWL_PROFILING
-    mix_frame_count = 0;
-    mix_total_duration = 0;
-    mix_max_duration = 0;
-    mix_min_duration = std::numeric_limits<double>::max();;
-    mix_avg_duration = 0;
-#endif
-
-    // Creates the thread without using 'std::bind'
-    // TODO set thread priority / make it configurable
-    thread = std::thread(&AudioMixer::mix_thread, this);
-}
-
-void Lowl::AudioMixer::stop_mix() {
-    if (!running) {
-        return;
-    }
-    running = false;
-    if (thread.joinable()) {
-        thread.join();
-    }
     streams.clear();
     data.clear();
 }
@@ -76,7 +40,10 @@ bool Lowl::AudioMixer::mix_next_frame() {
             }
             case AudioMixerEvent::MixAudioData: {
                 std::shared_ptr<AudioData> audio_data = std::static_pointer_cast<AudioData>(event.ptr);
-                data.push_back(audio_data);
+                if (!audio_data->is_in_mixer()) {
+                    audio_data->set_in_mixer(true);
+                    data.push_back(audio_data);
+                }
                 break;
             }
         }
@@ -99,6 +66,7 @@ bool Lowl::AudioMixer::mix_next_frame() {
         if (!audio_data->read(frame)) {
             // data empty - data will be removed and need to be added again
             int idx = &audio_data - &data[0];
+            data[idx]->set_in_mixer(false);
             data[idx] = nullptr;
             has_empty_data = true;
             continue;
@@ -141,13 +109,6 @@ bool Lowl::AudioMixer::mix_next_frame() {
     return true;
 }
 
-void Lowl::AudioMixer::mix_thread() {
-    while (running) {
-        mix_next_frame();
-        // TODO perhaps some sleep or a way to signal all inputs are exhausted / and signal for new events available
-    }
-}
-
 void Lowl::AudioMixer::mix_stream(std::shared_ptr<AudioStream> p_audio_stream) {
     AudioMixerEvent event = {};
     event.type = AudioMixerEvent::MixAudioStream;
@@ -179,5 +140,3 @@ void Lowl::AudioMixer::mix_all() {
         // keep mixing
     }
 }
-
-

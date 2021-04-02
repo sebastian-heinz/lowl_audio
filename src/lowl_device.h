@@ -2,6 +2,7 @@
 #define LOWL_DEVICE_H
 
 #include "lowl_audio_stream.h"
+#include "lowl_audio_mixer.h"
 
 namespace Lowl {
 
@@ -12,16 +13,16 @@ namespace Lowl {
 
     protected:
         std::shared_ptr<AudioStream> audio_stream;
+        std::shared_ptr<AudioMixer> audio_mixer;
 
     public:
+        virtual void start_stream(std::shared_ptr<AudioStream> p_audio_stream, Error &error) = 0;
 
-        virtual void start(Error &error) = 0;
+        virtual void start_mixer(std::shared_ptr<AudioMixer> p_audio_mixer, Error &error) = 0;
 
         virtual void stop(Error &error) = 0;
 
         virtual bool is_playing() const;
-
-        virtual void set_stream(std::shared_ptr<AudioStream> p_audio_stream, Error &error);
 
     public:
         std::string get_name() const;

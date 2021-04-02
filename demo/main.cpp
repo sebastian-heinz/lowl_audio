@@ -15,13 +15,7 @@ void play(Lowl::Device *device) {
     }
 
     std::shared_ptr<Lowl::AudioStream> stream = data->to_stream();
-    device->set_stream(stream, error);
-    if (error.has_error()) {
-        std::cout << "Err: device->set_stream\n";
-        return;
-    }
-
-    device->start(error);
+    device->start_stream(stream, error);
     if (error.has_error()) {
         std::cout << "Err: device->start\n";
         return;
@@ -79,13 +73,7 @@ void node(Lowl::Device *device) {
 
 
     // play
-    device->set_stream(out->get_stream(), error);
-    if (error.has_error()) {
-        std::cout << "Err: device->set_stream\n";
-        return;
-    }
-
-    device->start(error);
+    device->start_stream(out->get_stream(), error);
     if (error.has_error()) {
         std::cout << "Err: device->start\n";
         return;
@@ -112,29 +100,22 @@ void mix(Lowl::Device *device) {
         return;
     }
 
-    Lowl::AudioMixer *mixer = new Lowl::AudioMixer(data_1->get_sample_rate(), data_1->get_channel());
+    std::shared_ptr<Lowl::AudioMixer> mixer = std::make_unique<Lowl::AudioMixer>(data_1->get_sample_rate(),
+                                                                                 data_1->get_channel());
 
     mixer->mix_stream(data_1->to_stream());
     mixer->mix_stream(data_2->to_stream());
-    mixer->mix_all();
+    // mixer->mix_all();
 
-#ifdef LOWL_PROFILING
-    std::cout << "LOWL_PROFILING: mix_frame_count:" + std::to_string(mixer->mix_frame_count) + "\n";
-    std::cout << "LOWL_PROFILING: mix_total_duration:" + std::to_string(mixer->mix_total_duration) + "\n";
-    std::cout << "LOWL_PROFILING: mix_avg_duration:" + std::to_string(mixer->mix_avg_duration) + "\n";
-    std::cout << "LOWL_PROFILING: mix_max_duration:" + std::to_string(mixer->mix_max_duration) + "\n";
-    std::cout << "LOWL_PROFILING: mix_min_duration:" + std::to_string(mixer->mix_min_duration) + "\n";
-#endif
+//#ifdef LOWL_PROFILING
+//    std::cout << "LOWL_PROFILING: mix_frame_count:" + std::to_string(mixer->mix_frame_count) + "\n";
+//    std::cout << "LOWL_PROFILING: mix_total_duration:" + std::to_string(mixer->mix_total_duration) + "\n";
+//    std::cout << "LOWL_PROFILING: mix_avg_duration:" + std::to_string(mixer->mix_avg_duration) + "\n";
+//    std::cout << "LOWL_PROFILING: mix_max_duration:" + std::to_string(mixer->mix_max_duration) + "\n";
+//    std::cout << "LOWL_PROFILING: mix_min_duration:" + std::to_string(mixer->mix_min_duration) + "\n";
+//#endif
 
-    std::shared_ptr<Lowl::AudioStream> out_stream = mixer->get_out_stream();
-
-    device->set_stream(out_stream, error);
-    if (error.has_error()) {
-        std::cout << "Err: device->set_stream\n";
-        return;
-    }
-
-    device->start(error);
+    device->start_mixer(mixer, error);
     if (error.has_error()) {
         std::cout << "Err: device->start\n";
         return;
@@ -143,7 +124,7 @@ void mix(Lowl::Device *device) {
     while (device->is_playing()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         std::cout << "==PLAYING==\n";
-        std::cout << "frames remaining: \n" + std::to_string(out_stream->get_num_frame_queued()) + "\n";
+        std::cout << "frames remaining: \n" + std::to_string(mixer->get_out_stream()->get_num_frame_queued()) + "\n";
     }
 }
 
@@ -160,11 +141,8 @@ void space(Lowl::Device *device) {
 
     space->load();
 
-    std::shared_ptr<Lowl::AudioStream> out_stream = space->get_out_stream();
-    device->set_stream(out_stream, error);
-
-
-    device->start(error);
+    std::shared_ptr<Lowl::AudioStream> out_stream = space->get_mixer()->get_out_stream();
+    device->start_mixer(space->get_mixer(), error);
     if (error.has_error()) {
         std::cout << "Err: device->start\n";
         return;
@@ -176,7 +154,12 @@ void space(Lowl::Device *device) {
         std::cout << "Select Sound:\n";
         std::string user_input;
         std::getline(std::cin, user_input);
-        selected_id = std::stoul(user_input);
+        try {
+            selected_id = std::stoul(user_input);
+        } catch (const std::exception &e) {
+            continue;
+        }
+
 
         if (selected_id <= Lowl::Space::InvalidSpaceId) {
             std::cout << "Stop Selecting SpaceId\n";

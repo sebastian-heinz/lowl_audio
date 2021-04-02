@@ -11,6 +11,7 @@
 #include <vector>
 #include <memory>
 
+
 namespace Lowl {
 
     /**
@@ -24,7 +25,20 @@ namespace Lowl {
         Channel channel;
         std::vector<AudioFrame> frames;
         size_t position;
-        std::atomic_flag do_read = ATOMIC_FLAG_INIT;
+        std::atomic_flag is_not_cancel = ATOMIC_FLAG_INIT;
+        std::atomic_flag is_not_reset = ATOMIC_FLAG_INIT;
+        bool in_mixer;
+
+    public:
+        /**
+         * * Do not use this method, intended for mixer only
+         */
+        bool is_in_mixer() const;
+
+        /**
+         * Do not use this method, intended for mixer only
+         */
+        void set_in_mixer(bool p_in_mixer);
 
     public:
         SampleFormat get_sample_format() const;
@@ -40,6 +54,12 @@ namespace Lowl {
          * next read call will start reading data from beginning.
          */
         void cancel_read();
+
+        /**
+         * signals read to reset
+         * next read call will start reading data from beginning.
+         */
+        void reset_read();
 
         /**
          * returns all frames.

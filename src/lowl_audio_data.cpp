@@ -6,8 +6,8 @@ Lowl::AudioData::AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleR
     channel = p_channel;
     frames = std::vector<AudioFrame>(p_audio_frames);
     position = 0;
-    // do_read = ATOMIC_FLAG_INIT;
-    do_read.test_and_set();
+    is_not_cancel.test_and_set();
+    is_not_reset.test_and_set();
 }
 
 Lowl::AudioData::~AudioData() {
@@ -15,7 +15,11 @@ Lowl::AudioData::~AudioData() {
 }
 
 bool Lowl::AudioData::read(Lowl::AudioFrame &audio_frame) {
-    if (!do_read.test_and_set()) {
+    if (!is_not_reset.test_and_set()) {
+        position = 0;
+        return true;
+    }
+    if (!is_not_cancel.test_and_set()) {
         position = 0;
         return false;
     }
@@ -29,7 +33,11 @@ bool Lowl::AudioData::read(Lowl::AudioFrame &audio_frame) {
 }
 
 void Lowl::AudioData::cancel_read() {
-    do_read.clear();
+    is_not_cancel.clear();
+}
+
+void Lowl::AudioData::reset_read() {
+    is_not_reset.clear();
 }
 
 int Lowl::AudioData::get_channel_num() const {
@@ -56,4 +64,12 @@ std::unique_ptr<Lowl::AudioStream> Lowl::AudioData::to_stream() {
     std::unique_ptr<AudioStream> stream = std::make_unique<AudioStream>(sample_rate, channel);
     stream->write(get_frames());
     return stream;
+}
+
+bool Lowl::AudioData::is_in_mixer() const {
+    return in_mixer;
+}
+
+void Lowl::AudioData::set_in_mixer(bool p_in_mixer) {
+    in_mixer = p_in_mixer;
 }

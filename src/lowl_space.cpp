@@ -39,14 +39,21 @@ Lowl::SpaceId Lowl::Space::add_audio(const std::string &p_path, Error &error) {
 }
 
 void Lowl::Space::play(Lowl::SpaceId p_id) {
+    if (p_id >= current_id) {
+        return;
+    }
     std::shared_ptr<AudioData> audio_data = audio_data_lookup[p_id];
     if (!audio_data) {
         return;
     }
+    audio_data->reset_read();
     mixer->mix_data(audio_data);
 }
 
 void Lowl::Space::stop(Lowl::SpaceId p_id) {
+    if (p_id >= current_id) {
+        return;
+    }
     std::shared_ptr<AudioData> audio_data = audio_data_lookup[p_id];
     if (!audio_data) {
         return;
@@ -62,9 +69,11 @@ void Lowl::Space::load() {
             std::shared_ptr<AudioData> audio = audio_data_lookup[i];
             Channel ch = audio->get_channel();
             // todo
-            channel = ch;
+
         }
     }
+
+    channel = Channel::Stereo;
 
     if (sample_rate == 0) {
         std::map<SampleRate, int> sample_rates = std::map<SampleRate, int>();
@@ -103,7 +112,7 @@ void Lowl::Space::load() {
     }
 
     mixer = std::make_unique<AudioMixer>(sample_rate, channel);
-    mixer->start_mix();
+
 
     is_loaded = true;
 }
@@ -116,6 +125,10 @@ void Lowl::Space::set_channel(Lowl::Channel p_channel) {
     channel = p_channel;
 }
 
-std::shared_ptr<Lowl::AudioStream> Lowl::Space::get_out_stream() {
-    return mixer->get_out_stream();
+std::shared_ptr<Lowl::AudioMixer> Lowl::Space::get_mixer() {
+    return mixer;
+}
+
+Lowl::Space::~Space() {
+    mixer->stop_mix();
 }
