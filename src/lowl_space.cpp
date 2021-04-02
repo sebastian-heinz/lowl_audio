@@ -130,5 +130,4 @@ std::shared_ptr<Lowl::AudioMixer> Lowl::Space::get_mixer() {
 }
 
 Lowl::Space::~Space() {
-    mixer->stop_mix();
 }
