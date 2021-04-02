@@ -16,6 +16,8 @@ namespace Lowl {
                 return 1;
             case Channel::Stereo:
                 return 2;
+            default:
+                return 0;
         }
     }
 
