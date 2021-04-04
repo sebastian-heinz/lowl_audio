@@ -20,6 +20,7 @@ namespace Lowl {
     class Lib {
 
     private:
+        static std::atomic_flag initialized;
         static std::vector<Lowl::Driver *> drivers;
 
     public:
