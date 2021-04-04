@@ -5,6 +5,8 @@
 #include "lowl_audio_reader_mp3.h"
 #include "lowl_audio_reader_flac.h"
 
+#include <algorithm>
+
 std::unique_ptr<Lowl::AudioData> Lowl::AudioReader::read_file(const std::string &p_path, Error &error) {
     LowlFile file = LowlFile();
     file.open(p_path, error);
@@ -157,7 +159,7 @@ Lowl::FileFormat Lowl::AudioReader::detect_format(const std::string &p_path, Err
     idx = p_path.rfind('.');
     if (idx != std::string::npos) {
         std::string extension = p_path.substr(idx + 1);
-        std::transform(extension.begin(), extension.end(), extension.begin(), std::tolower);
+        std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
         if (extension == "wav") {
             return FileFormat::WAV;
         } else if (extension == "mp3") {

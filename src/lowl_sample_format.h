@@ -31,6 +31,8 @@ namespace Lowl {
                 return 1;
             case SampleFormat::Unknown:
                 return 0;
+            default:
+                return 0;
         }
     }
 }

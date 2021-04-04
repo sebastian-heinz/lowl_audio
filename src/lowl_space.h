@@ -27,26 +27,26 @@ namespace Lowl {
      */
     class Space {
     public:
-        static const SpaceId InvalidSpaceId = 0;
+        static const Lowl::SpaceId InvalidSpaceId = 0;
 
     private:
         size_t p_memory_mb;
         std::string p_tmp_path;
         std::vector<std::shared_ptr<AudioData>> audio_data_lookup;
         std::shared_ptr<AudioMixer> mixer;
-        SpaceId current_id;
+        Lowl::SpaceId current_id;
         bool is_loaded;
         SampleRate sample_rate;
         Channel channel;
 
     public:
-        void play(SpaceId p_id);
+        void play(Lowl::SpaceId p_id);
 
-        void stop(SpaceId p_id);
+        void stop(Lowl::SpaceId p_id);
 
-        SpaceId add_audio(const std::string &p_path, Error &error);
+        Lowl::SpaceId add_audio(const std::string &p_path, Error &error);
 
-        SpaceId add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error);
+        Lowl::SpaceId add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error);
 
         void load();
 

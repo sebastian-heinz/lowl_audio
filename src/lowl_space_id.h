@@ -4,7 +4,7 @@
 #include <cstdlib>
 
 namespace Lowl {
-    typedef uint16_t SpaceId;
+    typedef u_int16_t SpaceId;
 }
 
 #endif

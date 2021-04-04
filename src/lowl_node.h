@@ -4,6 +4,7 @@
 #include "lowl_audio_frame.h"
 
 #include <vector>
+#include <memory>
 
 namespace Lowl {
     class Node {
