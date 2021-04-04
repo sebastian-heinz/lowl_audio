@@ -1,9 +1,11 @@
 #ifndef LOWL_AUDIO_MIXER_H
 #define LOWL_AUDIO_MIXER_H
 
+#include "lowl_typedef.h"
 #include "lowl_audio_stream.h"
 #include "lowl_audio_data.h"
 #include "lowl_audio_mixer_event.h"
+#include "lowl_audio_source.h"
 
 #include <concurrentqueue.h>
 
@@ -11,28 +13,21 @@
 
 namespace Lowl {
 
-    class AudioMixer {
+    class AudioMixer : public AudioSource {
 
     private:
-        SampleRate sample_rate;
-        Channel channel;
         std::vector<std::shared_ptr<AudioStream>> streams;
         std::vector<std::shared_ptr<AudioData>> data;
-        std::shared_ptr<AudioStream> out_stream;
+        std::vector<std::shared_ptr<AudioMixer>> mixers;
         std::unique_ptr<moodycamel::ConcurrentQueue<AudioMixerEvent>> events;
 
     public:
-        virtual ~AudioMixer();
+        virtual size_l frames_remaining() const override;
 
         /**
          * mixes a single frame from all sources
          */
-        virtual bool mix_next_frame();
-
-        /**
-         * mixes until all inputs are exhausted
-         */
-        virtual void mix_all();
+        virtual bool read(AudioFrame &audio_frame) override;
 
         /**
          * adds a stream to mix
@@ -40,17 +35,18 @@ namespace Lowl {
         virtual void mix_stream(std::shared_ptr<AudioStream> p_audio_stream);
 
         /**
-         * adds a frame to mix
+         * adds a data to mix
          */
         virtual void mix_data(std::shared_ptr<AudioData> p_audio_data);
 
-        SampleRate get_sample_rate() const;
-
-        Channel get_channel() const;
-
-        std::shared_ptr<AudioStream> get_out_stream();
+        /**
+         * adds a mixer to mix
+         */
+        virtual void mix_mixer(std::shared_ptr<AudioMixer> p_audio_mixer);
 
         AudioMixer(SampleRate p_sample_rate, Channel p_channel);
+
+        virtual ~AudioMixer() = default;
 
 #ifdef LOWL_PROFILING
     public:

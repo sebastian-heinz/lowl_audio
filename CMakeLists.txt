@@ -7,6 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(LOWL_SOURCES
         src/lowl.cpp
+        src/lowl_audio_source.cpp
         src/lowl_audio_data.cpp
         src/lowl_audio_mixer.cpp
         src/lowl_audio_reader.cpp
@@ -14,6 +15,7 @@ set(LOWL_SOURCES
         src/lowl_audio_reader_mp3.cpp
         src/lowl_audio_reader_wav.cpp
         src/lowl_audio_stream.cpp
+        src/lowl_audio_util.cpp
         src/lowl_buffer.cpp
         src/lowl_device.cpp
         src/lowl_driver.cpp

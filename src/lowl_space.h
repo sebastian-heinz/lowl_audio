@@ -1,7 +1,7 @@
 #ifndef LOWL_SPACE_H
 #define LOWL_SPACE_H
 
-#include "lowl_space_id.h"
+#include "lowl_typedef.h"
 #include "lowl_audio_data.h"
 #include "lowl_audio_stream.h"
 #include "lowl_audio_mixer.h"
@@ -30,8 +30,6 @@ namespace Lowl {
         static const Lowl::SpaceId InvalidSpaceId = 0;
 
     private:
-        size_t p_memory_mb;
-        std::string p_tmp_path;
         std::vector<std::shared_ptr<AudioData>> audio_data_lookup;
         std::shared_ptr<AudioMixer> mixer;
         Lowl::SpaceId current_id;

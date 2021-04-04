@@ -29,9 +29,7 @@ namespace Lowl {
         PaSampleFormat get_pa_sample_format(SampleFormat sample_format, Error &error);
 
     public:
-        virtual void start_stream(std::shared_ptr<AudioStream> p_audio_stream, Error &error) override;
-
-        virtual void start_mixer(std::shared_ptr<AudioMixer> p_audio_mixer, Error &error) override;
+        virtual void start(std::shared_ptr<AudioSource> p_audio_source, Error &error) override;
 
         virtual void stop(Error &error) override;
 
