@@ -54,7 +54,7 @@ Lowl::AudioReader::read_frames(AudioFormat p_audio_format, SampleFormat p_sample
                     break;
                 }
                 int32_t *int32 = reinterpret_cast<int32_t *>(p_buffer.get());
-                for (int current_sample = 0; current_sample < num_samples; current_sample++) {
+                for (size_t current_sample = 0; current_sample < num_samples; current_sample++) {
                     int32_t sample_32 = int32[current_sample];
                     float sample = sample_converter->to_float(sample_32);
                     samples.push_back(sample);
@@ -66,7 +66,7 @@ Lowl::AudioReader::read_frames(AudioFormat p_audio_format, SampleFormat p_sample
                     break;
                 }
                 int16_t *int16 = reinterpret_cast<int16_t *>(p_buffer.get());
-                for (int current_sample = 0; current_sample < num_samples; current_sample++) {
+                for (size_t current_sample = 0; current_sample < num_samples; current_sample++) {
                     int16_t sample_16 = int16[current_sample];
                     float sample = sample_converter->to_float(sample_16);
                     samples.push_back(sample);
@@ -78,7 +78,7 @@ Lowl::AudioReader::read_frames(AudioFormat p_audio_format, SampleFormat p_sample
                     break;
                 }
                 float *sample_float = reinterpret_cast<float *>(p_buffer.get());
-                for (int current_sample = 0; current_sample < num_samples; current_sample++) {
+                for (size_t current_sample = 0; current_sample < num_samples; current_sample++) {
                     float sample = sample_float[current_sample];
                     samples.push_back(sample);
                 }
