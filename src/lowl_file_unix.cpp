@@ -30,13 +30,13 @@ std::string Lowl::LowlFile::get_path() {
 }
 
 void Lowl::LowlFile::open(const std::string &p_path, Lowl::Error &error) {
-    LowlFileUnix *unix = (LowlFileUnix *) user_data;
+    LowlFileUnix *usr_data = (LowlFileUnix *) user_data;
     path = p_path;
 
-    if (unix->file) {
-        fclose(unix->file);
+    if (usr_data->file) {
+        fclose(usr_data->file);
     }
-    unix->file = nullptr;
+    usr_data->file = nullptr;
 
     struct stat st;
     int err = stat(path.c_str(), &st);
@@ -54,8 +54,8 @@ void Lowl::LowlFile::open(const std::string &p_path, Lowl::Error &error) {
         }
     }
 
-    unix->file = fopen(path.c_str(), "rb");
-    if (unix->file == nullptr) {
+    usr_data->file = fopen(path.c_str(), "rb");
+    if (usr_data->file == nullptr) {
         switch (errno) {
             case ENOENT: {
                 //   last_error = ERR_FILE_NOT_FOUND;
@@ -71,7 +71,7 @@ void Lowl::LowlFile::open(const std::string &p_path, Lowl::Error &error) {
     }
 
     // Set close on exec to avoid leaking it to subprocesses.
-    int fd = fileno(unix->file);
+    int fd = fileno(usr_data->file);
 
     if (fd != -1) {
 #if defined(NO_FCNTL)
@@ -85,34 +85,34 @@ void Lowl::LowlFile::open(const std::string &p_path, Lowl::Error &error) {
 }
 
 void Lowl::LowlFile::close() {
-    LowlFileUnix *unix = (LowlFileUnix *) user_data;
+    LowlFileUnix *usr_data = (LowlFileUnix *) user_data;
 
-    if (!unix->file) {
+    if (!usr_data->file) {
         return;
     }
 
-    fclose(unix->file);
-    unix->file = nullptr;
+    fclose(usr_data->file);
+    usr_data->file = nullptr;
 }
 
 void Lowl::LowlFile::seek(size_t p_position) {
-    LowlFileUnix *unix = (LowlFileUnix *) user_data;
-    if (!unix->file) {
+    LowlFileUnix *usr_data = (LowlFileUnix *) user_data;
+    if (!usr_data->file) {
         return;
     }
 
-    if (fseek(unix->file, p_position, SEEK_SET)) {
+    if (fseek(usr_data->file, p_position, SEEK_SET)) {
 
     }
 }
 
 size_t Lowl::LowlFile::get_position() const {
-    LowlFileUnix *unix = (LowlFileUnix *) user_data;
-    if (!unix->file) {
+    LowlFileUnix *usr_data = (LowlFileUnix *) user_data;
+    if (!usr_data->file) {
         // error
         return 0;
     }
-    long pos = ftell(unix->file);
+    long pos = ftell(usr_data->file);
     if (pos < 0) {
         // error
         return 0;
@@ -121,25 +121,25 @@ size_t Lowl::LowlFile::get_position() const {
 }
 
 size_t Lowl::LowlFile::get_length() const {
-    LowlFileUnix *unix = (LowlFileUnix *) user_data;
-    if (!unix->file) {
+    LowlFileUnix *usr_data = (LowlFileUnix *) user_data;
+    if (!usr_data->file) {
         // error
         return 0;
     }
 
-    long pos = ftell(unix->file);
+    long pos = ftell(usr_data->file);
     if (pos < 0) {
         // error
     }
-    int seek_end = fseek(unix->file, 0, SEEK_END);
+    int seek_end = fseek(usr_data->file, 0, SEEK_END);
     if (!seek_end) {
         // error
     }
-    long size = ftell(unix->file);
+    long size = ftell(usr_data->file);
     if (size < 0) {
         // error
     }
-    int seek_set = fseek(unix->file, pos, SEEK_SET);
+    int seek_set = fseek(usr_data->file, pos, SEEK_SET);
     if (!seek_set) {
         // error
     }
@@ -147,13 +147,13 @@ size_t Lowl::LowlFile::get_length() const {
 }
 
 uint8_t Lowl::LowlFile::read_u8() const {
-    LowlFileUnix *unix = (LowlFileUnix *) user_data;
-    if (!unix->file) {
+    LowlFileUnix *usr_data = (LowlFileUnix *) user_data;
+    if (!usr_data->file) {
         // error
         return 0;
     }
     uint8_t b;
-    if (fread(&b, 1, 1, unix->file) == 0) {
+    if (fread(&b, 1, 1, usr_data->file) == 0) {
         // check_errors();
         b = '\0';
     }
@@ -161,28 +161,28 @@ uint8_t Lowl::LowlFile::read_u8() const {
 }
 
 std::unique_ptr<uint8_t[]> Lowl::LowlFile::read_buffer(size_t &length) const {
-    LowlFileUnix *unix = (LowlFileUnix *) user_data;
-    if (!unix->file) {
+    LowlFileUnix *usr_data = (LowlFileUnix *) user_data;
+    if (!usr_data->file) {
         // error
         return 0;
     }
     std::unique_ptr<uint8_t[]> data = std::make_unique<uint8_t[]>(length);
-    length = fread(data.get(), 1, length, unix->file);
+    length = fread(data.get(), 1, length, usr_data->file);
     return data;
 }
 
 bool Lowl::LowlFile::is_eof() const {
-    LowlFileUnix *unix = (LowlFileUnix *) user_data;
-    if (!unix->file) {
+    LowlFileUnix *usr_data = (LowlFileUnix *) user_data;
+    if (!usr_data->file) {
         return true;
     }
-    return feof(unix->file);
+    return feof(usr_data->file);
 }
 
 Lowl::LowlFile::LowlFile() {
     user_data = new LowlFileUnix;
-    LowlFileUnix *unix = (LowlFileUnix *) user_data;
-    unix->file = nullptr;
+    LowlFileUnix *usr_data = (LowlFileUnix *) user_data;
+    usr_data->file = nullptr;
     path = std::string();
 }
 
