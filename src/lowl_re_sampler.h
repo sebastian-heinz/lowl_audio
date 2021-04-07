@@ -1,11 +1,11 @@
 #ifndef LOWL_RE_SAMPLER_H
 #define LOWL_RE_SAMPLER_H
 
+#include "lowl_typedef.h"
 #include "lowl_sample_format.h"
 #include "lowl_error.h"
 #include "lowl_audio_frame.h"
 #include "lowl_channel.h"
-#include "lowl_sample_rate.h"
 #include "lowl_audio_data.h"
 
 #include <readerwriterqueue.h>

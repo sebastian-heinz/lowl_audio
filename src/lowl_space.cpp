@@ -111,10 +111,8 @@ void Lowl::Space::load() {
         }
     }
 
-    mixer = std::make_unique<AudioMixer>(sample_rate, channel);
+    mixer = std::make_shared<AudioMixer>(sample_rate, channel);
 
-
-    is_loaded = true;
 }
 
 void Lowl::Space::set_sample_rate(Lowl::SampleRate p_sample_rate) {

@@ -12,6 +12,7 @@
 #include "../src/lowl_node_out_stream.h"
 #include "../src/lowl_node_re_sampler.h"
 #include "../src/lowl_space.h"
+#include "../src/lowl_audio_util.h"
 
 #include <vector>
 
@@ -20,6 +21,7 @@ namespace Lowl {
     class Lib {
 
     private:
+        static std::atomic_flag initialized;
         static std::vector<Lowl::Driver *> drivers;
 
     public:

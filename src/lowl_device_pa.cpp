@@ -9,8 +9,8 @@
 #endif
 
 static int audio_callback(const void *p_input_buffer, void *p_output_buffer,
-                           unsigned long p_frames_per_buffer, const PaStreamCallbackTimeInfo *p_time_info,
-                           PaStreamCallbackFlags p_status_flags, void *p_user_data) {
+                          unsigned long p_frames_per_buffer, const PaStreamCallbackTimeInfo *p_time_info,
+                          PaStreamCallbackFlags p_status_flags, void *p_user_data) {
     Lowl::PaDevice *device = (Lowl::PaDevice *) p_user_data;
     return device->callback(p_input_buffer, p_output_buffer,
                             p_frames_per_buffer, p_time_info, p_status_flags
@@ -31,17 +31,12 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
     float *dst = (float *) p_output_buffer;
     unsigned long current_frame = 0;
     for (; current_frame < p_frames_per_buffer; current_frame++) {
-        if (audio_mixer) {
-            if (!audio_mixer->mix_next_frame()) {
-                // todo couldn't mix
-            }
-        }
         AudioFrame frame;
-        if (!audio_stream->read(frame)) {
+        if (!audio_source->read(frame)) {
             // stream empty
             break;
         }
-        for (int current_channel = 0; current_channel < audio_stream->get_channel_num(); current_channel++) {
+        for (int current_channel = 0; current_channel < audio_source->get_channel_num(); current_channel++) {
             *dst++ = frame[current_channel];
         }
     }
@@ -49,7 +44,7 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
     if (current_frame < p_frames_per_buffer) {
         // fill buffer with silence if not enough samples available.
         unsigned long missing_frames = p_frames_per_buffer - current_frame;
-        unsigned long missing_samples = missing_frames * audio_stream->get_channel_num();
+        unsigned long missing_samples = missing_frames * audio_source->get_channel_num();
         unsigned long current_sample = 0;
         for (; current_sample < missing_samples; current_sample++) {
             *dst++ = 0;
@@ -70,7 +65,7 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
     callback_total_duration += duration;
     callback_count++;
     callback_avg_duration = callback_total_duration / callback_count;
-    time_request_ms = (p_frames_per_buffer / audio_stream->get_sample_rate()) * 1000;
+    time_request_ms = (p_frames_per_buffer / audio_source->get_sample_rate()) * 1000;
 #endif
 
     return paContinue;
@@ -141,14 +136,14 @@ void Lowl::PaDevice::open_stream(Error &error) {
     }
     PaTime suggested_latency = device_info->defaultLowOutputLatency;
 
-    PaSampleFormat sample_format = get_pa_sample_format(audio_stream->get_sample_format(), error);
+    PaSampleFormat sample_format = get_pa_sample_format(audio_source->get_sample_format(), error);
     if (error.has_error()) {
         return;
     }
 
     const PaStreamParameters output_parameter = {
             device_index,
-            (int) audio_stream->get_channel(),
+            (int) audio_source->get_channel(),
             sample_format,
             suggested_latency,
             nullptr
@@ -158,10 +153,10 @@ void Lowl::PaDevice::open_stream(Error &error) {
             &stream,
             nullptr, /* no input */
             &output_parameter,
-            audio_stream->get_sample_rate(),
+            audio_source->get_sample_rate(),
             frames_per_buffer,
             stream_flags,
-             &audio_callback,
+            &audio_callback,
             this);
 
     if (pa_error != PaErrorCode::paNoError) {
@@ -179,15 +174,8 @@ void Lowl::PaDevice::close_stream(Error &error) {
     }
 }
 
-void Lowl::PaDevice::start_stream(std::shared_ptr<AudioStream> p_audio_stream, Lowl::Error &error) {
-    audio_mixer = nullptr;
-    audio_stream = p_audio_stream;
-    start(error);
-}
-
-void Lowl::PaDevice::start_mixer(std::shared_ptr<AudioMixer> p_audio_mixer, Lowl::Error &error) {
-    audio_mixer = p_audio_mixer;
-    audio_stream = audio_mixer->get_out_stream();
+void Lowl::PaDevice::start(std::shared_ptr<AudioSource> p_audio_source, Lowl::Error &error) {
+    audio_source = p_audio_source;
     start(error);
 }
 

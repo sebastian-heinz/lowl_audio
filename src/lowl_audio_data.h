@@ -5,8 +5,7 @@
 #include "lowl_error.h"
 #include "lowl_audio_frame.h"
 #include "lowl_channel.h"
-#include "lowl_sample_rate.h"
-#include "lowl_audio_stream.h"
+#include "lowl_audio_source.h"
 
 #include <vector>
 #include <memory>
@@ -18,7 +17,7 @@ namespace Lowl {
      * represents a collection of frames that can be pushed into a stream repeatedly.
      * ex. sound effects, or any sound that should not be drained like a stream.
      */
-    class AudioData {
+    class AudioData : public AudioSource {
 
     private:
         SampleRate sample_rate;
@@ -41,14 +40,6 @@ namespace Lowl {
         void set_in_mixer(bool p_in_mixer);
 
     public:
-        SampleFormat get_sample_format() const;
-
-        SampleRate get_sample_rate() const;
-
-        Channel get_channel() const;
-
-        int get_channel_num() const;
-
         /**
          * signals read to interrupt
          * next read call will start reading data from beginning.
@@ -67,22 +58,19 @@ namespace Lowl {
         std::vector<AudioFrame> get_frames();
 
         /**
-         * returns all frames.
-         */
-        std::unique_ptr<AudioStream> to_stream();
-
-        /**
          * reads a frame
          *
          * if the end is reached:
          *  - false will be returned indicating that the read frame is invalid.
          *  - position will be reset to the beginning, next call to read() will return the first frame again.
          */
-        bool read(AudioFrame &audio_frame);
+        virtual bool read(AudioFrame &audio_frame) override;
+
+        virtual size_l frames_remaining() const override;
 
         AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate, Channel p_channel);
 
-        ~AudioData();
+        virtual ~AudioData() = default;
     };
 }
 

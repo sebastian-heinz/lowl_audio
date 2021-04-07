@@ -12,17 +12,12 @@ namespace Lowl {
         std::string name;
 
     protected:
-        std::shared_ptr<AudioStream> audio_stream;
-        std::shared_ptr<AudioMixer> audio_mixer;
+        std::shared_ptr<AudioSource> audio_source;
 
     public:
-        virtual void start_stream(std::shared_ptr<AudioStream> p_audio_stream, Error &error) = 0;
-
-        virtual void start_mixer(std::shared_ptr<AudioMixer> p_audio_mixer, Error &error) = 0;
+        virtual void start(std::shared_ptr<AudioSource> p_audio_source, Error &error) = 0;
 
         virtual void stop(Error &error) = 0;
-
-        virtual bool is_playing() const;
 
     public:
         std::string get_name() const;

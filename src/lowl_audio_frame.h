@@ -8,6 +8,27 @@ namespace Lowl {
         float left;
         float right;
 
+        // Mono
+        // 0: M: mono
+
+        // Stereo
+        // 0: L: left
+        // 1: R: right
+
+        // Quad
+        // 0: L: left
+        // 1: R: right
+        // 2: SL: surround left
+        // 3: SR: surround right
+
+        // 5.1
+        // 0: L: left
+        // 1: R: right
+        // 2: C: center
+        // 3: LFE: subwoofer
+        // 4: SL: surround left
+        // 5: SR: surround right
+
         _INLINE_ const float &operator[](int idx) const { return idx == 0 ? left : right; }
 
         _INLINE_ float &operator[](int idx) { return idx == 0 ? left : right; }

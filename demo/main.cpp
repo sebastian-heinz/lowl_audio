@@ -14,17 +14,16 @@ void play(Lowl::Device *device) {
         return;
     }
 
-    std::shared_ptr<Lowl::AudioStream> stream = data->to_stream();
-    device->start_stream(stream, error);
+    device->start(data, error);
     if (error.has_error()) {
         std::cout << "Err: device->start\n";
         return;
     }
 
-    while (device->is_playing()) {
+    while (data->frames_remaining() > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         std::cout << "==PLAYING==\n";
-        std::cout << "frames remaining: \n" + std::to_string(stream->get_num_frame_queued()) + "\n";
+        std::cout << "frames remaining: \n" + std::to_string(data->frames_remaining()) + "\n";
 #ifdef LOWL_PROFILING
         // std::cout << "LOWL_PROFILING: produce_count:" + std::to_string(stream->produce_count) + "\n";
         // std::cout << "LOWL_PROFILING: produce_total_duration:" + std::to_string(stream->produce_total_duration) + "\n";
@@ -51,7 +50,8 @@ void node(Lowl::Device *device) {
         std::cout << "Err:  Lowl::create_stream\n";
         return;
     }
-    std::shared_ptr<Lowl::AudioStream> stream = data->to_stream();
+
+    std::shared_ptr<Lowl::AudioStream> stream = Lowl::AudioUtil::to_stream(data);
 
     // create nodes
     std::shared_ptr<Lowl::NodeInStream> in = std::make_shared<Lowl::NodeInStream>(stream);
@@ -73,16 +73,16 @@ void node(Lowl::Device *device) {
 
 
     // play
-    device->start_stream(out->get_stream(), error);
+    device->start(out->get_stream(), error);
     if (error.has_error()) {
         std::cout << "Err: device->start\n";
         return;
     }
 
-    while (device->is_playing()) {
+    while (out->get_stream()->frames_remaining() > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         std::cout << "==PLAYING==\n";
-        std::cout << "frames remaining: \n" + std::to_string(stream->get_num_frame_queued()) + "\n";
+        std::cout << "frames remaining: \n" + std::to_string(out->get_stream()->frames_remaining()) + "\n";
     }
 }
 
@@ -103,8 +103,8 @@ void mix(Lowl::Device *device) {
     std::shared_ptr<Lowl::AudioMixer> mixer = std::make_unique<Lowl::AudioMixer>(data_1->get_sample_rate(),
                                                                                  data_1->get_channel());
 
-    mixer->mix_stream(data_1->to_stream());
-    mixer->mix_stream(data_2->to_stream());
+    mixer->mix_data(data_1);
+    mixer->mix_data(data_2);
     // mixer->mix_all();
 
 //#ifdef LOWL_PROFILING
@@ -115,16 +115,16 @@ void mix(Lowl::Device *device) {
 //    std::cout << "LOWL_PROFILING: mix_min_duration:" + std::to_string(mixer->mix_min_duration) + "\n";
 //#endif
 
-    device->start_mixer(mixer, error);
+    device->start(mixer, error);
     if (error.has_error()) {
         std::cout << "Err: device->start\n";
         return;
     }
 
-    while (device->is_playing()) {
+    while (mixer->frames_remaining() > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         std::cout << "==PLAYING==\n";
-        std::cout << "frames remaining: \n" + std::to_string(mixer->get_out_stream()->get_num_frame_queued()) + "\n";
+        std::cout << "frames remaining: \n" + std::to_string(mixer->frames_remaining()) + "\n";
     }
 }
 
@@ -141,8 +141,7 @@ void space(Lowl::Device *device) {
 
     space->load();
 
-    std::shared_ptr<Lowl::AudioStream> out_stream = space->get_mixer()->get_out_stream();
-    device->start_mixer(space->get_mixer(), error);
+    device->start(space->get_mixer(), error);
     if (error.has_error()) {
         std::cout << "Err: device->start\n";
         return;
@@ -168,7 +167,7 @@ void space(Lowl::Device *device) {
             space->play(selected_id);
         }
 
-        std::cout << "frames remaining: \n" + std::to_string(out_stream->get_num_frame_queued()) + "\n";
+        std::cout << "frames remaining: \n" + std::to_string(space->get_mixer()->frames_remaining()) + "\n";
     }
 
     device->stop(error);

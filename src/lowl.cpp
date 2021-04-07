@@ -19,23 +19,26 @@
 #include <algorithm>
 
 std::vector<Lowl::Driver *> Lowl::Lib::drivers = std::vector<Lowl::Driver *>();
+std::atomic_flag Lowl::Lib::initialized = ATOMIC_FLAG_INIT;
 
 std::vector<Lowl::Driver *> Lowl::Lib::get_drivers(Error &error) {
     return drivers;
 }
 
 void Lowl::Lib::initialize(Error &error) {
+    if (!initialized.test_and_set()) {
 #ifdef LOWL_DRIVER_DUMMY
-    drivers.push_back(new DummyDriver());
+        drivers.push_back(new DummyDriver());
 #endif
 #ifdef LOWL_DRIVER_PORTAUDIO
-    PaError pa_error = Pa_Initialize();
-    if (pa_error != PaErrorCode::paNoError) {
-        error.set_error(ErrorCode::Error);
-        return;
-    }
-    drivers.push_back(new PaDriver());
+        PaError pa_error = Pa_Initialize();
+        if (pa_error != PaErrorCode::paNoError) {
+            error.set_error(ErrorCode::Error);
+            return;
+        }
+        drivers.push_back(new PaDriver());
 #endif
+    }
 }
 
 void Lowl::Lib::terminate(Error &error) {
