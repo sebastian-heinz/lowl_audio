@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <memory>
+#include <atomic>
 
 
 namespace Lowl {
