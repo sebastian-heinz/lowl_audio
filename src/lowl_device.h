@@ -19,7 +19,11 @@ namespace Lowl {
 
         virtual void stop(Error &error) = 0;
 
+		virtual bool is_supported(Lowl::Channel channel, Lowl::SampleRate sample_rate, Lowl::SampleFormat sample_format, Error &error) = 0;
+
     public:
+		bool is_supported(std::shared_ptr<AudioSource> p_audio_source, Error &error);
+
         std::string get_name() const;
 
         void set_name(const std::string &p_name);

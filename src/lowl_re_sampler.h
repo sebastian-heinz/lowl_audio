@@ -40,7 +40,7 @@ namespace Lowl {
 
 
         static std::unique_ptr<Lowl::AudioData>
-        resample(std::shared_ptr<AudioData> p_audio_data, SampleRate p_sample_rate_dst, size_t p_sample_buffer_size);
+        resample(std::shared_ptr<AudioData> p_audio_data, SampleRate p_sample_rate_dst);
 
         bool read(AudioFrame &audio_frame);
 

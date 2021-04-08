@@ -26,12 +26,16 @@ namespace Lowl {
 
         void close_stream(Error &error);
 
+		PaStreamParameters create_output_parameters(Lowl::Channel p_channel, Lowl::SampleFormat p_sample_format, Error &error);
+
         PaSampleFormat get_pa_sample_format(SampleFormat sample_format, Error &error);
 
     public:
         virtual void start(std::shared_ptr<AudioSource> p_audio_source, Error &error) override;
 
         virtual void stop(Error &error) override;
+
+		virtual bool is_supported(Lowl::Channel channel, Lowl::SampleRate sample_rate, Lowl::SampleFormat sample_format, Error &error) override;
 
     public:
         PaStreamCallbackResult callback(const void *p_input_buffer,

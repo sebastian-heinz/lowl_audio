@@ -123,16 +123,20 @@ a list of related information to audio programming
 - [Audio recording bitdepth](https://lists.apple.com/archives/coreaudio-api/2009/Dec/msg00046.html)
 
 ## Flags
-- LOWL_LIBRARY - build as library
 - LOWL_WIN - build for windows
 - LOWL_UNIX - build for unix  
 - LOWL_DRIVER_DUMMY - enable dummy driver
 - LOWL_DRIVER_PORTAUDIO - enable port audio driver
 
+
+## Info
+- Pa+Win: if the sample rate of `AudioSource` that is passed to `LowlDevice` does not match the devices sample rate, it will not open the stream.
+
+
 ## TODO
 - linux testing
 - .ogg format
-- c-api wrapper
+- c-api wrapper / - LOWL_LIBRARY - build as library flag
 - potentially isolate 3rd party in wrapper.
   - ex. LowlQueue -> wraps queue, etc. and provide a way to provide different implementation
   - similar to driver / audio reader abstraction

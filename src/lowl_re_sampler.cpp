@@ -88,8 +88,7 @@ void Lowl::ReSampler::finish() {
 }
 
 std::unique_ptr<Lowl::AudioData>
-Lowl::ReSampler::resample(std::shared_ptr<AudioData> p_audio_data, SampleRate p_sample_rate_dst,
-                          size_t p_sample_buffer_size) {
+Lowl::ReSampler::resample(std::shared_ptr<AudioData> p_audio_data, SampleRate p_sample_rate_dst) {
 
     std::vector<AudioFrame> audio_frames = p_audio_data->get_frames();
     size_t total_frames = audio_frames.size();
@@ -98,7 +97,7 @@ Lowl::ReSampler::resample(std::shared_ptr<AudioData> p_audio_data, SampleRate p_
     size_t expected_frames = total_frames * p_sample_rate_dst / sample_rate_src;
     std::vector<AudioFrame> resamples = std::vector<AudioFrame>(expected_frames);
     std::vector<std::vector<double>> samples = std::vector<std::vector<double>>(
-            num_channel, std::vector<double>(p_sample_buffer_size)
+			num_channel, std::vector<double>(total_frames)
     );
 
     for (int current_channel = 0; current_channel < num_channel; current_channel++) {
@@ -109,7 +108,7 @@ Lowl::ReSampler::resample(std::shared_ptr<AudioData> p_audio_data, SampleRate p_
 
     for (int current_channel = 0; current_channel < num_channel; current_channel++) {
         std::unique_ptr<r8b::CDSPResampler24> re_sampler = std::make_unique<r8b::CDSPResampler24>(
-                p_audio_data->get_sample_rate(), p_sample_rate_dst, p_sample_buffer_size
+				p_audio_data->get_sample_rate(), p_sample_rate_dst, total_frames
         );
         double *sample_in_ptr = samples[current_channel].data();
         double *sample_out_ptr = new double[expected_frames];

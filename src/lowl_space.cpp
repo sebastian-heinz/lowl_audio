@@ -101,7 +101,7 @@ void Lowl::Space::load() {
         std::shared_ptr<AudioData> audio = audio_data_lookup[i];
         SampleRate rate = audio->get_sample_rate();
         if (rate != sample_rate) {
-            std::unique_ptr<AudioData> resampled = ReSampler::resample(audio, sample_rate, 512);
+            std::unique_ptr<AudioData> resampled = ReSampler::resample(audio, sample_rate);
             audio_data_lookup[i] = std::move(resampled);
             audio = audio_data_lookup[i];
         }

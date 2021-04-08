@@ -129,25 +129,11 @@ void Lowl::PaDevice::open_stream(Error &error) {
 
     unsigned long frames_per_buffer = paFramesPerBufferUnspecified;
     PaStreamFlags stream_flags = paNoFlag;
-    const PaDeviceInfo *device_info = Pa_GetDeviceInfo(device_index);
-    if (device_info == nullptr) {
-        error.set_error(ErrorCode::Pa_GetDeviceInfo);
-        return;
-    }
-    PaTime suggested_latency = device_info->defaultLowOutputLatency;
 
-    PaSampleFormat sample_format = get_pa_sample_format(audio_source->get_sample_format(), error);
-    if (error.has_error()) {
-        return;
-    }
-
-    const PaStreamParameters output_parameter = {
-            device_index,
-            (int) audio_source->get_channel(),
-            sample_format,
-            suggested_latency,
-            nullptr
-    };
+    const PaStreamParameters output_parameter = create_output_parameters(audio_source->get_channel(), audio_source->get_sample_format(), error);
+	if (error.has_error()) {
+		return;
+	}
 
     PaError pa_error = Pa_OpenStream(
             &stream,
@@ -172,6 +158,43 @@ void Lowl::PaDevice::close_stream(Error &error) {
         error.set_error(static_cast<ErrorCode>(pa_error));
         return;
     }
+}
+
+bool Lowl::PaDevice::is_supported(Lowl::Channel p_channel, Lowl::SampleRate p_sample_rate, Lowl::SampleFormat p_sample_format, Error &error) {
+	const PaStreamParameters output_parameter = create_output_parameters(p_channel, p_sample_format, error);
+	if (error.has_error()) {
+		return false;
+	}
+
+	PaError pa_error = Pa_IsFormatSupported(nullptr, &output_parameter, p_sample_rate);
+	if (pa_error != PaErrorCode::paNoError) {
+		error.set_error(static_cast<ErrorCode>(pa_error));
+		return false;
+	}
+	return true;
+}
+
+PaStreamParameters Lowl::PaDevice::create_output_parameters(Lowl::Channel p_channel, Lowl::SampleFormat p_sample_format, Error &error) {
+	const PaDeviceInfo *device_info = Pa_GetDeviceInfo(device_index);
+	if (device_info == nullptr) {
+		error.set_error(ErrorCode::Pa_GetDeviceInfo);
+		return PaStreamParameters{};
+	}
+	PaTime suggested_latency = device_info->defaultLowOutputLatency;
+
+	PaSampleFormat sample_format = get_pa_sample_format(p_sample_format, error);
+	if (error.has_error()) {
+		return PaStreamParameters{};
+	}
+
+	const PaStreamParameters output_parameter = {
+		device_index,
+		(int)p_channel,
+		sample_format,
+		suggested_latency,
+		nullptr
+	};
+	return output_parameter;
 }
 
 void Lowl::PaDevice::start(std::shared_ptr<AudioSource> p_audio_source, Lowl::Error &error) {
