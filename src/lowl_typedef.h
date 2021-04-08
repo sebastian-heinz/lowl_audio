@@ -1,7 +1,7 @@
 #ifndef LOWL_TYPEDEF_H
 #define LOWL_TYPEDEF_H
 
-#include <cstdlib>
+#include <cstdint>
 
 // Should always inline no matter what.
 #ifndef _INLINE_
@@ -16,12 +16,12 @@
 
 namespace Lowl {
 
-    typedef u_int16_t SpaceId;
+    typedef uint16_t SpaceId;
     typedef double SampleRate;
 
-    typedef u_int16_t uint16_l;
-    typedef u_int32_t uint32_l;
-    typedef size_t size_l;
+    typedef uint16_t uint16_l;
+	typedef uint32_t uint32_l;
+	typedef size_t size_l;
 
 }
 #endif //LOWL_TYPEDEF_H
