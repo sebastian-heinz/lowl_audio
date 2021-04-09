@@ -1,5 +1,5 @@
-#ifndef LOWL_PA_DRIVER_H
-#define LOWL_PA_DRIVER_H
+#ifndef LOWL_DRIVER_PA_H
+#define LOWL_DRIVER_PA_H
 
 #ifdef LOWL_DRIVER_PORTAUDIO
 

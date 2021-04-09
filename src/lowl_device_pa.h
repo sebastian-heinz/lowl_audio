@@ -1,5 +1,5 @@
-#ifndef LOWL_PA_DEVICE_H
-#define LOWL_PA_DEVICE_H
+#ifndef LOWL_DEVICE_PA_H
+#define LOWL_DEVICE_PA_H
 
 #ifdef LOWL_DRIVER_PORTAUDIO
 
@@ -36,6 +36,8 @@ namespace Lowl {
         virtual void stop(Error &error) override;
 
 		virtual bool is_supported(Lowl::Channel channel, Lowl::SampleRate sample_rate, Lowl::SampleFormat sample_format, Error &error) override;
+
+        virtual Lowl::SampleRate get_default_sample_rate() override;
 
     public:
         PaStreamCallbackResult callback(const void *p_input_buffer,
