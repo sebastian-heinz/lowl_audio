@@ -18,6 +18,7 @@ set(LOWL_SOURCES
         src/lowl_audio_util.cpp
         src/lowl_buffer.cpp
         src/lowl_device.cpp
+        src/lowl_channel_converter.cpp
         src/lowl_driver.cpp
         src/lowl_driver_dummy.cpp
         src/lowl_device_pa.cpp

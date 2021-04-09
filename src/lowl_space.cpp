@@ -2,6 +2,7 @@
 
 #include "lowl_audio_reader.h"
 #include "lowl_re_sampler.h"
+#include "lowl_channel_converter.h"
 
 #include <map>
 
@@ -64,16 +65,26 @@ void Lowl::Space::stop(Lowl::SpaceId p_id) {
 void Lowl::Space::load() {
 
     if (channel == Channel::None) {
-        // todo detect channel
+        std::map<Channel, int> channels = std::map<Channel, int>();
         for (SpaceId i = 1; i < audio_data_lookup.size(); i++) {
             std::shared_ptr<AudioData> audio = audio_data_lookup[i];
             Channel ch = audio->get_channel();
-            // todo
-
+            std::map<Channel, int>::iterator it = channels.find(ch);
+            if (it == channels.end()) {
+                channels.insert(std::make_pair(ch, 1));
+            } else {
+                it->second++;
+            }
         }
+        std::map<Channel, int>::iterator most_frequent = std::max_element(
+                channels.begin(),
+                channels.end(),
+                [](const std::pair<Channel, int> &a, const std::pair<Channel, int> &b) -> bool {
+                    return a.second < b.second;
+                }
+        );
+        channel = most_frequent->first;
     }
-
-    channel = Channel::Stereo;
 
     if (sample_rate == 0) {
         std::map<SampleRate, int> sample_rates = std::map<SampleRate, int>();
@@ -97,6 +108,7 @@ void Lowl::Space::load() {
         sample_rate = most_frequent->first;
     }
 
+    ChannelConverter channel_converter;
     for (SpaceId i = 1; i < audio_data_lookup.size(); i++) {
         std::shared_ptr<AudioData> audio = audio_data_lookup[i];
         SampleRate rate = audio->get_sample_rate();
@@ -107,12 +119,19 @@ void Lowl::Space::load() {
         }
         Channel ch = audio->get_channel();
         if (ch != channel) {
-            // todo ...
+            Error error;
+            std::unique_ptr<AudioData> converted = channel_converter.convert(ch, audio, error);
+            if (error.has_error()) {
+                // TODO warning / error ?
+                audio_data_lookup[i] = nullptr;
+                continue;
+            }
+            audio_data_lookup[i] = std::move(converted);
+            audio = audio_data_lookup[i];
         }
     }
 
     mixer = std::make_shared<AudioMixer>(sample_rate, channel);
-
 }
 
 void Lowl::Space::set_sample_rate(Lowl::SampleRate p_sample_rate) {
