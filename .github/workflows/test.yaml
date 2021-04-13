@@ -2,8 +2,9 @@ name: CMake Build Matrix
 
 on: 
   push:
+    branches: [ master ]
   pull_request:
-  release:
+    branches: [ master ]
 
 jobs:
   build:
@@ -103,7 +104,7 @@ jobs:
           cmake --version
           gcc --version
 
-      - name: Install dependencies on ubuntu9
+      - name: Install dependencies on ubuntu-gcc9
         if: startsWith(matrix.config.name, 'Ubuntu_GCC_9')
         run: |
           echo Update gcc-9 =======================================================================
