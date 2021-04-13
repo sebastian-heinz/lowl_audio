@@ -2,6 +2,10 @@
 
 #include "lowl_file.h"
 
+#ifdef __MINGW32__
+#include <sys/stat.h>
+#endif
+
 struct LowlFileWin {
 	FILE* file;
 };
@@ -160,7 +164,8 @@ Lowl::LowlFile::LowlFile()
 
 Lowl::LowlFile::~LowlFile()
 {
-	delete user_data;
+    LowlFileWin* win = (LowlFileWin*)user_data;
+	delete win;
 }
 
 #endif
