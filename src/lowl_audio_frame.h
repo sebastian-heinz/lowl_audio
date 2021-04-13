@@ -5,6 +5,8 @@
 
 namespace Lowl {
     struct AudioFrame {
+        static constexpr unsigned int MAX_CHANNEL = 2;
+
         float left;
         float right;
 

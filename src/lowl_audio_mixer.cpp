@@ -157,3 +157,23 @@ Lowl::size_l Lowl::AudioMixer::frames_remaining() const {
     }
     return remaining;
 }
+
+void Lowl::AudioMixer::mix(std::shared_ptr<AudioSource> p_audio_source) {
+    std::shared_ptr<AudioMixer> mixer = std::dynamic_pointer_cast<AudioMixer>(p_audio_source);
+    if (mixer) {
+        mix_mixer(mixer);
+        return;
+    }
+
+    std::shared_ptr<AudioData> audio_data = std::dynamic_pointer_cast<AudioData>(p_audio_source);
+    if (audio_data) {
+        mix_data(audio_data);
+        return;
+    }
+
+    std::shared_ptr<AudioStream> stream = std::dynamic_pointer_cast<AudioStream>(p_audio_source);
+    if (mixer) {
+        mix_stream(stream);
+        return;
+    }
+}
