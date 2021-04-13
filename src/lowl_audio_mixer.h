@@ -40,6 +40,11 @@ namespace Lowl {
         virtual void mix_data(std::shared_ptr<AudioData> p_audio_data);
 
         /**
+         * adds a audio source to mix
+         */
+        virtual void mix(std::shared_ptr<AudioSource> p_audio_source);
+
+        /**
          * adds a mixer to mix
          */
         virtual void mix_mixer(std::shared_ptr<AudioMixer> p_audio_mixer);
@@ -49,12 +54,12 @@ namespace Lowl {
         virtual ~AudioMixer() = default;
 
 #ifdef LOWL_PROFILING
-    public:
-        uint64_t mix_frame_count;
-        double mix_total_duration;
-        double mix_max_duration;
-        double mix_min_duration;
-        double mix_avg_duration;
+        public:
+            uint64_t mix_frame_count;
+            double mix_total_duration;
+            double mix_max_duration;
+            double mix_min_duration;
+            double mix_avg_duration;
 #endif
     };
 }

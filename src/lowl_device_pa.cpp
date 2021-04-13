@@ -42,9 +42,13 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
     }
 
     if (current_frame < p_frames_per_buffer) {
+
         // fill buffer with silence if not enough samples available.
         unsigned long missing_frames = p_frames_per_buffer - current_frame;
         unsigned long missing_samples = missing_frames * audio_source->get_channel_num();
+
+        // TODO check if this is correct
+        //memset(&dst[0], 0, missing_samples);
         unsigned long current_sample = 0;
         for (; current_sample < missing_samples; current_sample++) {
             *dst++ = 0;
@@ -232,6 +236,8 @@ void Lowl::PaDevice::set_device_index(PaDeviceIndex p_device_index) {
 }
 
 Lowl::PaDevice::PaDevice() {
+    active = false;
+    stream = nullptr;
 #ifdef LOWL_PROFILING
     callback_count = 0;
     callback_total_duration = 0;
@@ -246,6 +252,7 @@ Lowl::PaDevice::~PaDevice() {
     PaError pa_error = Pa_CloseStream(stream);
     if (pa_error != PaErrorCode::paNoError) {
     }
+    device_index = paNoDevice;
     active = false;
     stream = nullptr;
 }
