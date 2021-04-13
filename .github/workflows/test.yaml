@@ -139,7 +139,7 @@ jobs:
           echo cmake version after
           cmake --version
           
- - name: Install dependencies on ubuntu-gcc10
+      - name: Install dependencies on ubuntu-gcc10
         if: startsWith(matrix.config.name, 'Ubuntu_GCC_10')
         run: |
           echo Update gcc-9 =======================================================================
