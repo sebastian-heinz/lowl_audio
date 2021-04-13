@@ -38,6 +38,14 @@ std::vector<Lowl::AudioFrame> Lowl::AudioData::get_frames() {
     return std::vector<AudioFrame>(frames);
 }
 
+Lowl::AudioData Lowl::AudioData::create_keysound(double begin_sec, double end_sec) {
+    double first_frame = begin_sec * sample_rate;
+    double last_frame = end_sec * sample_rate;
+    std::vector<AudioFrame> subvector = vector(frames.begin() + first_frame, frames.begin() + last_frame);
+    std::unique_ptr<AudioData> keysound = AudioData(subvector, sample_rate, channel);
+    return keysound;
+}
+
 bool Lowl::AudioData::is_in_mixer() const {
     return in_mixer;
 }
