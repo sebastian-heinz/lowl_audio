@@ -68,6 +68,7 @@ target_link_libraries(${PROJECT_NAME} portaudio_static)
 target_include_directories(${PROJECT_NAME} PRIVATE third_party/dr_libs)
 
 # r8brain-free-src
+add_compile_definitions(_USE_MATH_DEFINES)
 target_include_directories(${PROJECT_NAME} PUBLIC third_party/r8brain-free-src)
 target_sources(${PROJECT_NAME}
         PRIVATE
