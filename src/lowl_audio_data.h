@@ -61,7 +61,7 @@ namespace Lowl {
         /**
          * returns a new AudioData created from a slice of its frames.
          */
-        Lowl::AudioData create_slice(double begin_sec, double end_sec);
+        std::shared_ptr<AudioData> create_slice(double begin_sec, double end_sec);
 
         /**
          * reads a frame
