@@ -21,8 +21,6 @@ namespace Lowl {
     class AudioData : public AudioSource {
 
     private:
-        SampleRate sample_rate;
-        Channel channel;
         std::vector<AudioFrame> frames;
         size_t position;
         std::atomic_flag is_not_cancel = ATOMIC_FLAG_INIT;
