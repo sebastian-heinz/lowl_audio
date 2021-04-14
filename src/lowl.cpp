@@ -33,7 +33,7 @@ void Lowl::Lib::initialize(Error &error) {
 #ifdef LOWL_DRIVER_PORTAUDIO
         PaError pa_error = Pa_Initialize();
         if (pa_error != PaErrorCode::paNoError) {
-            error.set_error(ErrorCode::Error);
+            error.set_error(Lowl::ErrorCode::Error);
             return;
         }
         drivers.push_back(new PaDriver());
@@ -45,25 +45,25 @@ void Lowl::Lib::terminate(Error &error) {
 #ifdef LOWL_DRIVER_PORTAUDIO
     PaError pa_error = Pa_Terminate();
     if (pa_error != PaErrorCode::paNoError) {
-        error.set_error(ErrorCode::Error);
+        error.set_error(Lowl::ErrorCode::Error);
         return;
     }
 #endif
 }
 
 std::unique_ptr<Lowl::AudioReader> Lowl::Lib::create_reader(Lowl::FileFormat p_format, Lowl::Error &error) {
-    return AudioReader::create_reader(p_format, error);
+    return Lowl::AudioReader::create_reader(p_format, error);
 }
 
 Lowl::FileFormat Lowl::Lib::detect_format(const std::string &p_path, Lowl::Error &error) {
-    return AudioReader::detect_format(p_path, error);
+    return Lowl::AudioReader::detect_format(p_path, error);
 }
 
 std::unique_ptr<Lowl::AudioData>
-Lowl::Lib::create_data(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, FileFormat p_format, Error &error) {
-    return AudioReader::create_data(std::move(p_buffer), p_size, p_format, error);
+Lowl::Lib::create_data(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, FileFormat p_format, Lowl::Error &error) {
+    return Lowl::AudioReader::create_data(std::move(p_buffer), p_size, p_format, error);
 }
 
-std::unique_ptr<Lowl::AudioData> Lowl::Lib::create_data(const std::string &p_path, Error &error) {
+std::unique_ptr<Lowl::AudioData> Lowl::Lib::create_data(const std::string &p_path, Lowl::Error &error) {
     return Lowl::AudioReader::create_data(p_path, error);
 }
