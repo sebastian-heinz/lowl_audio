@@ -7,49 +7,49 @@
 
 #include <algorithm>
 
-std::unique_ptr<Lowl::AudioData> Lowl::AudioReader::read_file(const std::string &p_path, Error &error) {
-    LowlFile file = LowlFile();
+std::unique_ptr<Lowl::AudioData> Lowl::AudioReader::read_file(const std::string &p_path, Lowl::Error &error) {
+    Lowl::LowlFile file = Lowl::LowlFile();
     file.open(p_path, error);
     if (error.has_error()) {
         return nullptr;
     }
     size_t length = file.get_length();
     std::unique_ptr<uint8_t[]> buffer = file.read_buffer(length);
-    std::unique_ptr<AudioData> audio_data = read(std::move(buffer), length, error);
+    std::unique_ptr<Lowl::AudioData> audio_data = read(std::move(buffer), length, error);
     if (error.has_error()) {
         return nullptr;
     }
     if (!audio_data) {
-        error.set_error(ErrorCode::Error);
+        error.set_error(Lowl::ErrorCode::Error);
         return nullptr;
     }
     return audio_data;
 }
 
-void Lowl::AudioReader::set_sample_converter(std::unique_ptr<SampleConverter> p_sample_converter) {
+void Lowl::AudioReader::set_sample_converter(std::unique_ptr<Lowl::SampleConverter> p_sample_converter) {
     sample_converter = std::move(p_sample_converter);
 }
 
 Lowl::AudioReader::AudioReader() {
-    sample_converter = std::make_unique<SampleConverter>();
+    sample_converter = std::make_unique<Lowl::SampleConverter>();
 }
 
 std::vector<Lowl::AudioFrame>
-Lowl::AudioReader::read_frames(AudioFormat p_audio_format, SampleFormat p_sample_format, Channel p_channel,
-                               const std::unique_ptr<uint8_t[]> &p_buffer, size_t p_size, Error &error) {
+Lowl::AudioReader::read_frames(Lowl::AudioFormat p_audio_format, Lowl::SampleFormat p_sample_format, Lowl::Channel p_channel,
+                               const std::unique_ptr<uint8_t[]> &p_buffer, size_t p_size, Lowl::Error &error) {
 
     size_t sample_size = get_sample_size(p_sample_format);
     size_t num_samples = p_size / sample_size;
     std::vector<float> samples = std::vector<float>();
 
-    if (p_audio_format == AudioFormat::WAVE_FORMAT_PCM
-        || p_audio_format == AudioFormat::WAVE_FORMAT_IEEE_FLOAT
-        || p_audio_format == AudioFormat::MP3
-        || p_audio_format == AudioFormat::FLAC
+    if (p_audio_format == Lowl::AudioFormat::WAVE_FORMAT_PCM
+        || p_audio_format == Lowl::AudioFormat::WAVE_FORMAT_IEEE_FLOAT
+        || p_audio_format == Lowl::AudioFormat::MP3
+        || p_audio_format == Lowl::AudioFormat::FLAC
             ) {
         // formats can be just read based on sample format, no special handling required
         switch (p_sample_format) {
-            case SampleFormat::INT_32: {
+            case Lowl::SampleFormat::INT_32: {
                 if (p_size < sizeof(int32_t)) {
                     break;
                 }
@@ -61,7 +61,7 @@ Lowl::AudioReader::read_frames(AudioFormat p_audio_format, SampleFormat p_sample
                 }
                 break;
             }
-            case SampleFormat::INT_16: {
+            case Lowl::SampleFormat::INT_16: {
                 if (p_size < sizeof(int16_t)) {
                     break;
                 }
@@ -73,7 +73,7 @@ Lowl::AudioReader::read_frames(AudioFormat p_audio_format, SampleFormat p_sample
                 }
                 break;
             }
-            case SampleFormat::FLOAT_32: {
+            case Lowl::SampleFormat::FLOAT_32: {
                 if (p_size < sizeof(float)) {
                     break;
                 }
@@ -93,7 +93,7 @@ Lowl::AudioReader::read_frames(AudioFormat p_audio_format, SampleFormat p_sample
         // audio format not supported
     }
 
-    std::vector<AudioFrame> frames = std::vector<AudioFrame>();
+    std::vector<Lowl::AudioFrame> frames = std::vector<Lowl::AudioFrame>();
 
     if (samples.empty()) {
         // no data
@@ -101,7 +101,7 @@ Lowl::AudioReader::read_frames(AudioFormat p_audio_format, SampleFormat p_sample
     }
 
     switch (p_channel) {
-        case Channel::Mono: {
+        case Lowl::Channel::Mono: {
             for (float sample : samples) {
                 AudioFrame frame{};
                 frame.left = sample;
@@ -110,7 +110,7 @@ Lowl::AudioReader::read_frames(AudioFormat p_audio_format, SampleFormat p_sample
             }
             break;
         }
-        case Channel::Stereo: {
+        case Lowl::Channel::Stereo: {
             size_t num_channels = get_channel_num(p_channel);
             size_t num_frames = num_samples / num_channels;
             for (size_t current_frame = 0; current_frame < num_frames; current_frame++) {
@@ -131,44 +131,45 @@ Lowl::AudioReader::read_frames(AudioFormat p_audio_format, SampleFormat p_sample
     return frames;
 }
 
-std::unique_ptr<Lowl::AudioReader> Lowl::AudioReader::create_reader(FileFormat format, Error &error) {
+std::unique_ptr<Lowl::AudioReader> Lowl::AudioReader::create_reader(Lowl::FileFormat format, Lowl::Error &error) {
     std::unique_ptr<AudioReader> reader = std::unique_ptr<AudioReader>();
     switch (format) {
-        case FileFormat::UNKNOWN: {
-            error.set_error(ErrorCode::Error);
+        case Lowl::FileFormat::UNKNOWN: {
+            error.set_error(Lowl::ErrorCode::Error);
             break;
         }
-        case FileFormat::WAV: {
-            reader = std::make_unique<AudioReaderWav>();
+        case Lowl::FileFormat::WAV: {
+            reader = std::make_unique<Lowl::AudioReaderWav>();
             break;
         }
-        case FileFormat::MP3: {
-            reader = std::make_unique<AudioReaderMp3>();
+        case Lowl::FileFormat::MP3: {
+            reader = std::make_unique<Lowl::AudioReaderMp3>();
             break;
         }
-        case FileFormat::FLAC: {
-            reader = std::make_unique<AudioReaderFlac>();
+        case Lowl::FileFormat::FLAC: {
+            reader = std::make_unique<Lowl::AudioReaderFlac>();
             break;
         }
     }
     return reader;
 }
 
-Lowl::FileFormat Lowl::AudioReader::detect_format(const std::string &p_path, Error &error) {
+Lowl::FileFormat Lowl::AudioReader::detect_format(const std::string &p_path, Lowl::Error &error) {
     std::string::size_type idx;
     idx = p_path.rfind('.');
     if (idx != std::string::npos) {
         std::string extension = p_path.substr(idx + 1);
         std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
         if (extension == "wav") {
-            return FileFormat::WAV;
+            return Lowl::FileFormat::WAV;
         } else if (extension == "mp3") {
-            return FileFormat::MP3;
+            return Lowl::FileFormat::MP3;
         } else if (extension == "flac") {
-            return FileFormat::FLAC;
+            return Lowl::FileFormat::FLAC;
         }
     }
-    return FileFormat::UNKNOWN;
+    error.set_error(Lowl::ErrorCode::Error);
+    return Lowl::FileFormat::UNKNOWN;
 }
 
 std::unique_ptr<Lowl::AudioData> Lowl::AudioReader::create_data(const std::string &p_path, Lowl::Error &error) {
@@ -176,24 +177,20 @@ std::unique_ptr<Lowl::AudioData> Lowl::AudioReader::create_data(const std::strin
     if (error.has_error()) {
         return nullptr;
     }
-    if (format == FileFormat::UNKNOWN) {
-        error.set_error(ErrorCode::Error);
-        return nullptr;
-    }
-    std::unique_ptr<AudioReader> reader = create_reader(format, error);
+    std::unique_ptr<Lowl::AudioReader> reader = create_reader(format, error);
     if (error.has_error()) {
         return nullptr;
     }
     if (!reader) {
-        error.set_error(ErrorCode::Error);
+        error.set_error(Lowl::ErrorCode::Error);
         return nullptr;
     }
-    std::unique_ptr<AudioData> audio_data = reader->read_file(p_path, error);
+    std::unique_ptr<Lowl::AudioData> audio_data = reader->read_file(p_path, error);
     if (error.has_error()) {
         return nullptr;
     }
     if (!audio_data) {
-        error.set_error(ErrorCode::Error);
+        error.set_error(Lowl::ErrorCode::Error);
         return nullptr;
     }
     return audio_data;
@@ -202,15 +199,15 @@ std::unique_ptr<Lowl::AudioData> Lowl::AudioReader::create_data(const std::strin
 std::unique_ptr<Lowl::AudioData>
 Lowl::AudioReader::create_data(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Lowl::FileFormat p_format,
                                Lowl::Error &error) {
-    std::unique_ptr<AudioReader> reader = create_reader(p_format, error);
+    std::unique_ptr<Lowl::AudioReader> reader = create_reader(p_format, error);
     if (error.has_error()) {
         return nullptr;
     }
     if (!reader) {
-        error.set_error(ErrorCode::Error);
+        error.set_error(Lowl::ErrorCode::Error);
         return nullptr;
     }
-    std::unique_ptr<AudioData> audio_data = reader->read(std::move(p_buffer), p_size, error);
+    std::unique_ptr<Lowl::AudioData> audio_data = reader->read(std::move(p_buffer), p_size, error);
     if (error.has_error()) {
         return nullptr;
     }
