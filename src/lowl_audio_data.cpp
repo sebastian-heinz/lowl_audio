@@ -38,6 +38,13 @@ std::vector<Lowl::AudioFrame> Lowl::AudioData::get_frames() {
     return std::vector<AudioFrame>(frames);
 }
 
+std::shared_ptr<Lowl::AudioData> Lowl::AudioData::create_slice(double begin_sec, double end_sec) {
+    double first_frame = begin_sec * sample_rate;
+    double last_frame = end_sec * sample_rate;
+    std::vector<AudioFrame> subvector = std::vector<AudioFrame>(frames.begin() + first_frame, frames.begin() + last_frame);
+    return std::make_shared<Lowl::AudioData>(subvector, sample_rate, channel);
+}
+
 bool Lowl::AudioData::is_in_mixer() const {
     return in_mixer;
 }

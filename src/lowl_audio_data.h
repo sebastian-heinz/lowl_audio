@@ -21,8 +21,6 @@ namespace Lowl {
     class AudioData : public AudioSource {
 
     private:
-        SampleRate sample_rate;
-        Channel channel;
         std::vector<AudioFrame> frames;
         size_t position;
         std::atomic_flag is_not_cancel = ATOMIC_FLAG_INIT;
@@ -57,6 +55,11 @@ namespace Lowl {
          * returns all frames.
          */
         std::vector<AudioFrame> get_frames();
+
+        /**
+         * returns a new AudioData created from a slice of its frames.
+         */
+        std::shared_ptr<AudioData> create_slice(double begin_sec, double end_sec);
 
         /**
          * reads a frame
