@@ -2,8 +2,6 @@
 
 Lowl::AudioData::AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate, Channel p_channel)
         : AudioSource(p_sample_rate, p_channel) {
-    sample_rate = p_sample_rate;
-    channel = p_channel;
     frames = std::vector<AudioFrame>(p_audio_frames);
     position = 0;
     is_not_cancel.test_and_set();
