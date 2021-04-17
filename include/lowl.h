@@ -22,10 +22,10 @@ namespace Lowl {
 
     private:
         static std::atomic_flag initialized;
-        static std::vector<Lowl::Driver *> drivers;
+        static std::vector<std::shared_ptr<Lowl::Driver>> drivers;
 
     public:
-        static std::vector<Driver *> get_drivers(Error &error);
+        static std::vector<std::shared_ptr<Lowl::Driver>> get_drivers(Error &error);
 
         static void initialize(Error &error);
 
@@ -39,6 +39,8 @@ namespace Lowl {
         static std::unique_ptr<AudioReader> create_reader(FileFormat p_format, Error &error);
 
         static FileFormat detect_format(const std::string &p_path, Error &error);
+
+        static std::shared_ptr<Device> get_default_device(Error &error);
     };
 }
 #endif /* LOWL_H */

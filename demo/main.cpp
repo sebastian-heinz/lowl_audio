@@ -6,7 +6,7 @@
 #include <chrono>
 
 
-void play(Lowl::Device *device) {
+void play(std::shared_ptr<Lowl::Device> device) {
     Lowl::Error error;
     std::shared_ptr<Lowl::AudioData> data = Lowl::Lib::create_data("audio_path", error);
     if (error.has_error()) {
@@ -42,7 +42,7 @@ void play(Lowl::Device *device) {
     }
 }
 
-void node(Lowl::Device *device) {
+void node(std::shared_ptr<Lowl::Device> device) {
     // create stream
     Lowl::Error error;
     std::shared_ptr<Lowl::AudioData> data = Lowl::Lib::create_data("audio_path", error);
@@ -86,7 +86,7 @@ void node(Lowl::Device *device) {
     }
 }
 
-void mix(Lowl::Device *device) {
+void mix(std::shared_ptr<Lowl::Device> device) {
     Lowl::Error error;
     std::shared_ptr<Lowl::AudioData> data_1 = Lowl::Lib::create_data("audio_path_1", error);
     if (error.has_error()) {
@@ -131,7 +131,7 @@ void mix(Lowl::Device *device) {
 /**
  * example on how to use space
  */
-void space(Lowl::Device *device) {
+void space(std::shared_ptr<Lowl::Device> device) {
 
     std::shared_ptr<Lowl::Space> space = std::make_shared<Lowl::Space>();
     Lowl::Error error;
@@ -180,7 +180,7 @@ void space(Lowl::Device *device) {
 /**
  * different examples to run
  */
-void run(Lowl::Device *device) {
+void run(std::shared_ptr<Lowl::Device> device) {
     // play(device);
     space(device);
     // mix(device);
@@ -198,23 +198,24 @@ int main() {
         return -1;
     }
 
-    std::vector<Lowl::Driver *> drivers = Lowl::Lib::get_drivers(error);
+    std::vector<std::shared_ptr<Lowl::Driver>> drivers = Lowl::Lib::get_drivers(error);
     if (error.has_error()) {
         std::cout << "Err: Lowl::get_drivers\n";
         return -1;
     }
 
-    std::vector<Lowl::Device *> all_devices = std::vector<Lowl::Device *>();
+    std::vector<std::shared_ptr<Lowl::Device>> all_devices = std::vector<std::shared_ptr<Lowl::Device>>();
     int current_device_index = 0;
-    for (Lowl::Driver *driver : drivers) {
+    for (std::shared_ptr<Lowl::Driver> driver : drivers) {
         std::cout << "Driver: " + driver->get_name() + "\n";
         driver->initialize(error);
         if (error.has_error()) {
             std::cout << "Err: driver->initialize (" + driver->get_name() + ")\n";
             error = Lowl::Error();
         }
-        std::vector<Lowl::Device *> devices = driver->get_devices();
-        for (Lowl::Device *device : devices) {
+
+        std::vector<std::shared_ptr<Lowl::Device>> devices = driver->get_devices();
+        for (std::shared_ptr<Lowl::Device> device : devices) {
             std::cout << "Device[" + std::to_string(current_device_index++) + "]: " + device->get_name() + "\n";
             all_devices.push_back(device);
         }
@@ -228,7 +229,7 @@ int main() {
         selected_index = std::stoi(user_input);
     }
 
-    Lowl::Device *device = all_devices[selected_index];
+    std::shared_ptr<Lowl::Device> device = all_devices[selected_index];
     run(device);
 
     device->stop(error);

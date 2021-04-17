@@ -6,4 +6,8 @@ Lowl::DummyDriver::DummyDriver() {
     name = std::string("DummyDriver");
 }
 
+void Lowl::DummyDriver::initialize(Lowl::Error &error) {
+
+}
+
 #endif
