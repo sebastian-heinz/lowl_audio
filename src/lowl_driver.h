@@ -14,7 +14,7 @@ namespace Lowl {
     public:
         virtual void initialize(Error &error) = 0;
 
-        virtual std::shared_ptr<Device> get_default_devices() const;
+        virtual std::shared_ptr<Device> get_default_device() const;
 
         std::vector<std::shared_ptr<Device>> get_devices() const;
 

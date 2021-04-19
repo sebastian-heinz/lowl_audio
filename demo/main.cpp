@@ -159,7 +159,6 @@ void space(std::shared_ptr<Lowl::Device> device) {
             continue;
         }
 
-
         if (selected_id <= Lowl::Space::InvalidSpaceId) {
             std::cout << "Stop Selecting SpaceId\n";
             break;

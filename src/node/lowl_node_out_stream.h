@@ -2,8 +2,8 @@
 #define LOWL_NODE_OUT_STREAM_H
 
 #include "lowl_node.h"
-#include "lowl_audio_frame.h"
-#include "lowl_audio_stream.h"
+#include "../lowl_audio_frame.h"
+#include "../lowl_audio_stream.h"
 
 #include <memory>
 

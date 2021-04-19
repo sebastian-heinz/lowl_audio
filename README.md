@@ -34,19 +34,19 @@ This project aims to use exiting 3rd party libraries and combine them into an au
 ## Classes
 brief overview of the included classes
 
-### AudioStream 
+### AudioSource
+- frames can be read from this class
+
+### AudioStream (AudioSource)
 - a endless stream of audio data, AudioFrames can be pushed into it and read from. once a frame is read it is gone from the stream.
 
-### AudioData 
+### AudioData (AudioSource)
 - a finite set of audio frames, when the end is reached it will signal its end and next read call will return data from the start. (for effects / reoccuring sounds etc)
 
-### AudioMixer 
-- accepts AudioStream and AudioData, combines them to a single AudioStream
-- has a mixing thread that constantly mixes frames, `start_mix()` and `stop_mix()` control this
-- it is thread safe to add AudioData or AudioStreams to the mixer via `mix_data()` and `mix_stream()` method
-- uses a lock free queue to pass events to the mixer, for adding AudioData or AudioStreams
-- `mix_all()` - function will mix all frames until every input is exhausted. (dont use while mixing thread is active)
-- `mix_next_frame()` will mix a single frame from all available inputs, returns false if no frame has been mixed. (dont use while mixing thread is active)
+### AudioMixer (AudioSource)
+- accepts AudioSource (AudioStream, AudioData or AudioMixer) and combines them to a single AudioSource.
+- it is thread safe to add AudioSource to the mixer via `mix()` method.
+- uses a lock free queue to pass events to the mixer, for adding AudioData or AudioStreams.
 
 ### ReSampler
 - re samples AudioFrames from one SampleRate to another one.

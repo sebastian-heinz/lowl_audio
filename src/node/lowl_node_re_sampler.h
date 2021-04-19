@@ -1,8 +1,8 @@
 #ifndef LOWL_NODE_RE_SAMPLER_H
 #define LOWL_NODE_RE_SAMPLER_H
 
-#include "lowl_audio_frame.h"
-#include "lowl_re_sampler.h"
+#include "../lowl_audio_frame.h"
+#include "../lowl_re_sampler.h"
 #include "lowl_node.h"
 
 #include <memory>

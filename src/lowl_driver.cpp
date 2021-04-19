@@ -14,6 +14,6 @@ Lowl::Driver::Driver() {
     default_device = std::shared_ptr<Lowl::Device>();
 }
 
-std::shared_ptr<Lowl::Device> Lowl::Driver::get_default_devices() const {
+std::shared_ptr<Lowl::Device> Lowl::Driver::get_default_device() const {
     return default_device;
 }

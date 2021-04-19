@@ -1,7 +1,7 @@
 #ifndef LOWL_NODE_H
 #define LOWL_NODE_H
 
-#include "lowl_audio_frame.h"
+#include "../lowl_audio_frame.h"
 
 #include <vector>
 #include <memory>

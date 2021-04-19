@@ -1,25 +1,23 @@
-#ifndef LOWL_FILE_H
-#define LOWL_FILE_H
-
 #include "lowl_error.h"
 
-#include <memory>
+#include <fstream>
 
 namespace Lowl {
 
     class LowlFile {
     private:
-        void *user_data;
+        std::unique_ptr<std::ifstream> file_stream;
         std::string path;
+        size_t file_size;
 
     public:
         void open(const std::string &p_path, Error &error);
 
         void close();
 
-        void seek(size_t p_position);
+        bool seek(size_t p_position);
 
-        size_t get_position() const;
+        bool get_position(size_t &p_position) const;
 
         size_t get_length() const;
 
@@ -37,8 +35,8 @@ namespace Lowl {
 
         LowlFile();
 
-        ~LowlFile();
+        ~LowlFile() = default;
     };
 }
 
-#endif
+//#endif

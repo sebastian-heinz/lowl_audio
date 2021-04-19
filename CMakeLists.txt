@@ -24,16 +24,15 @@ set(LOWL_SOURCES
         src/lowl_device_pa.cpp
         src/lowl_driver_pa.cpp
         src/lowl_error.cpp
-        src/lowl_file_unix.cpp
-        src/lowl_file_win.cpp
-        src/lowl_node.cpp
-        src/lowl_node_in_stream.cpp
-        src/lowl_node_out_stream.cpp
-        src/lowl_node_process.cpp
-        src/lowl_node_re_sampler.cpp
+        src/lowl_file.cpp
         src/lowl_re_sampler.cpp
         src/lowl_sample_converter.cpp
         src/lowl_space.cpp
+        src/node/lowl_node.cpp
+        src/node/lowl_node_in_stream.cpp
+        src/node/lowl_node_out_stream.cpp
+        src/node/lowl_node_process.cpp
+        src/node/lowl_node_re_sampler.cpp
         )
 
 add_library(${PROJECT_NAME} ${LOWL_SOURCES})
