@@ -15,10 +15,14 @@ namespace Lowl {
 
         typedef void (*LogMessageReceiver)(Level p_level, char const *p_message, void *p_user_data);
 
-
     private:
         static LogMessageReceiver receiver;
         static void *user_data;
+        static Level log_level;
+
+        Logger() {
+            // Disallow creating an instance of this object
+        };
 
         template<typename T>
         static int to_ms(const std::chrono::time_point<T> &tp);
@@ -34,9 +38,7 @@ namespace Lowl {
 
         static void register_std_out_log_receiver();
 
-        Logger() = default;
-
-        ~Logger() = default;
+        static void set_log_level(Level p_level);
     };
 }
 

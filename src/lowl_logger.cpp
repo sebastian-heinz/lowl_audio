@@ -4,11 +4,13 @@
 
 #define LOGGER_PRETTY_TIME_FORMAT "%Y-%m-%d %H:%M:%S"
 #define LOGGER_PRETTY_MS_FORMAT ".%03d"
+#define LOGGER_PREFIX "LOWL"
 
 namespace Lowl {
 
     Lowl::Logger::LogMessageReceiver Lowl::Logger::receiver = nullptr;
     void *Lowl::Logger::user_data = nullptr;
+    Lowl::Logger::Level Lowl::Logger::log_level = Level::Info;
 
     void Logger::log(Logger::Level p_level, std::string message) {
         if (!receiver) {
@@ -24,7 +26,7 @@ namespace Lowl {
 
     void Logger::register_std_out_log_receiver() {
         register_log_receiver(&Logger::std_out_log_receiver, nullptr);
-        Logger::log(Logger::Level::Info, "StdOut logger registered");
+        Logger::log(Logger::Level::Debug, "StdOut logger registered");
     }
 
     template<typename T>
@@ -61,7 +63,11 @@ namespace Lowl {
     }
 
     void Logger::std_out_log_receiver(Logger::Level p_level, const char *p_message, void *p_user_data) {
+        if (p_level < log_level) {
+            return;
+        }
         std::cout << '[' << pretty_time() << ']';
+        std::cout << '[' << LOGGER_PREFIX << ']';
         switch (p_level) {
             case Level::Error:
                 std::cout << "[Error]";
@@ -78,6 +84,10 @@ namespace Lowl {
         }
         std::cout << ": " << p_message;
         std::cout << '\n';
+    }
+
+    void Logger::set_log_level(Logger::Level p_level) {
+        log_level = p_level;
     }
 
 }
