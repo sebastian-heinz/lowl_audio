@@ -138,14 +138,15 @@ void Lowl::PaDevice::open_stream(Error &error) {
     unsigned long frames_per_buffer = paFramesPerBufferUnspecified;
     PaStreamFlags stream_flags = paNoFlag;
 
-    const PaStreamParameters output_parameter = create_output_parameters(audio_source->get_channel(),
-                                                                         audio_source->get_sample_format(), error);
+    PaStreamParameters output_parameter = create_output_parameters(
+            audio_source->get_channel(), audio_source->get_sample_format(), error
+    );
     if (error.has_error()) {
         return;
     }
 
     if (exclusive_mode) {
-        enable_exclusive_mode(&output_parameter, error);
+        enable_exclusive_mode(output_parameter, error);
     }
 
     PaError pa_error = Pa_OpenStream(
