@@ -2,7 +2,7 @@
 
 #include "lowl_driver_dummy.h"
 
-Lowl::DummyDriver::DummyDriver() {
+Lowl::DummyDriver::DummyDriver() : Driver() {
     name = std::string("DummyDriver");
 }
 

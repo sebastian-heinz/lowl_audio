@@ -65,6 +65,15 @@ std::unique_ptr<Lowl::AudioData> Lowl::Lib::create_data(const std::string &p_pat
 }
 
 std::shared_ptr<Lowl::Device> Lowl::Lib::get_default_device(Lowl::Error &error) {
-    // this might be a bit opinionated if we have multiple drivers.
-    return std::shared_ptr<Device>();
+    // This might be a bit opinionated if we have multiple drivers.
+    // Iterates the drivers in reverse order, prioritizing the last added driver.
+    // In the future it might be possible that a user can push a driver in the list
+    // this will cause the last added driver to be checked first.
+    for (auto it = drivers.rbegin(); it != drivers.rend(); ++it) {
+        std::shared_ptr<Device> default_device = (*it)->get_default_device();
+        if (default_device) {
+            return default_device;
+        }
+    }
+    return std::shared_ptr<Device>();;
 }

@@ -45,7 +45,7 @@ void Lowl::PaDriver::initialize(Error &error) {
     create_devices(error);
 }
 
-Lowl::PaDriver::PaDriver() {
+Lowl::PaDriver::PaDriver() : Driver() {
     name = std::string("Port Audio");
 }
 
