@@ -1,6 +1,7 @@
 #include "lowl_error.h"
 
 #include <fstream>
+#include <memory>
 
 namespace Lowl {
 

@@ -24,7 +24,6 @@ namespace Lowl {
 
         virtual Lowl::SampleRate get_default_sample_rate() = 0;
 
-    public:
         bool is_supported(std::shared_ptr<AudioSource> p_audio_source, Error &error);
 
         std::string get_name() const;
