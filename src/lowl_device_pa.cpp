@@ -2,6 +2,8 @@
 
 #include "lowl_device_pa.h"
 
+#include "lowl_logger.h"
+
 #ifdef PA_USE_WASAPI
 #include <pa_win_wasapi.h>
 #endif
@@ -147,6 +149,9 @@ void Lowl::PaDevice::open_stream(Error &error) {
 
     if (exclusive_mode) {
         enable_exclusive_mode(output_parameter, error);
+        if (error.has_error()) {
+            return;
+        }
     }
 
     PaError pa_error = Pa_OpenStream(
@@ -343,6 +348,7 @@ void Lowl::PaDevice::enable_exclusive_mode(PaStreamParameters &stream_parameters
         error.set_error(ErrorCode::Error);
         return;
     }
+    bool exclusive_mode_applied = false;
 #ifdef PA_USE_WASAPI
     if (pa_api_info->type == paWASAPI) {
         PaWasapiStreamInfo *wasapiInfo = (PaWasapiStreamInfo *) memalloc(sizeof(PaWasapiStreamInfo));
@@ -352,8 +358,12 @@ void Lowl::PaDevice::enable_exclusive_mode(PaStreamParameters &stream_parameters
         wasapiInfo->flags = (paWinWasapiExclusive | paWinWasapiThreadPriority);
         wasapiInfo->threadPriority = eThreadPriorityProAudio;
         p_stream_parameter->set_host_api_specific_stream_info(wasapiInfo);
+        exclusive_mode_applied = true;
     }
 #endif
+    if (!exclusive_mode_applied) {
+        Logger::log(Logger::Level::Warn, "!exclusive_mode_applied");
+    }
 }
 
 #endif

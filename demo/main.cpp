@@ -190,6 +190,8 @@ void run(std::shared_ptr<Lowl::Device> device) {
  * example how to select a device
  */
 int main() {
+    Lowl::Logger::register_std_out_log_receiver();
+
     Lowl::Error error;
     Lowl::Lib::initialize(error);
     if (error.has_error()) {

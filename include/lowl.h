@@ -13,6 +13,7 @@
 #include "../src/node/lowl_node_re_sampler.h"
 #include "../src/lowl_space.h"
 #include "../src/lowl_audio_util.h"
+#include "../src/lowl_logger.h"
 
 #include <vector>
 
@@ -25,6 +26,7 @@ namespace Lowl {
         static std::vector<std::shared_ptr<Lowl::Driver>> drivers;
 
     public:
+
         static std::vector<std::shared_ptr<Lowl::Driver>> get_drivers(Error &error);
 
         static void initialize(Error &error);
