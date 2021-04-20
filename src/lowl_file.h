@@ -5,7 +5,7 @@
 
 namespace Lowl {
 
-    class LowlFile {
+    class File {
     private:
         std::unique_ptr<std::ifstream> file_stream;
         std::string path;
@@ -34,9 +34,9 @@ namespace Lowl {
 
         std::string get_path();
 
-        LowlFile();
+        File();
 
-        ~LowlFile() = default;
+        ~File() = default;
     };
 }
 

@@ -1,11 +1,11 @@
 #include "lowl_file.h"
 
 
-std::string Lowl::LowlFile::get_path() {
+std::string Lowl::File::get_path() {
     return path;
 }
 
-void Lowl::LowlFile::open(const std::string &p_path, Lowl::Error &error) {
+void Lowl::File::open(const std::string &p_path, Lowl::Error &error) {
     close();
     file_stream = std::make_unique<std::ifstream>(p_path.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
     if (!file_stream) {
@@ -19,7 +19,7 @@ void Lowl::LowlFile::open(const std::string &p_path, Lowl::Error &error) {
     path = p_path;
 }
 
-void Lowl::LowlFile::close() {
+void Lowl::File::close() {
     if (file_stream) {
         file_stream->close();
     }
@@ -28,7 +28,7 @@ void Lowl::LowlFile::close() {
     file_size = 0;
 }
 
-bool Lowl::LowlFile::seek(size_t p_position) {
+bool Lowl::File::seek(size_t p_position) {
     if (!file_stream) {
         return false;
     }
@@ -42,7 +42,7 @@ bool Lowl::LowlFile::seek(size_t p_position) {
     return true;
 }
 
-bool Lowl::LowlFile::get_position(size_t &position) const {
+bool Lowl::File::get_position(size_t &position) const {
     if (!file_stream) {
         return false;
     }
@@ -55,11 +55,11 @@ bool Lowl::LowlFile::get_position(size_t &position) const {
     return true;
 }
 
-size_t Lowl::LowlFile::get_length() const {
+size_t Lowl::File::get_length() const {
     return file_size;
 }
 
-uint8_t Lowl::LowlFile::read_u8() const {
+uint8_t Lowl::File::read_u8() const {
     if (!file_stream) {
         return 0;
     }
@@ -68,7 +68,7 @@ uint8_t Lowl::LowlFile::read_u8() const {
     return b;
 }
 
-std::unique_ptr<uint8_t[]> Lowl::LowlFile::read_buffer(size_t &length) const {
+std::unique_ptr<uint8_t[]> Lowl::File::read_buffer(size_t &length) const {
     std::unique_ptr<uint8_t[]> data = std::make_unique<uint8_t[]>(length);
     if (!file_stream) {
         length = 0;
@@ -91,14 +91,14 @@ std::unique_ptr<uint8_t[]> Lowl::LowlFile::read_buffer(size_t &length) const {
     return data;
 }
 
-bool Lowl::LowlFile::is_eof() const {
+bool Lowl::File::is_eof() const {
     if (!file_stream) {
         return false;
     }
     return file_stream->eof();
 }
 
-Lowl::LowlFile::LowlFile() {
+Lowl::File::File() {
     path = std::string();
     file_stream = nullptr;
     file_size = 0;
