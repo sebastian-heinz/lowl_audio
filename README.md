@@ -2,22 +2,23 @@ LowL Audio
 ===
 Low Latency Audio - Audio Framework / Audio Engine
 
-# mostly working but still WIP, looking for help
-- speed up code, but prefer simplicity
-- feedback on API surface / user friendly / self explaining
-- testing under different systems (osx / unix / win)
-- finding / fixing bugs - make it more robust
+---
 
-## Goal
-This project aims to use exiting 3rd party libraries and combine them into an audio framework.
+## Setup
+1) `git clone https://github.com/sebastian-heinz/lowl_audio.git`
+2) `cd lowl_audio`
+3) `git submodule update --init --recursive`
 
-- audio format parsing
-- sample conversation
-- playback
-- unix/osx/win support
-- easy to reason about code
-- only utilize libraries that are compatible/comparable with MIT license
-- modular
+#### Flags
+- LOWL_WIN - build for windows
+- LOWL_UNIX - build for unix
+- LOWL_DRIVER_DUMMY - enable dummy driver
+- LOWL_DRIVER_PORTAUDIO - enable port audio driver
+
+## Platforms
+- Linux
+- Windows
+- macOS
 
 ## Features
 - .wav / .mp3 / .flac parsing to AudioFrames
@@ -26,54 +27,198 @@ This project aims to use exiting 3rd party libraries and combine them into an au
 - mixer that combines multiple input sources
 - sample bit depth converter
 
+---
+
+## Usage
+#### iterate drivers and devices
+```c++
+#include "lowl.h"
+
+#include <iostream>
+
+int main() 
+{
+    // initialize the library
+    Lowl::Error error;
+    Lowl::Lib::initialize(error);
+    if (error.has_error()) {
+        std::cout << "Err: Lowl::initialize\n";
+        return -1;
+    }
+
+    // query a list of available drivers
+    std::vector<std::shared_ptr<Lowl::Driver>> drivers = Lowl::Lib::get_drivers(error);
+    if (error.has_error()) {
+        std::cout << "Err: Lowl::get_drivers\n";
+        return -1;
+    }
+
+    std::vector<std::shared_ptr<Lowl::Device>> all_devices = std::vector<std::shared_ptr<Lowl::Device>>();
+    int current_device_index = 0;
+    // iterate available drivers
+    for (std::shared_ptr<Lowl::Driver> driver : drivers) {
+        std::cout << "Driver: " + driver->get_name() + "\n";
+        
+        // driver need to be initialized before device can be queried
+        driver->initialize(error);
+        if (error.has_error()) {
+            std::cout << "Err: driver->initialize (" + driver->get_name() + ")\n";
+            error = Lowl::Error();
+        }
+        
+        // iterate all device of a particular driver
+        std::vector<std::shared_ptr<Lowl::Device>> devices = driver->get_devices();
+        for (std::shared_ptr<Lowl::Device> device : devices) {
+            std::cout << "Device[" + std::to_string(current_device_index++) + "]: " + device->get_name() + "\n";
+            all_devices.push_back(device);
+        }
+    }
+    
+    // select a device
+    int selected_index = 0;
+    std::cout << "Select Device:\n";
+    std::string user_input;
+    std::getline(std::cin, user_input);
+    selected_index = std::stoi(user_input);
+    
+    std::shared_ptr<Lowl::Device> device = all_devices[selected_index];
+}
+```
+---
+#### load audio file
+```c++
+#include "lowl.h"
+
+#include <iostream>
+
+int main() 
+{
+    std::shared_ptr<Lowl::AudioData> data = Lowl::Lib::create_data("/Users/name/Downloads/music.wav", error);
+    if (error.has_error()) {
+        std::cout << "Err:  Lowl::create_stream\n";
+        return -1;
+    }
+}
+```
+---
+#### audio playback
+```c++
+#include "lowl.h"
+
+#include <iostream>
+#include <thread>
+
+int main() 
+{
+    std::shared_ptr<Lowl::Device> device = .... (refer to: iterate drivers and devices)
+    std::shared_ptr<Lowl::AudioData> data = ... (refer to: load audio file)
+    
+    device->start(data, error);
+    if (error.has_error()) {
+        std::cout << "Err: device->start\n";
+        return -1;
+    }
+
+    // wait till all frames have been played
+    while (data->frames_remaining() > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        std::cout << "==PLAYING==\n";
+        std::cout << "frames remaining: \n" + std::to_string(data->frames_remaining()) + "\n";
+    }
+}
+```
+---
+#### audio mixer
+```c++
+#include "lowl.h"
+
+#include <iostream>
+#include <thread>
+
+int main() 
+{
+    std::shared_ptr<Lowl::Device> device = ...... (refer to: iterate drivers and devices)
+    std::shared_ptr<Lowl::AudioData> data_1 = ... (refer to: load audio file)
+    std::shared_ptr<Lowl::AudioData> data_2 = ... (refer to: load audio file)
+            
+    std::shared_ptr<Lowl::AudioMixer> mixer = std::make_unique<Lowl::AudioMixer>(
+            data_1->get_sample_rate(), data_1->get_channel()
+    );
+    
+    // add data to the mixer
+    // note: data can be added to the mixer at any point in time.
+    // for example the device could be started first, then
+    // data_1 can be mixed in after 1 second and data_2 after 40 seconds for example.
+    mixer->mix_data(data_1);
+    mixer->mix_data(data_2);
+
+    // start the device
+    device->start(data, error);
+    if (error.has_error()) {
+        std::cout << "Err: device->start\n";
+        return -1;
+    }
+
+    // wait till all frames have been played
+    while (data->frames_remaining() > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        std::cout << "==PLAYING==\n";
+        std::cout << "frames remaining: \n" + std::to_string(data->frames_remaining()) + "\n";
+    }
+}
+```
+---
+#### configure logging
+```c++
+#include "lowl.h"
+
+int main() 
+{
+    // set desired log level
+    Lowl::Logger::set_log_level(Lowl::Logger::Level::Debug);
+    // write logs to std::cout
+    Lowl::Logger::register_std_out_log_receiver();
+}
+```
+---
+#### configure custom log receiver
+```c++
+#include "lowl.h"
+
+void std_out_log_receiver(Logger::Level p_level, const char *p_message, void *p_user_data) {
+    // handle logs
+    std::cout << p_message;
+}
+
+void main()
+{
+    // calls std_out_log_receiver for handling logs
+    register_log_receiver(&std_out_log_receiver, nullptr);
+}
+```
+
+---
+
 ## Requirements
 - all operations are performed over float32 audio frames
   - input files via the `AudioReader` are converted to float32 audio frames
   - `AudioFrame`s that have been generated through algorithms require to be in float32 format
 
-## Classes
-brief overview of the included classes
+## Info
+- Pa+Win: if the sample rate of `AudioSource` that is passed to `LowlDevice` does not match the devices sample rate, it will not open the stream.
 
-### AudioSource
-- frames can be read from this class
+## Definitions
+- Audio Sample = smallest audio unit, depends on bit depth
+- Audio Frame = contains Audio Samples (2Channel/Stereo audio at 16bit depth contains two samples, each 2bytes. The Frame would be 4byte)
 
-### AudioStream (AudioSource)
-- a endless stream of audio data, AudioFrames can be pushed into it and read from. once a frame is read it is gone from the stream.
+## System
+![](./doc/system.jpg)
+created with [draw.io](https://draw.io/)
 
-### AudioData (AudioSource)
-- a finite set of audio frames, when the end is reached it will signal its end and next read call will return data from the start. (for effects / reoccuring sounds etc)
-
-### AudioMixer (AudioSource)
-- accepts AudioSource (AudioStream, AudioData or AudioMixer) and combines them to a single AudioSource.
-- it is thread safe to add AudioSource to the mixer via `mix()` method.
-- uses a lock free queue to pass events to the mixer, for adding AudioData or AudioStreams.
-
-### ReSampler
-- re samples AudioFrames from one SampleRate to another one.
-- call `write(const AudioFrame &p_audio_frame, size_t p_required_frames)`, repeatedly, it will return true once the `required_frames` have been produced.
-- initially the `ReSampler` has to be feed more frames to produce output.
-
-### AudioDevice 
-- represents a device like headphones or speaker
-
-### AudioDriver 
-- provides a list of devices for playback
-
-### AudioReader
-- wav/flac/mp3
-- provides capabilities to read audio files and return a AudioStream
-
-### AudioFrame 
-- represents a single frame of audio data
-
-
-## Setup
-1) `git clone https://github.com/sebastian-heinz/lowl_audio.git`
-2) `cd lowl_audio`
-3) `git submodule update --init --recursive`
+---
 
 ## 3rd Party
-- [Port Audio](https://github.com/PortAudio/portaudio) 
+- [Port Audio](https://github.com/PortAudio/portaudio)
   - License: [MIT](https://github.com/PortAudio/portaudio/blob/master/LICENSE.txt)
   - portable audio I/O library designed for cross-platform support of audio.
 - [readerwriterqueue](https://github.com/cameron314/readerwriterqueue) & [concurrentqueue](https://github.com/cameron314/concurrentqueue)
@@ -86,6 +231,8 @@ brief overview of the included classes
 - [r8brain-free-src](https://github.com/avaneev/r8brain-free-src)
   - License: [MIT](https://github.com/avaneev/r8brain-free-src/blob/master/LICENSE)
   - high-quality professional audio sample rate converter
+  
+---
 
 ## License
 All third party libraries come with own licenses and terms.
@@ -97,22 +244,7 @@ license text / copyright notice when distributing them in source or binary form 
 This project itself is licensed under the MIT license, that includes the .h and .cpp files, except for the content
 in the `third_party`-directory.
 
-## Guidlines
-
-### Header include order:
-from local to global, each subsection in alphabetical order, i.e.:
-1) h file corresponding to this cpp file (if applicable)
-2) headers from the same component
-3) headers from other components
-4) system headers
-
-## System
-![](./doc/system.jpg)
-created with [draw.io](https://draw.io/)
-
-## Definitions
-- Audio Sample = smallest audio unit, depends on bit depth
-- Audio Frame = contains Audio Samples (2Channel/Stereo audio at 16bit depth contains two samples, each 2bytes. The Frame would be 4byte)
+---
 
 ## Links
 a list of related information to audio programming
@@ -122,27 +254,14 @@ a list of related information to audio programming
 - [linearity and dynamic range in int](http://blog.bjornroche.com/2009/12/linearity-and-dynamic-range-in-int.html)
 - [Audio recording bitdepth](https://lists.apple.com/archives/coreaudio-api/2009/Dec/msg00046.html)
 
-## Flags
-- LOWL_WIN - build for windows
-- LOWL_UNIX - build for unix  
-- LOWL_DRIVER_DUMMY - enable dummy driver
-- LOWL_DRIVER_PORTAUDIO - enable port audio driver
-
-
-## Info
-- Pa+Win: if the sample rate of `AudioSource` that is passed to `LowlDevice` does not match the devices sample rate, it will not open the stream.
-
+---
 
 ## TODO
-- linux testing
 - .ogg format
 - c-api wrapper / - LOWL_LIBRARY - build as library flag
 - potentially isolate 3rd party in wrapper.
   - ex. LowlQueue -> wraps queue, etc. and provide a way to provide different implementation
   - similar to driver / audio reader abstraction
-
-## Ideas
-- workspace class
-  - add sound files from start (they will be resampled and converted)
-  - specify memory size, if not enough store tmp resampled data to disk
-  - single point for configuration and playback
+- speed up code, but prefer simplicity
+- feedback on API surface / user friendly / self explaining
+- finding / fixing bugs - make it more robust

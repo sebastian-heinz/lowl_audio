@@ -139,6 +139,9 @@ void Lowl::AudioMixer::mix_mixer(std::shared_ptr<AudioMixer> p_audio_mixer) {
 }
 
 Lowl::size_l Lowl::AudioMixer::frames_remaining() const {
+    // TODO don't access lists outside of read() call as it runs on audio thread.
+    // this needs to be reworked, perhaps counting needs to happen on mixer thread,
+    // or when adding data via event remember the highest input and count down.
     int remaining = 0;
     for (const std::shared_ptr<AudioStream> &stream : streams) {
         if (stream->frames_remaining() > remaining) {
