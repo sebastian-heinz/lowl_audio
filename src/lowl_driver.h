@@ -7,14 +7,16 @@ namespace Lowl {
     class Driver {
 
     protected:
-        std::vector<Device *> devices;
+        std::vector<std::shared_ptr<Device>> devices;
+        std::shared_ptr<Device> default_device;
         std::string name;
 
     public:
         virtual void initialize(Error &error) = 0;
 
-    public:
-        std::vector<Device *> get_devices() const;
+        virtual std::shared_ptr<Device> get_default_device() const;
+
+        std::vector<std::shared_ptr<Device>> get_devices() const;
 
         std::string get_name() const;
 

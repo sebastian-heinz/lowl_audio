@@ -10,9 +10,8 @@ namespace Lowl {
     class DummyDriver : public Lowl::Driver {
 
     public:
-        void initialize(Error &error) override {};
+        void initialize(Error &error) override;
 
-    public:
         DummyDriver();
 
         ~DummyDriver() override = default;

@@ -2,6 +2,12 @@
 
 #include "lowl_device_pa.h"
 
+#include "lowl_logger.h"
+
+#ifdef PA_USE_WASAPI
+#include <pa_win_wasapi.h>
+#endif
+
 #ifdef LOWL_PROFILING
 
 #include <chrono>
@@ -134,10 +140,18 @@ void Lowl::PaDevice::open_stream(Error &error) {
     unsigned long frames_per_buffer = paFramesPerBufferUnspecified;
     PaStreamFlags stream_flags = paNoFlag;
 
-    const PaStreamParameters output_parameter = create_output_parameters(audio_source->get_channel(),
-                                                                         audio_source->get_sample_format(), error);
+    PaStreamParameters output_parameter = create_output_parameters(
+            audio_source->get_channel(), audio_source->get_sample_format(), error
+    );
     if (error.has_error()) {
         return;
+    }
+
+    if (exclusive_mode) {
+        enable_exclusive_mode(output_parameter, error);
+        if (error.has_error()) {
+            return;
+        }
     }
 
     PaError pa_error = Pa_OpenStream(
@@ -300,6 +314,56 @@ Lowl::SampleRate Lowl::PaDevice::get_default_sample_rate() {
     }
     Lowl::SampleRate sample_rate = device_info->defaultSampleRate;
     return sample_rate;
+}
+
+void Lowl::PaDevice::set_exclusive_mode(bool p_exclusive_mode, Lowl::Error &error) {
+    if (p_exclusive_mode) {
+        if (active) {
+            // stream already running
+            error.set_error(ErrorCode::Error);
+            return;
+        }
+        exclusive_mode = true;
+        return;
+    } else {
+        exclusive_mode = false;
+    }
+}
+
+void Lowl::PaDevice::enable_exclusive_mode(PaStreamParameters &stream_parameters, Lowl::Error &error) {
+    if (stream_parameters.device != device_index) {
+        // parameter mismatch this device
+        error.set_error(ErrorCode::Error);
+        return;
+    }
+    const PaDeviceInfo *pa_device_info = Pa_GetDeviceInfo(device_index);
+    if (pa_device_info == nullptr) {
+        // unknown device
+        error.set_error(ErrorCode::Error);
+        return;
+    }
+    const PaHostApiInfo *pa_api_info = Pa_GetHostApiInfo(pa_device_info->hostApi);
+    if (pa_api_info == nullptr) {
+        // unknown host api
+        error.set_error(ErrorCode::Error);
+        return;
+    }
+    bool exclusive_mode_applied = false;
+#ifdef PA_USE_WASAPI
+    if (pa_api_info->type == paWASAPI) {
+        PaWasapiStreamInfo *wasapiInfo = (PaWasapiStreamInfo *) memalloc(sizeof(PaWasapiStreamInfo));
+        wasapiInfo->size = sizeof(PaWasapiStreamInfo);
+        wasapiInfo->hostApiType = paWASAPI;
+        wasapiInfo->version = 1;
+        wasapiInfo->flags = (paWinWasapiExclusive | paWinWasapiThreadPriority);
+        wasapiInfo->threadPriority = eThreadPriorityProAudio;
+        p_stream_parameter->set_host_api_specific_stream_info(wasapiInfo);
+        exclusive_mode_applied = true;
+    }
+#endif
+    if (!exclusive_mode_applied) {
+        Logger::log(Logger::Level::Warn, "!exclusive_mode_applied");
+    }
 }
 
 #endif

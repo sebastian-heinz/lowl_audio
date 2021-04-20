@@ -8,6 +8,11 @@
 
 namespace Lowl {
     class AudioUtil {
+    private:
+        AudioUtil() {
+            // Disallow creating an instance of this object
+        };
+
     public:
         static std::unique_ptr<AudioStream> to_stream(std::shared_ptr<AudioData> p_audio_data);
 

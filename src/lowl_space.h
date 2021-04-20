@@ -3,7 +3,6 @@
 
 #include "lowl_typedef.h"
 #include "lowl_audio_data.h"
-#include "lowl_audio_stream.h"
 #include "lowl_audio_mixer.h"
 
 #include <string>

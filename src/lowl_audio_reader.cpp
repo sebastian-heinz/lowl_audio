@@ -8,13 +8,13 @@
 #include <algorithm>
 
 std::unique_ptr<Lowl::AudioData> Lowl::AudioReader::read_file(const std::string &p_path, Lowl::Error &error) {
-    Lowl::LowlFile file = Lowl::LowlFile();
-    file.open(p_path, error);
+    std::unique_ptr<Lowl::File> file = std::make_unique<Lowl::File>();
+    file->open(p_path, error);
     if (error.has_error()) {
         return nullptr;
     }
-    size_t length = file.get_length();
-    std::unique_ptr<uint8_t[]> buffer = file.read_buffer(length);
+    size_t length = file->get_length();
+    std::unique_ptr<uint8_t[]> buffer = file->read_buffer(length);
     std::unique_ptr<Lowl::AudioData> audio_data = read(std::move(buffer), length, error);
     if (error.has_error()) {
         return nullptr;

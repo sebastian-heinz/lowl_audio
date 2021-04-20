@@ -17,7 +17,6 @@ namespace Lowl {
     public:
         void initialize(Error &error) override;
 
-    public:
         PaDriver();
 
         ~PaDriver() override;
