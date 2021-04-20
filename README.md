@@ -2,7 +2,7 @@ LowL Audio
 ===
 Low Latency Audio - Audio Framework / Audio Engine
 
----
+![example workflow](https://github.com/sebastian-heinz/lowl_audio/actions/workflows/main.yaml/badge.svg?branch=master)
 
 ## Setup
 1) `git clone https://github.com/sebastian-heinz/lowl_audio.git`
