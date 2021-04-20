@@ -168,6 +168,70 @@ int main()
 }
 ```
 ---
+#### lowl space
+```c++
+#include "lowl.h"
+
+#include <iostream>
+
+int main() 
+{
+    // create a Lowl::Space
+    // note: the Lowl::Space represents a collection of sounds, a use case might be a game as
+    // one can load all sounds of a level into a space as part of the loading process.
+    // and the playback is managed via an Id rather than requirement to manage references.
+    std::shared_ptr<Lowl::Space> space = std::make_shared<Lowl::Space>();
+    
+    Lowl::Error error;
+    
+    // add audio files to it (.wav / .mp3 / .flac)
+    // note: when adding a sound, it will return a Lowl::SpaceId, this id is used to play the corresponding sound.
+    Lowl::SpaceId id = space->add_audio("/Users/railgun/Downloads/CantinaBand60.wav", error);
+    
+    // for this example we will not use the Lowl::SpaceId but let the user enter a Id to play.
+    space->add_audio("/Users/railgun/Downloads/StarWars60.wav", error);
+
+    // after all audio is registered, it needs to be loaded.
+    // note: the load call will resample all audio files and bring them to the same sample rate and channel count.
+    // based on the most frequent sample rate in the space.
+    // if a specific sample rate should be used this can be set via space->set_sample_rate() or
+    // space->set_channel()
+    space->load();
+    
+    std::shared_ptr<Lowl::Device> device = ...... (refer to: iterate drivers and devices)
+    // start the device        
+    device->start(space->get_mixer(), error);
+    if (error.has_error()) {
+        std::cout << "Err: device->start\n";
+        return -1;
+    }
+
+    // run until a invalid Lowl::SpaceId was selected
+    while (true) {
+        Lowl::SpaceId selected_id = Lowl::Space::InvalidSpaceId;
+        std::cout << "Select Sound:\n";
+        std::string user_input;
+        std::getline(std::cin, user_input);
+        try {
+            selected_id = std::stoul(user_input);
+        } catch (const std::exception &e) {
+            continue;
+        }
+        if (selected_id <= Lowl::Space::InvalidSpaceId) {
+            // id not available, stop
+            std::cout << "Stop Selecting SpaceId\n";
+            break;
+        } else {
+            // play selected id
+            space->play(selected_id);
+            // note: playing the same id before it has finished will cause the sound to abort and start from beginning again
+            // a sound can also be cancelled anytime via space->stop().
+        }
+        std::cout << "frames remaining: \n" + std::to_string(space->get_mixer()->frames_remaining()) + "\n";
+    }
+}
+```
+---
 #### configure logging
 ```c++
 #include "lowl.h"
