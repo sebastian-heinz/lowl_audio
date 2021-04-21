@@ -330,7 +330,8 @@ a list of related information to audio programming
     - no mixer
 - [SoLoud](https://github.com/jarikomppa/soloud)
   - minus
-    - issue tracker seems stale / no recent updates
+    - no recent updates
+    - issues in tracker cropping up
 
 ## TODO
 - .ogg format
