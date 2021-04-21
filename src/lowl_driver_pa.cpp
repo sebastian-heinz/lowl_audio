@@ -63,12 +63,18 @@ PaHostApiIndex Lowl::PaDriver::get_default_host_api_index() {
     size_t start = 0U;
     size_t end = default_driver_priority_setting.find(delimiter);
     std::vector<std::string> default_driver_priority;
-    while (end != std::string::npos) {
-        std::string default_driver = default_driver_priority_setting.substr(start, end - start);
-        default_driver_priority.push_back(default_driver);
-        start = end + delimiter.length();
-        end = default_driver_priority_setting.find(delimiter, start);
+    if (end != std::string::npos) {
+        while (end != std::string::npos) {
+            std::string default_driver = default_driver_priority_setting.substr(start, end - start);
+            default_driver_priority.push_back(default_driver);
+            start = end + delimiter.length();
+            end = default_driver_priority_setting.find(delimiter, start);
+        }
+        default_driver_priority.push_back(default_driver_priority_setting.substr(start, end - start));
+    } else {
+        default_driver_priority.push_back(default_driver_priority_setting);
     }
+
     for (std::string default_driver : default_driver_priority) {
         for (PaHostApiIndex api_index = 0; api_index < api_count; api_index++) {
             const PaHostApiInfo *api_info = Pa_GetHostApiInfo(api_index);
