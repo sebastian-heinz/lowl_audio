@@ -53,7 +53,7 @@ void Lowl::AudioData::set_in_mixer(bool p_in_mixer) {
     in_mixer = p_in_mixer;
 }
 
-Lowl::size_l Lowl::AudioData::frames_remaining() const {
+Lowl::size_l Lowl::AudioData::get_frames_remaining() const {
     int remaining = frames.size() - position;
     if (remaining < 0) {
         remaining = 0;

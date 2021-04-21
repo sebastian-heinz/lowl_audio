@@ -37,6 +37,6 @@ uint32_t Lowl::AudioStream::get_num_frame_write() const {
     return frames_in;
 }
 
-Lowl::size_l Lowl::AudioStream::frames_remaining() const {
+Lowl::size_l Lowl::AudioStream::get_frames_remaining() const {
     return frame_queue->size_approx();
 }

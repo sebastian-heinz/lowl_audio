@@ -1,5 +1,6 @@
 #include "lowl_audio_mixer.h"
 
+#include "lowl_logger.h"
 
 #ifdef LOWL_PROFILING
 
@@ -15,6 +16,7 @@ Lowl::AudioMixer::AudioMixer(SampleRate p_sample_rate, Channel p_channel)
     data = std::vector<std::shared_ptr<AudioData>>();
     mixers = std::vector<std::shared_ptr<AudioMixer>>();
     events = std::make_unique<moodycamel::ConcurrentQueue<AudioMixerEvent>>();
+    frames_remaining.store(0, std::memory_order_relaxed);
 }
 
 bool Lowl::AudioMixer::read(Lowl::AudioFrame &audio_frame) {
@@ -28,6 +30,11 @@ bool Lowl::AudioMixer::read(Lowl::AudioFrame &audio_frame) {
             case AudioMixerEvent::MixAudioStream: {
                 std::shared_ptr<AudioStream> audio_stream = std::static_pointer_cast<AudioStream>(event.ptr);
                 streams.push_back(audio_stream);
+
+                size_l remaining = audio_stream->get_frames_remaining();
+                if (remaining > frames_remaining.load(std::memory_order_relaxed)) {
+                    frames_remaining.store(remaining, std::memory_order_relaxed);
+                }
                 break;
             }
             case AudioMixerEvent::MixAudioData: {
@@ -35,12 +42,23 @@ bool Lowl::AudioMixer::read(Lowl::AudioFrame &audio_frame) {
                 if (!audio_data->is_in_mixer()) {
                     audio_data->set_in_mixer(true);
                     data.push_back(audio_data);
+
+                    // TODO audio data can be cancelled mid way or reset, causing incorrect frame count
+                    size_l remaining = audio_data->get_frames_remaining();
+                    if (remaining > frames_remaining.load(std::memory_order_relaxed)) {
+                        frames_remaining.store(remaining, std::memory_order_relaxed);
+                    }
                 }
                 break;
             }
             case AudioMixerEvent::MixAudioMixer: {
                 std::shared_ptr<AudioMixer> audio_mixer = std::static_pointer_cast<AudioMixer>(event.ptr);
                 mixers.push_back(audio_mixer);
+
+                size_l remaining = audio_mixer->get_frames_remaining();
+                if (remaining > frames_remaining.load(std::memory_order_relaxed)) {
+                    frames_remaining.store(remaining, std::memory_order_relaxed);
+                }
                 break;
             }
         }
@@ -96,6 +114,10 @@ bool Lowl::AudioMixer::read(Lowl::AudioFrame &audio_frame) {
     }
     audio_frame = mix_frame;
 
+    if (frames_remaining.load(std::memory_order_relaxed) > 0) {
+        frames_remaining.fetch_sub(1, std::memory_order_relaxed);
+    }
+
 #ifdef LOWL_PROFILING
     auto t2 = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> ms_double = t2 - t1;
@@ -115,7 +137,12 @@ bool Lowl::AudioMixer::read(Lowl::AudioFrame &audio_frame) {
 }
 
 void Lowl::AudioMixer::mix_stream(std::shared_ptr<AudioStream> p_audio_stream) {
-    // TODO validate input stream sample rate - perhaps warning - #ifdef to enable warnings
+    if (p_audio_stream->get_sample_rate() != sample_rate) {
+        Logger::log(Logger::Level::Warn,
+                    "Lowl::AudioMixer::mix_stream: p_audio_stream(" + std::to_string(sample_rate) +
+                    ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate."
+        );
+    }
     AudioMixerEvent event = {};
     event.type = AudioMixerEvent::MixAudioStream;
     event.ptr = p_audio_stream;
@@ -123,7 +150,12 @@ void Lowl::AudioMixer::mix_stream(std::shared_ptr<AudioStream> p_audio_stream) {
 }
 
 void Lowl::AudioMixer::mix_data(std::shared_ptr<AudioData> p_audio_data) {
-    // TODO validate input stream sample rate - perhaps warning - #ifdef to enable warnings
+    if (p_audio_data->get_sample_rate() != sample_rate) {
+        Logger::log(Logger::Level::Warn,
+                    "Lowl::AudioMixer::mix_data: p_audio_data(" + std::to_string(sample_rate) +
+                    ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate."
+        );
+    }
     AudioMixerEvent event = {};
     event.type = AudioMixerEvent::MixAudioData;
     event.ptr = p_audio_data;
@@ -131,34 +163,20 @@ void Lowl::AudioMixer::mix_data(std::shared_ptr<AudioData> p_audio_data) {
 }
 
 void Lowl::AudioMixer::mix_mixer(std::shared_ptr<AudioMixer> p_audio_mixer) {
-    // TODO validate input stream sample rate - perhaps warning - #ifdef to enable warnings
+    if (p_audio_mixer->get_sample_rate() != sample_rate) {
+        Logger::log(Logger::Level::Warn,
+                    "Lowl::AudioMixer::mix_mixer: p_audio_mixer(" + std::to_string(sample_rate) +
+                    ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate."
+        );
+    }
     AudioMixerEvent event = {};
     event.type = AudioMixerEvent::MixAudioMixer;
     event.ptr = p_audio_mixer;
     events->enqueue(event);
 }
 
-Lowl::size_l Lowl::AudioMixer::frames_remaining() const {
-    // TODO don't access lists outside of read() call as it runs on audio thread.
-    // this needs to be reworked, perhaps counting needs to happen on mixer thread,
-    // or when adding data via event remember the highest input and count down.
-    int remaining = 0;
-    for (const std::shared_ptr<AudioStream> &stream : streams) {
-        if (stream->frames_remaining() > remaining) {
-            remaining = stream->frames_remaining();
-        }
-    }
-    for (const std::shared_ptr<AudioData> &audio_data : data) {
-        if (audio_data->frames_remaining() > remaining) {
-            remaining = audio_data->frames_remaining();
-        }
-    }
-    for (const std::shared_ptr<AudioMixer> &mixer : mixers) {
-        if (mixer->frames_remaining() > remaining) {
-            remaining = mixer->frames_remaining();
-        }
-    }
-    return remaining;
+Lowl::size_l Lowl::AudioMixer::get_frames_remaining() const {
+    return frames_remaining.load(std::memory_order_relaxed);
 }
 
 void Lowl::AudioMixer::mix(std::shared_ptr<AudioSource> p_audio_source) {

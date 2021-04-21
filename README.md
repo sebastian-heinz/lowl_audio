@@ -320,6 +320,19 @@ a list of related information to audio programming
 
 ---
 
+## Alternatives
+- [miniaudio](https://github.com/mackron/miniaudio)
+  - plus
+    - license
+    - everything you can ask for (almost)
+    - active
+  - minus
+    - no mixer
+- [SoLoud](https://github.com/jarikomppa/soloud)
+  - minus
+    - no recent updates
+    - issues in tracker cropping up
+
 ## TODO
 - .ogg format
 - c-api wrapper / - LOWL_LIBRARY - build as library flag

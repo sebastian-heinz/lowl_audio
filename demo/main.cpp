@@ -20,10 +20,10 @@ void play(std::shared_ptr<Lowl::Device> device) {
         return;
     }
 
-    while (data->frames_remaining() > 0) {
+    while (data->get_frames_remaining() > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         std::cout << "==PLAYING==\n";
-        std::cout << "frames remaining: \n" + std::to_string(data->frames_remaining()) + "\n";
+        std::cout << "frames remaining: \n" + std::to_string(data->get_frames_remaining()) + "\n";
 #ifdef LOWL_PROFILING
         // std::cout << "LOWL_PROFILING: produce_count:" + std::to_string(stream->produce_count) + "\n";
         // std::cout << "LOWL_PROFILING: produce_total_duration:" + std::to_string(stream->produce_total_duration) + "\n";
@@ -79,10 +79,10 @@ void node(std::shared_ptr<Lowl::Device> device) {
         return;
     }
 
-    while (out->get_stream()->frames_remaining() > 0) {
+    while (out->get_stream()->get_frames_remaining() > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         std::cout << "==PLAYING==\n";
-        std::cout << "frames remaining: \n" + std::to_string(out->get_stream()->frames_remaining()) + "\n";
+        std::cout << "frames remaining: \n" + std::to_string(out->get_stream()->get_frames_remaining()) + "\n";
     }
 }
 
@@ -121,10 +121,10 @@ void mix(std::shared_ptr<Lowl::Device> device) {
         return;
     }
 
-    while (mixer->frames_remaining() > 0) {
+    while (mixer->get_frames_remaining() > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         std::cout << "==PLAYING==\n";
-        std::cout << "frames remaining: \n" + std::to_string(mixer->frames_remaining()) + "\n";
+        std::cout << "frames remaining: \n" + std::to_string(mixer->get_frames_remaining()) + "\n";
     }
 }
 
@@ -162,11 +162,13 @@ void space(std::shared_ptr<Lowl::Device> device) {
         if (selected_id <= Lowl::Space::InvalidSpaceId) {
             std::cout << "Stop Selecting SpaceId\n";
             break;
+        } else if (selected_id == 3) {
+            space->stop(1);
         } else {
             space->play(selected_id);
         }
 
-        std::cout << "frames remaining: \n" + std::to_string(space->get_mixer()->frames_remaining()) + "\n";
+        std::cout << "frames remaining: \n" + std::to_string(space->get_mixer()->get_frames_remaining()) + "\n";
     }
 
     device->stop(error);

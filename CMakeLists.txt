@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+set(LOWL_PA_DEFAULT_DRIVER_PRIORITY "ASIO,WASAPI,WMME,DSOUND,WDMKS,ALSA,OSS,JACK,ASIHPI,COREAUDIO")
+
 set(LOWL_SOURCES
         src/lowl.cpp
         src/lowl_audio_source.cpp
@@ -39,17 +41,16 @@ set(LOWL_SOURCES
 add_library(${PROJECT_NAME} ${LOWL_SOURCES})
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "")
 target_include_directories(${PROJECT_NAME} PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>")
-
-add_definitions(-DLOWL_DRIVER_DUMMY)
-add_definitions(-DLOWL_DRIVER_PORTAUDIO)
-add_definitions(-DLOWL_PROFILING)
+target_compile_definitions(${PROJECT_NAME} PRIVATE LOWL_DRIVER_DUMMY)
+target_compile_definitions(${PROJECT_NAME} PRIVATE LOWL_DRIVER_PORTAUDIO)
+target_compile_definitions(${PROJECT_NAME} PRIVATE LOWL_PROFILING)
+target_compile_definitions(${PROJECT_NAME} PRIVATE "LOWL_PA_DEFAULT_DRIVER_PRIORITY=\"${LOWL_PA_DEFAULT_DRIVER_PRIORITY}\"")
 
 IF (WIN32)
-    add_definitions(-DLOWL_WIN)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE LOWL_WIN)
 ENDIF ()
-
 IF (UNIX)
-    add_definitions(-DLOWL_UNIX)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE LOWL_UNIX)
 ENDIF ()
 
 # readerwriterqueue

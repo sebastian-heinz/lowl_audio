@@ -70,7 +70,7 @@ namespace Lowl {
          */
         virtual bool read(AudioFrame &audio_frame) override;
 
-        virtual size_l frames_remaining() const override;
+        virtual size_l get_frames_remaining() const override;
 
         AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate, Channel p_channel);
 

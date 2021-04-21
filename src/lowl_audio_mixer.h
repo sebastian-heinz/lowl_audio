@@ -20,9 +20,10 @@ namespace Lowl {
         std::vector<std::shared_ptr<AudioData>> data;
         std::vector<std::shared_ptr<AudioMixer>> mixers;
         std::unique_ptr<moodycamel::ConcurrentQueue<AudioMixerEvent>> events;
+        std::atomic<size_l> frames_remaining;
 
     public:
-        virtual size_l frames_remaining() const override;
+        virtual size_l get_frames_remaining() const override;
 
         /**
          * mixes a single frame from all sources
