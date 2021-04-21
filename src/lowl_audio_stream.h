@@ -26,7 +26,7 @@ namespace Lowl {
 
         uint32_t get_num_frame_read() const;
 
-        virtual size_l frames_remaining() const override;
+        virtual size_l get_frames_remaining() const override;
 
         virtual bool read(AudioFrame &audio_frame) override;
 
