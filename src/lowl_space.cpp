@@ -39,7 +39,7 @@ Lowl::SpaceId Lowl::Space::add_audio(const std::string &p_path, Error &error) {
     return add_audio(std::move(audio_data), error);
 }
 
-void Lowl::Space::play(Lowl::SpaceId p_id) {
+void Lowl::Space::play(Lowl::SpaceId p_id, Lowl::Volume p_volume, Lowl::Panning p_panning) {
     if (p_id >= current_id) {
         return;
     }
@@ -47,6 +47,8 @@ void Lowl::Space::play(Lowl::SpaceId p_id) {
     if (!audio_data) {
         return;
     }
+    audio_data->set_volume(p_volume);
+    audio_data->set_panning(p_panning);
     audio_data->reset_read();
     mixer->mix_data(audio_data);
 }
