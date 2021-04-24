@@ -1,7 +1,6 @@
 #ifdef LOWL_DRIVER_PORTAUDIO
 
 #include "lowl_driver_pa.h"
-
 #include "lowl_device_pa.h"
 #include "lowl_logger.h"
 
@@ -10,8 +9,7 @@ void Lowl::PaDriver::create_devices(Error &error) {
 
     PaDeviceIndex default_device_index = get_default_output_device_index();
     if (default_device_index == paNoDevice) {
-        Logger::log(Logger::Level::Warn,
-                    "Lowl::PaDriver::create_devices: default_device_index == paNoDevice");
+        Logger::log(Logger::Level::Warn, "Lowl::PaDriver::create_devices: default_device_index == paNoDevice");
     }
 
     PaHostApiIndex api_count = Pa_GetHostApiCount();

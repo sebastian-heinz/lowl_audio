@@ -1,7 +1,6 @@
 #ifdef LOWL_DRIVER_PORTAUDIO
 
 #include "lowl_device_pa.h"
-
 #include "lowl_logger.h"
 
 #ifdef PA_USE_WASAPI

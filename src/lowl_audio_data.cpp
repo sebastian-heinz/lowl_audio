@@ -1,7 +1,7 @@
 #include "lowl_audio_data.h"
 
-Lowl::AudioData::AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate, Channel p_channel)
-        : AudioSource(p_sample_rate, p_channel) {
+Lowl::AudioData::AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate, Channel p_channel, Volume p_volume, Panning p_panning)
+        : AudioSource(p_sample_rate, p_channel, p_volume, p_panning) {
     frames = std::vector<AudioFrame>(p_audio_frames);
     position = 0;
     is_not_cancel.test_and_set();
@@ -22,6 +22,8 @@ bool Lowl::AudioData::read(Lowl::AudioFrame &audio_frame) {
         return false;
     }
     audio_frame = frames[position];
+    process_volume(audio_frame);
+    process_panning(audio_frame);
     position++;
     return true;
 }

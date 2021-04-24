@@ -1,6 +1,7 @@
 #include "lowl_audio_mixer.h"
 
 #include "lowl_logger.h"
+#include <string>
 
 #ifdef LOWL_PROFILING
 
@@ -8,8 +9,8 @@
 
 #endif
 
-Lowl::AudioMixer::AudioMixer(SampleRate p_sample_rate, Channel p_channel)
-        : AudioSource(p_sample_rate, p_channel) {
+Lowl::AudioMixer::AudioMixer(SampleRate p_sample_rate, Channel p_channel, Volume p_volume, Panning p_panning)
+        : AudioSource(p_sample_rate, p_channel, p_volume, p_panning) {
     sample_rate = p_sample_rate;
     channel = p_channel;
     streams = std::vector<std::shared_ptr<AudioStream>>();
@@ -113,6 +114,8 @@ bool Lowl::AudioMixer::read(Lowl::AudioFrame &audio_frame) {
         mix_frame.right = 1.0;
     }
     audio_frame = mix_frame;
+    process_volume(audio_frame);
+    process_panning(audio_frame);
 
     if (frames_remaining.load(std::memory_order_relaxed) > 0) {
         frames_remaining.fetch_sub(1, std::memory_order_relaxed);
@@ -138,10 +141,9 @@ bool Lowl::AudioMixer::read(Lowl::AudioFrame &audio_frame) {
 
 void Lowl::AudioMixer::mix_stream(std::shared_ptr<AudioStream> p_audio_stream) {
     if (p_audio_stream->get_sample_rate() != sample_rate) {
-        Logger::log(Logger::Level::Warn,
-                    "Lowl::AudioMixer::mix_stream: p_audio_stream(" + std::to_string(sample_rate) +
-                    ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate."
-        );
+        std::string message = "Lowl::AudioMixer::mix_stream: p_audio_stream(" + std::to_string(sample_rate) +
+            ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate.";
+        Logger::log(Logger::Level::Warn, message);
     }
     AudioMixerEvent event = {};
     event.type = AudioMixerEvent::MixAudioStream;
@@ -151,10 +153,9 @@ void Lowl::AudioMixer::mix_stream(std::shared_ptr<AudioStream> p_audio_stream) {
 
 void Lowl::AudioMixer::mix_data(std::shared_ptr<AudioData> p_audio_data) {
     if (p_audio_data->get_sample_rate() != sample_rate) {
-        Logger::log(Logger::Level::Warn,
-                    "Lowl::AudioMixer::mix_data: p_audio_data(" + std::to_string(sample_rate) +
-                    ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate."
-        );
+        std::string message = "Lowl::AudioMixer::mix_data: p_audio_data(" + std::to_string(sample_rate) +
+            ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate.";
+        Logger::log(Logger::Level::Warn, message);
     }
     AudioMixerEvent event = {};
     event.type = AudioMixerEvent::MixAudioData;
@@ -164,10 +165,9 @@ void Lowl::AudioMixer::mix_data(std::shared_ptr<AudioData> p_audio_data) {
 
 void Lowl::AudioMixer::mix_mixer(std::shared_ptr<AudioMixer> p_audio_mixer) {
     if (p_audio_mixer->get_sample_rate() != sample_rate) {
-        Logger::log(Logger::Level::Warn,
-                    "Lowl::AudioMixer::mix_mixer: p_audio_mixer(" + std::to_string(sample_rate) +
-                    ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate."
-        );
+        std::string message = "Lowl::AudioMixer::mix_mixer: p_audio_mixer(" + std::to_string(sample_rate) +
+            ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate.";
+        Logger::log(Logger::Level::Warn, message);
     }
     AudioMixerEvent event = {};
     event.type = AudioMixerEvent::MixAudioMixer;

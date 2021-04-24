@@ -24,5 +24,7 @@ namespace Lowl {
 
     typedef uint16_l SpaceId;
     typedef double_l SampleRate;
+    typedef double_l Volume;
+    typedef double_l Panning;
 }
 #endif //LOWL_TYPEDEF_H
