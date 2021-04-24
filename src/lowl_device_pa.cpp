@@ -2,7 +2,6 @@
 
 #include "lowl_device_pa.h"
 #include "lowl_logger.h"
-#include "core/os/memory.h"
 
 #ifdef PA_USE_WASAPI
 #include <pa_win_wasapi.h>
