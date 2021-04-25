@@ -13,10 +13,11 @@ namespace Lowl {
     protected:
         SampleRate sample_rate;
         Channel channel;
-        // pan / gain ?
+        Volume volume;
+        Panning panning;
 
     public:
-        AudioSource(SampleRate p_sample_rate, Channel p_channel);
+        AudioSource(SampleRate p_sample_rate, Channel p_channel, Volume p_volume = 1.0, Panning p_panning = 0.5);
 
         virtual ~AudioSource() = default;
 
@@ -31,6 +32,18 @@ namespace Lowl {
         int get_channel_num() const;
 
         SampleFormat get_sample_format() const;
+
+        void set_volume(Volume p_volume);
+
+        Volume get_volume();
+
+        void set_panning(Panning p_panning);
+
+        Panning get_panning();
+
+        void process_volume(AudioFrame &audio_frame);
+
+        void process_panning(AudioFrame &audio_frame);
     };
 }
 
