@@ -41,8 +41,8 @@ Lowl::Panning Lowl::AudioSource::get_panning() {
 }
 
 void Lowl::AudioSource::process_volume(Lowl::AudioFrame &audio_frame) {
-    audio_frame.left = audio_frame.left*volume;
-    audio_frame.right = audio_frame.left*volume;
+    audio_frame.left *= volume;
+    audio_frame.right *= volume;
 }
 
 void Lowl::AudioSource::process_panning(Lowl::AudioFrame &audio_frame) {
