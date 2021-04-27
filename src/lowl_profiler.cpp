@@ -197,6 +197,8 @@ Lowl::Profiler::create_measure(const Event &p_event, std::string thread_id, std:
     measure.name = p_event.name;
     measure.thread_id = thread_id;
     measure.identifier = identifier;
+    measure.count = 0;
+
     measure.time_start = 0;
     measure.time_end = 0;
     measure.time_duration_ms = 0;
@@ -204,8 +206,12 @@ Lowl::Profiler::create_measure(const Event &p_event, std::string thread_id, std:
     measure.time_max_duration_ms = std::numeric_limits<double>::min();
     measure.time_average_duration_ms = 0;
     measure.time_total_duration_ms = 0;
-    measure.count = 0;
+
     measure.double_number = 0;
+    measure.double_total = 0;
+    measure.double_average = 0;
+    measure.double_max_number = std::numeric_limits<double>::min();
+    measure.double_min_number = std::numeric_limits<double>::max();
 
     switch (p_event.type) {
         case EventType::ProfileDoubleNumber: {
