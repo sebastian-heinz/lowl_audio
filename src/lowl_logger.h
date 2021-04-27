@@ -7,9 +7,10 @@ namespace Lowl {
     class Logger {
     public:
         enum class Level {
-            Error = 40,
-            Warn = 30,
-            Info = 20,
+            Error = 50,
+            Warn = 40,
+            Info = 30,
+            Profiling = 20,
             Debug = 10,
         };
 

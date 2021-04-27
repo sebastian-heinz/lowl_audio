@@ -24,21 +24,6 @@ void play(std::shared_ptr<Lowl::Device> device) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         std::cout << "==PLAYING==\n";
         std::cout << "frames remaining: \n" + std::to_string(data->get_frames_remaining()) + "\n";
-#ifdef LOWL_PROFILING
-        // std::cout << "LOWL_PROFILING: produce_count:" + std::to_string(stream->produce_count) + "\n";
-        // std::cout << "LOWL_PROFILING: produce_total_duration:" + std::to_string(stream->produce_total_duration) + "\n";
-        // std::cout << "LOWL_PROFILING: produce_max_duration:" + std::to_string(stream->produce_max_duration) + "\n";
-        // std::cout << "LOWL_PROFILING: produce_min_duration:" + std::to_string(stream->produce_min_duration) + "\n";
-        // std::cout << "LOWL_PROFILING: produce_avg_duration:" + std::to_string(stream->produce_avg_duration) + "\n";
-        std::cout << "==\n";
-        std::cout << "LOWL_PROFILING: callback_count:" + std::to_string(device->callback_count) + "\n";
-        std::cout
-                << "LOWL_PROFILING: callback_total_duration:" + std::to_string(device->callback_total_duration) + "\n";
-        std::cout << "LOWL_PROFILING: callback_max_duration:" + std::to_string(device->callback_max_duration) + "\n";
-        std::cout << "LOWL_PROFILING: callback_min_duration:" + std::to_string(device->callback_min_duration) + "\n";
-        std::cout << "LOWL_PROFILING: callback_avg_duration:" + std::to_string(device->callback_avg_duration) + "\n";
-        std::cout << "LOWL_PROFILING: time_request_ms:" + std::to_string(device->time_request_ms) + "\n";
-#endif
     }
 }
 
@@ -105,15 +90,7 @@ void mix(std::shared_ptr<Lowl::Device> device) {
 
     mixer->mix_data(data_1);
     mixer->mix_data(data_2);
-    // mixer->mix_all();
 
-//#ifdef LOWL_PROFILING
-//    std::cout << "LOWL_PROFILING: mix_frame_count:" + std::to_string(mixer->mix_frame_count) + "\n";
-//    std::cout << "LOWL_PROFILING: mix_total_duration:" + std::to_string(mixer->mix_total_duration) + "\n";
-//    std::cout << "LOWL_PROFILING: mix_avg_duration:" + std::to_string(mixer->mix_avg_duration) + "\n";
-//    std::cout << "LOWL_PROFILING: mix_max_duration:" + std::to_string(mixer->mix_max_duration) + "\n";
-//    std::cout << "LOWL_PROFILING: mix_min_duration:" + std::to_string(mixer->mix_min_duration) + "\n";
-//#endif
 
     device->start(mixer, error);
     if (error.has_error()) {
@@ -194,6 +171,8 @@ void run(std::shared_ptr<Lowl::Device> device) {
 int main() {
     Lowl::Logger::set_log_level(Lowl::Logger::Level::Debug);
     Lowl::Logger::register_std_out_log_receiver();
+    Lowl::Profiler::register_std_out_profiling_receiver(10 * 1000);
+    Lowl::Profiler::start();
 
     Lowl::Error error;
     Lowl::Lib::initialize(error);

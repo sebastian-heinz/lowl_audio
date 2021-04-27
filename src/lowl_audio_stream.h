@@ -18,14 +18,8 @@ namespace Lowl {
 
     private:
         std::unique_ptr<moodycamel::ReaderWriterQueue<AudioFrame>> frame_queue;
-        uint32_t frames_in;
-        uint32_t frames_out;
 
     public:
-        uint32_t get_num_frame_write() const;
-
-        uint32_t get_num_frame_read() const;
-
         virtual size_l get_frames_remaining() const override;
 
         virtual bool read(AudioFrame &audio_frame) override;

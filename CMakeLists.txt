@@ -28,6 +28,7 @@ set(LOWL_SOURCES
         src/lowl_error.cpp
         src/lowl_file.cpp
         src/lowl_logger.cpp
+        src/lowl_profiler.cpp
         src/lowl_re_sampler.cpp
         src/lowl_sample_converter.cpp
         src/lowl_space.cpp
