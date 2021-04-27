@@ -39,11 +39,8 @@ Lowl::SpaceId Lowl::Space::add_audio(const std::string &p_path, Error &error) {
     return add_audio(std::move(audio_data), error);
 }
 
-void Lowl::Space::play(Lowl::SpaceId p_id, Lowl::Volume p_volume, Lowl::Panning p_panning) {
-    if (p_id >= current_id) {
-        return;
-    }
-    std::shared_ptr<AudioData> audio_data = audio_data_lookup[p_id];
+void Lowl::Space::play(SpaceId p_id, Volume p_volume, Panning p_panning) {
+    std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
     if (!audio_data) {
         return;
     }
@@ -53,11 +50,8 @@ void Lowl::Space::play(Lowl::SpaceId p_id, Lowl::Volume p_volume, Lowl::Panning 
     mixer->mix_data(audio_data);
 }
 
-void Lowl::Space::stop(Lowl::SpaceId p_id) {
-    if (p_id >= current_id) {
-        return;
-    }
-    std::shared_ptr<AudioData> audio_data = audio_data_lookup[p_id];
+void Lowl::Space::stop(SpaceId p_id) {
+    std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
     if (!audio_data) {
         return;
     }
@@ -136,12 +130,36 @@ void Lowl::Space::load() {
     mixer = std::make_shared<AudioMixer>(sample_rate, channel);
 }
 
-void Lowl::Space::set_sample_rate(Lowl::SampleRate p_sample_rate) {
+void Lowl::Space::set_sample_rate(SampleRate p_sample_rate) {
     sample_rate = p_sample_rate;
 }
 
-void Lowl::Space::set_channel(Lowl::Channel p_channel) {
+void Lowl::Space::set_channel(Channel p_channel) {
     channel = p_channel;
+}
+
+void Lowl::Space::set_volume(SpaceId p_id, Volume p_volume) {
+    std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
+    if (!audio_data) {
+        return;
+    }
+    audio_data->set_volume(p_volume);
+}
+
+void Lowl::Space::set_panning(SpaceId p_id, Panning p_panning) {
+    std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
+    if (!audio_data) {
+        return;
+    }
+    audio_data->set_panning(p_panning);
+}
+
+std::shared_ptr<Lowl::AudioData> Lowl::Space::get_audio_data(SpaceId p_id) {
+    if (p_id >= current_id) {
+        return nullptr;
+    }
+    std::shared_ptr<AudioData> audio_data = audio_data_lookup[p_id];
+    return audio_data;
 }
 
 std::shared_ptr<Lowl::AudioMixer> Lowl::Space::get_mixer() {

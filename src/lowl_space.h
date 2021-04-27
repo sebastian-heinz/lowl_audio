@@ -26,24 +26,24 @@ namespace Lowl {
      */
     class Space {
     public:
-        static const Lowl::SpaceId InvalidSpaceId = 0;
+        static const SpaceId InvalidSpaceId = 0;
 
     private:
         std::vector<std::shared_ptr<AudioData>> audio_data_lookup;
         std::shared_ptr<AudioMixer> mixer;
-        Lowl::SpaceId current_id;
+        SpaceId current_id;
         bool is_loaded;
         SampleRate sample_rate;
         Channel channel;
 
     public:
-        void play(Lowl::SpaceId p_id, Lowl::Volume p_volume = 1, Lowl::Panning p_panning = 0.5);
+        void play(SpaceId p_id, Volume p_volume = 1, Panning p_panning = 0.5);
 
-        void stop(Lowl::SpaceId p_id);
+        void stop(SpaceId p_id);
 
-        Lowl::SpaceId add_audio(const std::string &p_path, Error &error);
+        SpaceId add_audio(const std::string &p_path, Error &error);
 
-        Lowl::SpaceId add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error);
+        SpaceId add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error);
 
         void load();
 
@@ -51,11 +51,18 @@ namespace Lowl {
 
         void set_channel(Channel p_channel);
 
-        std::shared_ptr<Lowl::AudioMixer> get_mixer();
+        void set_volume(SpaceId p_id, Volume p_volume);
+
+        void set_panning(SpaceId p_id, Panning p_panning);
+
+        std::shared_ptr<AudioMixer> get_mixer();
 
         Space();
 
         ~Space();
+    
+    private:
+        std::shared_ptr<AudioData> get_audio_data(SpaceId p_id);
     };
 }
 

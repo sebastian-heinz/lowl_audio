@@ -42,11 +42,26 @@ Lowl::Panning Lowl::AudioSource::get_panning() {
 }
 
 void Lowl::AudioSource::process_volume(Lowl::AudioFrame &audio_frame) {
-    audio_frame.left *= volume;
-    audio_frame.right *= volume;
+    switch (channel) {
+        case Lowl::Channel::Stereo:
+            audio_frame.left *= volume;
+            audio_frame.right *= volume;
+            break;
+        case Lowl::Channel::Mono:
+            audio_frame.left *= volume;
+            break;
+    }
 }
 
 void Lowl::AudioSource::process_panning(Lowl::AudioFrame &audio_frame) {
-    audio_frame.left *= std::sqrt(1.0-panning);
-    audio_frame.right *= std::sqrt(panning);
+    switch (channel) {
+        case Lowl::Channel::Stereo:
+            audio_frame.left *= std::sqrt(1.0-panning);
+            audio_frame.right *= std::sqrt(panning);
+            break;
+        case Lowl::Channel::Mono:
+            audio_frame.left *= std::sqrt(1.0-panning);
+            audio_frame.right = audio_frame.left*std::sqrt(panning);
+            break;
+    }
 }
