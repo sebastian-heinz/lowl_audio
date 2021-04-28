@@ -53,15 +53,6 @@ namespace Lowl {
         AudioMixer(SampleRate p_sample_rate, Channel p_channel, Volume p_volume = 1.0, Panning p_panning = 0.5);
 
         virtual ~AudioMixer() = default;
-
-#ifdef LOWL_PROFILING
-        public:
-            uint64_t mix_frame_count;
-            double mix_total_duration;
-            double mix_max_duration;
-            double mix_min_duration;
-            double mix_avg_duration;
-#endif
     };
 }
 

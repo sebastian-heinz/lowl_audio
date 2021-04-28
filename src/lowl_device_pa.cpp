@@ -2,15 +2,10 @@
 
 #include "lowl_device_pa.h"
 #include "lowl_logger.h"
+#include "lowl_profiler.h"
 
 #ifdef PA_USE_WASAPI
 #include <pa_win_wasapi.h>
-#endif
-
-#ifdef LOWL_PROFILING
-
-#include <chrono>
-
 #endif
 
 static int audio_callback(const void *p_input_buffer, void *p_output_buffer,
@@ -26,9 +21,7 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
                                                 unsigned long p_frames_per_buffer,
                                                 const PaStreamCallbackTimeInfo *p_time_info,
                                                 PaStreamCallbackFlags p_status_flags) {
-#ifdef LOWL_PROFILING
-    auto t1 = std::chrono::high_resolution_clock::now();
-#endif
+    LP_START_TIME("Lowl::PaDevice::callback");
     if (!active) {
         return paAbort;
     }
@@ -60,23 +53,9 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
         }
     }
 
-#ifdef LOWL_PROFILING
-    auto t2 = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> ms_double = t2 - t1;
-    double duration = ms_double.count();
-
-    if (callback_max_duration < duration) {
-        callback_max_duration = duration;
-    }
-    if (callback_min_duration > duration) {
-        callback_min_duration = duration;
-    }
-    callback_total_duration += duration;
-    callback_count++;
-    callback_avg_duration = callback_total_duration / callback_count;
-    time_request_ms = (p_frames_per_buffer / audio_source->get_sample_rate()) * 1000;
-#endif
-
+    double time_request_ms = (p_frames_per_buffer / audio_source->get_sample_rate()) * 1000;
+    LP_NUMBER("Lowl::PaDevice::callback:time_request_ms", time_request_ms);
+    LP_STOP_TIME("Lowl::PaDevice::callback");
     return paContinue;
 }
 
@@ -251,14 +230,6 @@ void Lowl::PaDevice::set_device_index(PaDeviceIndex p_device_index) {
 Lowl::PaDevice::PaDevice() {
     active = false;
     stream = nullptr;
-#ifdef LOWL_PROFILING
-    callback_count = 0;
-    callback_total_duration = 0;
-    callback_max_duration = 0;
-    callback_min_duration = std::numeric_limits<double>::max();
-    callback_avg_duration = 0;
-    time_request_ms = 0;
-#endif
 }
 
 Lowl::PaDevice::~PaDevice() {

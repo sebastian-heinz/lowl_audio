@@ -1,4 +1,5 @@
 #include "lowl_audio_source.h"
+
 #include <cmath>
 
 Lowl::AudioSource::AudioSource(SampleRate p_sample_rate, Channel p_channel, Volume p_volume, Panning p_panning) {

@@ -81,6 +81,9 @@ namespace Lowl {
             case Level::Debug:
                 std::cout << "[Debug]";
                 break;
+            case Level::Profiling:
+                std::cout << "[Prof ]";
+                break;
         }
         std::cout << ": " << p_message;
         std::cout << '\n';
