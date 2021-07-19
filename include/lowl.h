@@ -14,7 +14,6 @@
 #include "../src/lowl_space.h"
 #include "../src/lowl_audio_util.h"
 #include "../src/lowl_logger.h"
-#include "../src/lowl_profiler.h"
 
 #include <vector>
 

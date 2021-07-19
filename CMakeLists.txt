@@ -37,7 +37,6 @@ set(LOWL_SOURCES
         src/lowl_error.cpp
         src/lowl_file.cpp
         src/lowl_logger.cpp
-        src/lowl_profiler.cpp
         src/lowl_re_sampler.cpp
         src/lowl_sample_converter.cpp
         src/lowl_space.cpp
@@ -53,7 +52,6 @@ set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "")
 target_include_directories(${PROJECT_NAME} PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>")
 target_compile_definitions(${PROJECT_NAME} PRIVATE LOWL_DRIVER_DUMMY)
 target_compile_definitions(${PROJECT_NAME} PRIVATE LOWL_DRIVER_PORTAUDIO)
-target_compile_definitions(${PROJECT_NAME} PRIVATE LOWL_PROFILING)
 target_compile_definitions(${PROJECT_NAME} PRIVATE "LOWL_PA_DEFAULT_DRIVER_PRIORITY=\"${LOWL_PA_DEFAULT_DRIVER_PRIORITY}\"")
 
 IF (WIN32)

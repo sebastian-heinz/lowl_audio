@@ -1,7 +1,6 @@
 #include "lowl_audio_mixer.h"
 
 #include "lowl_logger.h"
-#include "lowl_profiler.h"
 
 #include <string>
 
@@ -17,8 +16,6 @@ Lowl::AudioMixer::AudioMixer(SampleRate p_sample_rate, Channel p_channel, Volume
 }
 
 bool Lowl::AudioMixer::read(Lowl::AudioFrame &audio_frame) {
-    LP_START_TIME("Lowl::AudioMixer::read");
-
     AudioMixerEvent event;
     while (events->try_dequeue(event)) {
         switch (event.type) {
@@ -115,7 +112,6 @@ bool Lowl::AudioMixer::read(Lowl::AudioFrame &audio_frame) {
         frames_remaining.fetch_sub(1, std::memory_order_relaxed);
     }
 
-    LP_STOP_TIME("Lowl::AudioMixer::read");
     return true;
 }
 
