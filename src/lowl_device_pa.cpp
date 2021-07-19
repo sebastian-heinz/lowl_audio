@@ -2,7 +2,6 @@
 
 #include "lowl_device_pa.h"
 #include "lowl_logger.h"
-#include "lowl_profiler.h"
 
 #ifdef PA_USE_WASAPI
 #include <pa_win_wasapi.h>
@@ -21,7 +20,6 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
                                                 unsigned long p_frames_per_buffer,
                                                 const PaStreamCallbackTimeInfo *p_time_info,
                                                 PaStreamCallbackFlags p_status_flags) {
-    LP_START_TIME("Lowl::PaDevice::callback");
     if (!active) {
         return paAbort;
     }
@@ -54,8 +52,6 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
     }
 
     double time_request_ms = (p_frames_per_buffer / audio_source->get_sample_rate()) * 1000;
-    LP_NUMBER("Lowl::PaDevice::callback:time_request_ms", time_request_ms);
-    LP_STOP_TIME("Lowl::PaDevice::callback");
     return paContinue;
 }
 

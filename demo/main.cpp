@@ -171,8 +171,6 @@ void run(std::shared_ptr<Lowl::Device> device) {
 int main() {
     Lowl::Logger::set_log_level(Lowl::Logger::Level::Debug);
     Lowl::Logger::register_std_out_log_receiver();
-    Lowl::Profiler::register_std_out_profiling_receiver(10 * 1000);
-    Lowl::Profiler::start();
 
     Lowl::Error error;
     Lowl::Lib::initialize(error);

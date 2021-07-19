@@ -1,9 +1,18 @@
 cmake_minimum_required(VERSION 3.6)
 project(lowl_audio)
 
+message([LOWL] Project: ${PROJECT_NAME})
+message([LOWL] BuildType:: ${CMAKE_BUILD_TYPE})
+
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+IF(CMAKE_BUILD_TYPE MATCHES Debug)
+message([LOWL] Setting optimization level for Debug build to -O0)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
+ENDIF()
 
 set(LOWL_PA_DEFAULT_DRIVER_PRIORITY "ALSA,OSS,JACK,COREAUDIO,WASAPI,WDMKS,DSOUND,WMME,ASIO,ASIHPI")
 
@@ -28,7 +37,6 @@ set(LOWL_SOURCES
         src/lowl_error.cpp
         src/lowl_file.cpp
         src/lowl_logger.cpp
-        src/lowl_profiler.cpp
         src/lowl_re_sampler.cpp
         src/lowl_sample_converter.cpp
         src/lowl_space.cpp
@@ -44,7 +52,6 @@ set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "")
 target_include_directories(${PROJECT_NAME} PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>")
 target_compile_definitions(${PROJECT_NAME} PRIVATE LOWL_DRIVER_DUMMY)
 target_compile_definitions(${PROJECT_NAME} PRIVATE LOWL_DRIVER_PORTAUDIO)
-target_compile_definitions(${PROJECT_NAME} PRIVATE LOWL_PROFILING)
 target_compile_definitions(${PROJECT_NAME} PRIVATE "LOWL_PA_DEFAULT_DRIVER_PRIORITY=\"${LOWL_PA_DEFAULT_DRIVER_PRIORITY}\"")
 
 IF (WIN32)
