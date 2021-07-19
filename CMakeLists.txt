@@ -1,9 +1,18 @@
 cmake_minimum_required(VERSION 3.6)
 project(lowl_audio)
 
+message([LOWL] Project: ${PROJECT_NAME})
+message([LOWL] BuildType:: ${CMAKE_BUILD_TYPE})
+
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+IF(CMAKE_BUILD_TYPE MATCHES Debug)
+message([LOWL] Setting optimization level for Debug build to -O0)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
+ENDIF()
 
 set(LOWL_PA_DEFAULT_DRIVER_PRIORITY "ALSA,OSS,JACK,COREAUDIO,WASAPI,WDMKS,DSOUND,WMME,ASIO,ASIHPI")
 

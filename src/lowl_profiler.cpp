@@ -4,7 +4,9 @@
 
 #include <sstream>
 
-std::unique_ptr<moodycamel::ConcurrentQueue<Lowl::Profiler::Event>>Lowl::Profiler::events = std::make_unique<moodycamel::ConcurrentQueue<Lowl::Profiler::Event>>();
+std::unique_ptr<moodycamel::ConcurrentQueue<Lowl::Profiler::Event>>Lowl::Profiler::events = std::make_unique<moodycamel::ConcurrentQueue<Lowl::Profiler::Event>>(
+        10000000, 5, 5
+);
 std::map<std::string, Lowl::Profiler::Measure> Lowl::Profiler::measures = std::map<std::string, Lowl::Profiler::Measure>();
 std::atomic_flag Lowl::Profiler::is_running = ATOMIC_FLAG_INIT;
 std::thread Lowl::Profiler::thread;
