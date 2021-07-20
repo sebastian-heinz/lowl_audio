@@ -26,6 +26,5 @@ namespace Lowl {
     typedef double_l SampleRate;
     typedef double_l Volume;
     typedef double_l Panning;
-    typedef unsigned long long TimeNsEpoch;
 }
 #endif //LOWL_TYPEDEF_H

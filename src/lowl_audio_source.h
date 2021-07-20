@@ -6,15 +6,19 @@
 #include "lowl_sample_format.h"
 #include "lowl_audio_frame.h"
 
+#include <atomic>
+
 namespace Lowl {
 
     class AudioSource {
 
+    private:
+        std::atomic<Volume> volume;
+        std::atomic<Volume> panning;
+
     protected:
         SampleRate sample_rate;
         Channel channel;
-        Volume volume;
-        Panning panning;
 
         void process_volume(AudioFrame &audio_frame);
 

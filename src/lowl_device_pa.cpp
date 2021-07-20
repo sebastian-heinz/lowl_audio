@@ -27,12 +27,18 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
     float *dst = (float *) p_output_buffer;
     unsigned long current_frame = 0;
     for (; current_frame < p_frames_per_buffer; current_frame++) {
-        AudioFrame frame;
+        AudioFrame frame{};
         if (!audio_source->read(frame)) {
             // stream empty
             break;
         }
         for (int current_channel = 0; current_channel < audio_source->get_channel_num(); current_channel++) {
+            if (frame[current_channel] > 1.0) {
+                frame[current_channel] = 1.0;
+            }
+            if (frame[current_channel] < -1.0) {
+                frame[current_channel] = -1.0;
+            }
             *dst++ = frame[current_channel];
         }
     }

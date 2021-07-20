@@ -29,11 +29,11 @@ Lowl::SpaceId Lowl::Space::add_audio(std::unique_ptr<AudioData> p_audio_data, Er
 
 Lowl::SpaceId Lowl::Space::add_audio(const std::string &p_path, Error &error) {
     if (is_loaded) {
+        error.set_error(ErrorCode::Error);
         return InvalidSpaceId;
     }
     std::unique_ptr<AudioData> audio_data = AudioReader::create_data(p_path, error);
     if (error.has_error()) {
-        error.set_error(ErrorCode::Error);
         return InvalidSpaceId;
     }
     return add_audio(std::move(audio_data), error);
