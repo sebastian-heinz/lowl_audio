@@ -198,3 +198,10 @@ jobs:
       - name: Build
         shell: bash
         run: cmake --build . --config ${{ matrix.config.build_type }}
+
+      - name: Test
+        shell: bash
+        run: |
+          ls
+          ./lowl_audio_test
+

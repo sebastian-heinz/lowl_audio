@@ -43,7 +43,7 @@ namespace Lowl {
                 return;
             }
             std::lock_guard<std::mutex> lock(mutex);
-            pool.template emplace_back(object);
+            pool.template emplace_back<>(object);
         }
 
         ReleasePool() {
