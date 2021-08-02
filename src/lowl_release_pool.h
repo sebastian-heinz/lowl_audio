@@ -9,7 +9,7 @@
 #include <vector>
 #include <memory>
 #include <unordered_set>
-
+#include <algorithm>
 
 namespace Lowl {
 
