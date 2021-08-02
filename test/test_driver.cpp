@@ -2,6 +2,8 @@
 
 #include <lowl.h>
 
+#include <iostream>
+
 TEST_CASE("Driver") {
 
     Lowl::Error error;
