@@ -203,8 +203,7 @@ jobs:
         if: startsWith(matrix.config.os, 'windows')
         shell: bash
         run: |
-          ls
-          ./lowl_audio_test.exe
+          lowl_audio_test.exe
 
       - name: Test Unix
         if: startsWith(matrix.config.os, 'ubuntu')
