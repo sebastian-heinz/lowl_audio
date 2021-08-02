@@ -1,10 +1,8 @@
 #include <lowl.h>
 
-
 #include <iostream>
 #include <thread>
 #include <chrono>
-
 
 void play(std::shared_ptr<Lowl::Device> device) {
     Lowl::Error error;
@@ -110,7 +108,7 @@ void mix(std::shared_ptr<Lowl::Device> device) {
  */
 void space(std::shared_ptr<Lowl::Device> device) {
 
-    std::shared_ptr<Lowl::Space> space = std::make_shared<Lowl::Space>();
+    std::unique_ptr<Lowl::Space> space = std::make_unique<Lowl::Space>();
     Lowl::Error error;
 
     space->add_audio("/Users/railgun/Downloads/CantinaBand60.wav", error);
@@ -158,20 +156,7 @@ void space(std::shared_ptr<Lowl::Device> device) {
 /**
  * different examples to run
  */
-void run(std::shared_ptr<Lowl::Device> device) {
-    // play(device);
-    space(device);
-    // mix(device);
-    // node(device);
-}
-
-/**
- * example how to select a device
- */
-int main() {
-    Lowl::Logger::set_log_level(Lowl::Logger::Level::Debug);
-    Lowl::Logger::register_std_out_log_receiver();
-
+int run() {
     Lowl::Error error;
     Lowl::Lib::initialize(error);
     if (error.has_error()) {
@@ -211,13 +196,29 @@ int main() {
     }
 
     std::shared_ptr<Lowl::Device> device = all_devices[selected_index];
-    run(device);
+
+    space(device);
 
     device->stop(error);
     if (error.has_error()) {
-        std::cout << "Err: driver->stop\n";
+        std::cout << "Err: device->stop\n";
         return -1;
     }
+    return 0;
+}
+
+/**
+ * example how to select a device
+ */
+int main() {
+    Lowl::Logger::set_log_level(Lowl::Logger::Level::Debug);
+    Lowl::Logger::register_std_out_log_receiver();
+
+    run();
+
+    std::cout << "Press any key to exit..\n";
+    std::string user_input;
+    std::getline(std::cin, user_input);
 
     std::cout << "Done\n";
     return 0;

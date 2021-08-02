@@ -4,19 +4,9 @@ Lowl::AudioData::AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleR
         : AudioSource(p_sample_rate, p_channel, p_volume, p_panning) {
     frames = std::vector<AudioFrame>(p_audio_frames);
     position = 0;
-    is_not_cancel.test_and_set();
-    is_not_reset.test_and_set();
 }
 
 bool Lowl::AudioData::read(Lowl::AudioFrame &audio_frame) {
-    if (!is_not_reset.test_and_set()) {
-        position = 0;
-        return true;
-    }
-    if (!is_not_cancel.test_and_set()) {
-        position = 0;
-        return false;
-    }
     if (position >= frames.size()) {
         position = 0;
         return false;
@@ -26,14 +16,6 @@ bool Lowl::AudioData::read(Lowl::AudioFrame &audio_frame) {
     process_panning(audio_frame);
     position++;
     return true;
-}
-
-void Lowl::AudioData::cancel_read() {
-    is_not_cancel.clear();
-}
-
-void Lowl::AudioData::reset_read() {
-    is_not_reset.clear();
 }
 
 std::vector<Lowl::AudioFrame> Lowl::AudioData::get_frames() {
@@ -53,18 +35,14 @@ std::shared_ptr<Lowl::AudioData> Lowl::AudioData::create_slice(double begin_sec,
     return std::make_shared<Lowl::AudioData>(subvector, sample_rate, channel);
 }
 
-bool Lowl::AudioData::is_in_mixer() const {
-    return in_mixer;
-}
-
-void Lowl::AudioData::set_in_mixer(bool p_in_mixer) {
-    in_mixer = p_in_mixer;
-}
-
 Lowl::size_l Lowl::AudioData::get_frames_remaining() const {
     int remaining = frames.size() - position;
     if (remaining < 0) {
         remaining = 0;
     }
     return remaining;
+}
+
+Lowl::AudioData::~AudioData() {
+ int i = 1;
 }

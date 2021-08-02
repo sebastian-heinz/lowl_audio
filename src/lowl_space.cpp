@@ -46,7 +46,7 @@ void Lowl::Space::play(SpaceId p_id, Volume p_volume, Panning p_panning) {
     }
     audio_data->set_volume(p_volume);
     audio_data->set_panning(p_panning);
-    audio_data->reset_read();
+    mixer->remove(audio_data);
     mixer->mix_data(audio_data);
 }
 
@@ -55,7 +55,7 @@ void Lowl::Space::stop(SpaceId p_id) {
     if (!audio_data) {
         return;
     }
-    audio_data->cancel_read();
+    mixer->remove(audio_data);
 }
 
 void Lowl::Space::load() {
@@ -131,10 +131,16 @@ void Lowl::Space::load() {
 }
 
 void Lowl::Space::set_sample_rate(SampleRate p_sample_rate) {
+    if (is_loaded) {
+        return;
+    }
     sample_rate = p_sample_rate;
 }
 
 void Lowl::Space::set_channel(Channel p_channel) {
+    if (is_loaded) {
+        return;
+    }
     channel = p_channel;
 }
 

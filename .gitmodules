@@ -14,3 +14,6 @@
 	path = third_party/r8brain-free-src
 	url = https://github.com/avaneev/r8brain-free-src.git
 	ignore = dirty
+[submodule "third_party/doctest"]
+	path = third_party/doctest
+	url = https://github.com/onqtam/doctest.git

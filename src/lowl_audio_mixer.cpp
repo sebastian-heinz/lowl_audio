@@ -1,6 +1,7 @@
 #include "lowl_audio_mixer.h"
 
 #include "lowl_logger.h"
+#include "lowl_audio_util.h"
 
 #include <string>
 
@@ -25,15 +26,27 @@ bool Lowl::AudioMixer::read(Lowl::AudioFrame &audio_frame) {
             }
             case AudioMixerEvent::MixAudioData: {
                 std::shared_ptr<AudioData> audio_data = std::static_pointer_cast<AudioData>(event.ptr);
-                if (!audio_data->is_in_mixer()) {
-                    audio_data->set_in_mixer(true);
-                    data.push_back(audio_data);
-                }
+                data.push_back(audio_data);
                 break;
             }
             case AudioMixerEvent::MixAudioMixer: {
                 std::shared_ptr<AudioMixer> audio_mixer = std::static_pointer_cast<AudioMixer>(event.ptr);
                 mixers.push_back(audio_mixer);
+                break;
+            }
+            case AudioMixerEvent::RemoveAudioStream: {
+                std::shared_ptr<AudioStream> audio_stream = std::static_pointer_cast<AudioStream>(event.ptr);
+                streams.erase(std::remove(streams.begin(), streams.end(), audio_stream), streams.end());
+                break;
+            }
+            case AudioMixerEvent::RemoveAudioData: {
+                std::shared_ptr<AudioData> audio_data = std::static_pointer_cast<AudioData>(event.ptr);
+                data.erase(std::remove(data.begin(), data.end(), audio_data), data.end());
+                break;
+            }
+            case AudioMixerEvent::RemoveAudioMixer: {
+                std::shared_ptr<AudioMixer> audio_mixer = std::static_pointer_cast<AudioMixer>(event.ptr);
+                mixers.erase(std::remove(mixers.begin(), mixers.end(), audio_mixer), mixers.end());
                 break;
             }
         }
@@ -54,7 +67,6 @@ bool Lowl::AudioMixer::read(Lowl::AudioFrame &audio_frame) {
         if (!audio_data->read(read_frame)) {
             // data empty - data will be removed and need to be added again
             int idx = &audio_data - &data[0];
-            data[idx]->set_in_mixer(false);
             data[idx] = nullptr;
             has_empty_data = true;
             continue;
@@ -83,6 +95,10 @@ bool Lowl::AudioMixer::read(Lowl::AudioFrame &audio_frame) {
     process_panning(audio_frame);
 
     return true;
+}
+
+Lowl::size_l Lowl::AudioMixer::get_frames_remaining() const {
+    return 1;
 }
 
 void Lowl::AudioMixer::mix_stream(std::shared_ptr<AudioStream> p_audio_stream) {
@@ -121,10 +137,6 @@ void Lowl::AudioMixer::mix_mixer(std::shared_ptr<AudioMixer> p_audio_mixer) {
     events->enqueue(event);
 }
 
-Lowl::size_l Lowl::AudioMixer::get_frames_remaining() const {
-    return 1;
-}
-
 void Lowl::AudioMixer::mix(std::shared_ptr<AudioSource> p_audio_source) {
     std::shared_ptr<AudioMixer> mixer = std::dynamic_pointer_cast<AudioMixer>(p_audio_source);
     if (mixer) {
@@ -141,6 +153,50 @@ void Lowl::AudioMixer::mix(std::shared_ptr<AudioSource> p_audio_source) {
     std::shared_ptr<AudioStream> stream = std::dynamic_pointer_cast<AudioStream>(p_audio_source);
     if (mixer) {
         mix_stream(stream);
+        return;
+    }
+}
+
+void Lowl::AudioMixer::remove_mixer(std::shared_ptr<AudioMixer> p_audio_mixer) {
+    Lowl::AudioUtil::release_pool->add(p_audio_mixer);
+    AudioMixerEvent event = {};
+    event.type = AudioMixerEvent::RemoveAudioMixer;
+    event.ptr = p_audio_mixer;
+    events->enqueue(event);
+}
+
+void Lowl::AudioMixer::remove_data(std::shared_ptr<AudioData> p_audio_data) {
+    Lowl::AudioUtil::release_pool->add(p_audio_data);
+    AudioMixerEvent event = {};
+    event.type = AudioMixerEvent::RemoveAudioData;
+    event.ptr = p_audio_data;
+    events->enqueue(event);
+}
+
+void Lowl::AudioMixer::remove_stream(std::shared_ptr<AudioStream> p_audio_stream) {
+    Lowl::AudioUtil::release_pool->add(p_audio_stream);
+    AudioMixerEvent event = {};
+    event.type = AudioMixerEvent::RemoveAudioStream;
+    event.ptr = p_audio_stream;
+    events->enqueue(event);
+}
+
+void Lowl::AudioMixer::remove(std::shared_ptr<AudioSource> p_audio_source) {
+    std::shared_ptr<AudioMixer> mixer = std::dynamic_pointer_cast<AudioMixer>(p_audio_source);
+    if (mixer) {
+        remove_mixer(mixer);
+        return;
+    }
+
+    std::shared_ptr<AudioData> audio_data = std::dynamic_pointer_cast<AudioData>(p_audio_source);
+    if (audio_data) {
+        remove_data(audio_data);
+        return;
+    }
+
+    std::shared_ptr<AudioStream> stream = std::dynamic_pointer_cast<AudioStream>(p_audio_source);
+    if (mixer) {
+        remove_stream(stream);
         return;
     }
 }

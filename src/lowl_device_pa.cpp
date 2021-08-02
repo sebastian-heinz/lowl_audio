@@ -96,6 +96,7 @@ void Lowl::PaDevice::stop_stream(Error &error) {
     If a stream callback returns a value other than paContinue the stream is NOT
     considered to be stopped.
     */
+    active = false;
     PaError pa_error = Pa_IsStreamStopped(stream);
     if (pa_error == 1) {
         // stopped
@@ -108,7 +109,7 @@ void Lowl::PaDevice::stop_stream(Error &error) {
         return;
     }
     pa_error = Pa_StopStream(stream);
-    active = false;
+
     if (pa_error != PaErrorCode::paNoError) {
         error.set_error(static_cast<ErrorCode>(pa_error));
         return;
@@ -216,6 +217,7 @@ void Lowl::PaDevice::start(Error &error) {
 
 void Lowl::PaDevice::stop(Error &error) {
     stop_stream(error);
+    audio_source = nullptr;
     if (error.has_error()) {
         return;
     }

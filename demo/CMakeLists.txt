@@ -1,3 +1,10 @@
-set (CMAKE_CXX_STANDARD 14)
-add_executable (lowl_audio_demo main.cpp)
-target_link_libraries (lowl_audio_demo LINK_PUBLIC lowl_audio)
+set(LOWL_DEMO_MAIN lowl_audio_app)
+set(LOWL_DEMO_FILES
+        main.cpp
+        )
+
+
+add_executable(${LOWL_DEMO_MAIN} ${LOWL_DEMO_FILES})
+
+# lowl
+target_link_libraries (${LOWL_DEMO_MAIN} PRIVATE ${LOWL_LIB_MAIN})

@@ -295,6 +295,9 @@ created with [draw.io](https://draw.io/)
 - [r8brain-free-src](https://github.com/avaneev/r8brain-free-src)
   - License: [MIT](https://github.com/avaneev/r8brain-free-src/blob/master/LICENSE)
   - high-quality professional audio sample rate converter
+- [doctest](https://github.com/onqtam/doctest)
+  - License: [MIT](https://github.com/onqtam/doctest/blob/master/LICENSE.txt)
+  - C++ testing framework
   
 ---
 

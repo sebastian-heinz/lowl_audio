@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.6)
 project(lowl_audio)
 
+set(LOWL_LIB_MAIN lowl_audio_lib)
+
 message([LOWL] Project: ${PROJECT_NAME})
 message([LOWL] BuildType:: ${CMAKE_BUILD_TYPE})
 
@@ -47,39 +49,39 @@ set(LOWL_SOURCES
         src/node/lowl_node_re_sampler.cpp
         )
 
-add_library(${PROJECT_NAME} ${LOWL_SOURCES})
-set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "")
-target_include_directories(${PROJECT_NAME} PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>")
-target_compile_definitions(${PROJECT_NAME} PRIVATE LOWL_DRIVER_DUMMY)
-target_compile_definitions(${PROJECT_NAME} PRIVATE LOWL_DRIVER_PORTAUDIO)
-target_compile_definitions(${PROJECT_NAME} PRIVATE "LOWL_PA_DEFAULT_DRIVER_PRIORITY=\"${LOWL_PA_DEFAULT_DRIVER_PRIORITY}\"")
+add_library(${LOWL_LIB_MAIN} ${LOWL_SOURCES})
+set_target_properties(${LOWL_LIB_MAIN} PROPERTIES PREFIX "")
+target_include_directories(${LOWL_LIB_MAIN} PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>")
+target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_DUMMY)
+target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_PORTAUDIO)
+target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE "LOWL_PA_DEFAULT_DRIVER_PRIORITY=\"${LOWL_PA_DEFAULT_DRIVER_PRIORITY}\"")
 
 IF (WIN32)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE LOWL_WIN)
+    target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_WIN)
 ENDIF ()
 IF (UNIX)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE LOWL_UNIX)
+    target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_UNIX)
 ENDIF ()
 
 # readerwriterqueue
 add_subdirectory(third_party/readerwriterqueue)
-target_link_libraries(${PROJECT_NAME} readerwriterqueue)
+target_link_libraries(${LOWL_LIB_MAIN} PUBLIC readerwriterqueue)
 
 # concurrentqueue
 add_subdirectory(third_party/concurrentqueue)
-target_link_libraries(${PROJECT_NAME} concurrentqueue)
+target_link_libraries(${LOWL_LIB_MAIN} PUBLIC concurrentqueue)
 
 # portaudio
 add_subdirectory(third_party/portaudio)
-target_link_libraries(${PROJECT_NAME} portaudio_static)
+target_link_libraries(${LOWL_LIB_MAIN} PRIVATE portaudio_static)
 
 # dr_lib
-target_include_directories(${PROJECT_NAME} PRIVATE third_party/dr_libs)
+target_include_directories(${LOWL_LIB_MAIN} PRIVATE third_party/dr_libs)
 
 # r8brain-free-src
 add_compile_definitions(_USE_MATH_DEFINES)
-target_include_directories(${PROJECT_NAME} PUBLIC third_party/r8brain-free-src)
-target_sources(${PROJECT_NAME}
+target_include_directories(${LOWL_LIB_MAIN} PUBLIC third_party/r8brain-free-src)
+target_sources(${LOWL_LIB_MAIN}
         PRIVATE
         third_party/r8brain-free-src/pffft.cpp
         third_party/r8brain-free-src/r8bbase.cpp
@@ -88,3 +90,4 @@ target_sources(${PROJECT_NAME}
 #add_definitions(-DR8B_PFFFT=1)
 
 add_subdirectory(demo)
+add_subdirectory(test)

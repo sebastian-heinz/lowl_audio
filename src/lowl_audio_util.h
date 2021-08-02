@@ -3,6 +3,7 @@
 
 #include "lowl_audio_stream.h"
 #include "lowl_audio_data.h"
+#include "lowl_release_pool.h"
 
 #include <memory>
 
@@ -15,7 +16,7 @@ namespace Lowl {
 
     public:
         static std::unique_ptr<AudioStream> to_stream(std::shared_ptr<AudioData> p_audio_data);
-
+        static std::unique_ptr<Lowl::ReleasePool> release_pool;
     };
 }
 
