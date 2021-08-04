@@ -199,11 +199,16 @@ jobs:
         shell: bash
         run: cmake --build . --config ${{ matrix.config.build_type }}
 
-      - name: Test Win
+      - name: Ls Win
         if: startsWith(matrix.config.os, 'windows')
         shell: bash
         run: |
-          lowl_audio_test.exe
+          ls
+
+      - name: Test Win
+        if: startsWith(matrix.config.os, 'windows')
+        shell: bash
+        run: lowl_audio_test.exe
 
       - name: Test Unix
         if: startsWith(matrix.config.os, 'ubuntu')
