@@ -204,9 +204,9 @@ jobs:
         shell: powershell
         run: |
           ls
-          cd Release
-          ls
           cd test
+          ls
+          cd Release
           ls
           ./lowl_audio_test.exe
 
