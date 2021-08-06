@@ -201,7 +201,7 @@ jobs:
 
       - name: Ls Win
         if: startsWith(matrix.config.os, 'windows')
-        shell: bash
+        shell: powershell
         run: |
           ls
           cd test
@@ -209,10 +209,10 @@ jobs:
 
       - name: Test Win
         if: startsWith(matrix.config.os, 'windows')
-        shell: bash
+        shell: powershell
         run: |
           cd test
-          ./lowl_audio_test
+          ./lowl_audio_test.exe
 
       - name: Test Unix
         if: startsWith(matrix.config.os, 'ubuntu')
