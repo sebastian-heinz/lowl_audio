@@ -204,20 +204,26 @@ jobs:
         shell: bash
         run: |
           ls
+          cd test
+          ls
 
       - name: Test Win
         if: startsWith(matrix.config.os, 'windows')
         shell: bash
-        run: ./lowl_audio_test.exe
+        run: |
+          cd test
+          ./lowl_audio_test
 
       - name: Test Unix
         if: startsWith(matrix.config.os, 'ubuntu')
         shell: bash
         run: |
+          cd test
           ./lowl_audio_test
 
       - name: Test Osx
         if: startsWith(matrix.config.os, 'osx')
         shell: bash
         run: |
+          cd test
           ./lowl_audio_test
