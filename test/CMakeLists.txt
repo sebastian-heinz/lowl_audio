@@ -14,6 +14,7 @@ target_link_libraries(${LOWL_TEST_MAIN} PRIVATE ${LOWL_LIB_MAIN})
 # doctest
 add_subdirectory(../third_party/doctest ../third_party/doctest)
 target_link_libraries(${LOWL_TEST_MAIN} PRIVATE doctest)
+
 if(MINGW)
     # MinGw - requires following dlls
     # - libstdc++-6.dll
