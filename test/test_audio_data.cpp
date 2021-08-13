@@ -13,15 +13,13 @@ TEST_CASE("AudioData") {
     Lowl::AudioFrame read;
 
     SUBCASE("AudioData - Frame") {
-        read = Lowl::AudioFrame(1, 1);
-
         REQUIRE(audio_data->read(read));
         Lowl::AudioFrame previous;
         previous.left = read.left;
         previous.right = read.right;
         REQUIRE_FALSE(audio_data->read(read));
 
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 5; i++) {
             REQUIRE(audio_data->read(read));
             REQUIRE_EQ(read.left, previous.left);
             REQUIRE_EQ(read.right, previous.right);
@@ -31,7 +29,7 @@ TEST_CASE("AudioData") {
             read.left = 0.8;
         }
 
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 5; i++) {
             audio_data->set_panning(1);
             REQUIRE(audio_data->read(read));
             REQUIRE_EQ(read.left, 0.0);

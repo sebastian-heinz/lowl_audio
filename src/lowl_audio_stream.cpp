@@ -14,7 +14,7 @@ bool Lowl::AudioStream::read(AudioFrame &audio_frame) {
 }
 
 bool Lowl::AudioStream::write(const AudioFrame &p_audio_frame) {
-    if (!frame_queue->enqueue(p_audio_frame)) {
+    if (!frame_queue->enqueue(p_audio_frame)) { // creates copy
         return false;
     }
     return true;

@@ -3,6 +3,7 @@ set(LOWL_TEST_FILES
         main.cpp
         test_driver.cpp
         test_audio_data.cpp
+        test_audio_stream.cpp
         )
 
 add_executable(${LOWL_TEST_MAIN} ${LOWL_TEST_FILES})
