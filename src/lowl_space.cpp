@@ -3,6 +3,7 @@
 #include "lowl_audio_reader.h"
 #include "lowl_re_sampler.h"
 #include "lowl_channel_converter.h"
+#include "lowl_logger.h"
 
 #include <map>
 
@@ -11,7 +12,7 @@ Lowl::Space::Space() {
     audio_data_lookup = std::vector<std::shared_ptr<AudioData>>();
     audio_data_lookup.push_back(std::shared_ptr<AudioData>());
     is_loaded = false;
-    sample_rate = 0;
+    sample_rate = NO_SAMPLE_RATE;
     channel = Channel::None;
     mixer = std::unique_ptr<AudioMixer>();
 }
@@ -68,30 +69,24 @@ void Lowl::Space::stop(SpaceId p_id) {
 }
 
 void Lowl::Space::load() {
-
-    if (channel == Channel::None) {
-        std::map<Channel, int> channels = std::map<Channel, int>();
-        for (SpaceId i = 1; i < audio_data_lookup.size(); i++) {
-            std::shared_ptr<AudioData> audio = audio_data_lookup[i];
-            Channel ch = audio->get_channel();
-            std::map<Channel, int>::iterator it = channels.find(ch);
-            if (it == channels.end()) {
-                channels.insert(std::make_pair(ch, 1));
-            } else {
-                it->second++;
-            }
-        }
-        std::map<Channel, int>::iterator most_frequent = std::max_element(
-                channels.begin(),
-                channels.end(),
-                [](const std::pair<Channel, int> &a, const std::pair<Channel, int> &b) -> bool {
-                    return a.second < b.second;
-                }
-        );
-        channel = most_frequent->first;
+    if (audio_data_lookup.size() <= 1) {
+        return;
     }
 
-    if (sample_rate == 0) {
+    if (channel == Channel::None) {
+        std::shared_ptr<AudioData> audio = audio_data_lookup[1];
+        Channel ch = audio->get_channel();
+        channel = ch;
+        for (SpaceId i = 1; i < audio_data_lookup.size(); i++) {
+            audio = audio_data_lookup[i];
+            ch = audio->get_channel();
+            if (ch > channel) {
+                channel = ch;
+            }
+        }
+    }
+
+    if (sample_rate == NO_SAMPLE_RATE) {
         std::map<SampleRate, int> sample_rates = std::map<SampleRate, int>();
         for (SpaceId i = 1; i < audio_data_lookup.size(); i++) {
             std::shared_ptr<AudioData> audio = audio_data_lookup[i];
@@ -127,7 +122,13 @@ void Lowl::Space::load() {
             Error error;
             std::unique_ptr<AudioData> converted = channel_converter.convert(ch, audio, error);
             if (error.has_error()) {
-                // TODO warning / error ?
+                std::string message =
+                        "Lowl::Space::load channel_converter.convert() ErrCode:" +
+                        std::to_string(error.get_error_code()) +
+                        " ErrText:" + error.get_error_text() + ". Could not convert channels for audio_data_lookup[" +
+                        std::to_string(i) + "] from " + std::to_string((int) ch) + " to " +
+                        std::to_string((int) channel) + " channel.";
+                Logger::log(Logger::Level::Error, message);
                 audio_data_lookup[i] = nullptr;
                 continue;
             }
@@ -137,6 +138,7 @@ void Lowl::Space::load() {
     }
 
     mixer = std::make_shared<AudioMixer>(sample_rate, channel);
+    is_loaded = true;
 }
 
 void Lowl::Space::set_sample_rate(SampleRate p_sample_rate) {

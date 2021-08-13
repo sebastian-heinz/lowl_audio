@@ -23,7 +23,9 @@ namespace Lowl {
     typedef double double_l;
 
     typedef uint16_l SpaceId;
+
     typedef double_l SampleRate;
+    static constexpr SampleRate NO_SAMPLE_RATE = 0;
 
     typedef double_l Volume;
     static constexpr Volume DEFAULT_VOLUME = 1.0;
