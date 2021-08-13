@@ -12,7 +12,7 @@ bool Lowl::AudioData::read(Lowl::AudioFrame &audio_frame) {
         position = 0;
         return false;
     }
-    audio_frame = frames[position];
+    audio_frame = frames[position]; // creates copy
     process_volume(audio_frame);
     process_panning(audio_frame);
     position++;

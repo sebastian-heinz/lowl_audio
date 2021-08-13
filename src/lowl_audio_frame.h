@@ -101,6 +101,10 @@ namespace Lowl {
             right /= p_sample;
         }
 
+        //_INLINE_ bool operator==(const AudioFrame &p_frame) const {
+        //    return left == p_frame.left && right == p_frame.right;
+        //}
+
         _INLINE_ AudioFrame(float p_l, float p_r) {
             left = p_l;
             right = p_r;

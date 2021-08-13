@@ -222,7 +222,7 @@ jobs:
           ./lowl_audio_test
 
       - name: Test Osx
-        if: startsWith(matrix.config.os, 'osx')
+        if: startsWith(matrix.config.os, 'macos-latest')
         shell: bash
         run: |
           cd test
