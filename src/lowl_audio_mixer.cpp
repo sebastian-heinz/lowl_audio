@@ -4,15 +4,13 @@
 
 #include <string>
 
-Lowl::AudioMixer::AudioMixer(SampleRate p_sample_rate, Channel p_channel, Volume p_volume, Panning p_panning)
-        : AudioSource(p_sample_rate, p_channel, p_volume, p_panning) {
+Lowl::AudioMixer::AudioMixer(SampleRate p_sample_rate, Channel p_channel) : AudioSource(p_sample_rate, p_channel) {
     sample_rate = p_sample_rate;
     channel = p_channel;
     streams = std::vector<std::shared_ptr<AudioStream>>();
     data = std::vector<std::shared_ptr<AudioData>>();
     mixers = std::vector<std::shared_ptr<AudioMixer>>();
     events = std::make_unique<moodycamel::ConcurrentQueue<AudioMixerEvent>>();
-    frames_remaining.store(0, std::memory_order_relaxed);
 }
 
 bool Lowl::AudioMixer::read(Lowl::AudioFrame &audio_frame) {
@@ -22,63 +20,56 @@ bool Lowl::AudioMixer::read(Lowl::AudioFrame &audio_frame) {
             case AudioMixerEvent::MixAudioStream: {
                 std::shared_ptr<AudioStream> audio_stream = std::static_pointer_cast<AudioStream>(event.ptr);
                 streams.push_back(audio_stream);
-
-                size_l remaining = audio_stream->get_frames_remaining();
-                if (remaining > frames_remaining.load(std::memory_order_relaxed)) {
-                    frames_remaining.store(remaining, std::memory_order_relaxed);
-                }
                 break;
             }
             case AudioMixerEvent::MixAudioData: {
                 std::shared_ptr<AudioData> audio_data = std::static_pointer_cast<AudioData>(event.ptr);
-                if (!audio_data->is_in_mixer()) {
-                    audio_data->set_in_mixer(true);
-                    data.push_back(audio_data);
-
-                    // TODO audio data can be cancelled mid way or reset, causing incorrect frame count
-                    size_l remaining = audio_data->get_frames_remaining();
-                    if (remaining > frames_remaining.load(std::memory_order_relaxed)) {
-                        frames_remaining.store(remaining, std::memory_order_relaxed);
-                    }
-                }
+                data.push_back(audio_data);
                 break;
             }
             case AudioMixerEvent::MixAudioMixer: {
                 std::shared_ptr<AudioMixer> audio_mixer = std::static_pointer_cast<AudioMixer>(event.ptr);
                 mixers.push_back(audio_mixer);
-
-                size_l remaining = audio_mixer->get_frames_remaining();
-                if (remaining > frames_remaining.load(std::memory_order_relaxed)) {
-                    frames_remaining.store(remaining, std::memory_order_relaxed);
-                }
+                break;
+            }
+            case AudioMixerEvent::RemoveAudioStream: {
+                std::shared_ptr<AudioStream> audio_stream = std::static_pointer_cast<AudioStream>(event.ptr);
+                streams.erase(std::remove(streams.begin(), streams.end(), audio_stream), streams.end());
+                break;
+            }
+            case AudioMixerEvent::RemoveAudioData: {
+                std::shared_ptr<AudioData> audio_data = std::static_pointer_cast<AudioData>(event.ptr);
+                data.erase(std::remove(data.begin(), data.end(), audio_data), data.end());
+                break;
+            }
+            case AudioMixerEvent::RemoveAudioMixer: {
+                std::shared_ptr<AudioMixer> audio_mixer = std::static_pointer_cast<AudioMixer>(event.ptr);
+                mixers.erase(std::remove(mixers.begin(), mixers.end(), audio_mixer), mixers.end());
                 break;
             }
         }
     }
 
-    AudioFrame frame;
-    AudioFrame mix_frame;
     bool has_output = false;
     bool has_empty_data = false;
     for (const std::shared_ptr<AudioStream> &stream : streams) {
-        if (!stream->read(frame)) {
+        if (!stream->read(read_frame)) {
             // stream empty - streams stay connected to the mixer, more data might be pushed at any time
             continue;
         }
-        mix_frame += frame;
+        audio_frame += read_frame;
         has_output = true;
     }
 
     for (const std::shared_ptr<AudioData> &audio_data : data) {
-        if (!audio_data->read(frame)) {
+        if (!audio_data->read(read_frame)) {
             // data empty - data will be removed and need to be added again
             int idx = &audio_data - &data[0];
-            data[idx]->set_in_mixer(false);
             data[idx] = nullptr;
             has_empty_data = true;
             continue;
         }
-        mix_frame += frame;
+        audio_frame += read_frame;
         has_output = true;
     }
     if (has_empty_data) {
@@ -86,11 +77,11 @@ bool Lowl::AudioMixer::read(Lowl::AudioFrame &audio_frame) {
     }
 
     for (const std::shared_ptr<AudioMixer> &mixer : mixers) {
-        if (!mixer->read(frame)) {
+        if (!mixer->read(read_frame)) {
             // mixer empty
             continue;
         }
-        mix_frame += frame;
+        audio_frame += read_frame;
         has_output = true;
     }
 
@@ -98,21 +89,14 @@ bool Lowl::AudioMixer::read(Lowl::AudioFrame &audio_frame) {
         return false;
     }
 
-    if (mix_frame.left > 1.0) {
-        mix_frame.left = 1.0;
-    }
-    if (mix_frame.right > 1.0) {
-        mix_frame.right = 1.0;
-    }
-    audio_frame = mix_frame;
     process_volume(audio_frame);
     process_panning(audio_frame);
 
-    if (frames_remaining.load(std::memory_order_relaxed) > 0) {
-        frames_remaining.fetch_sub(1, std::memory_order_relaxed);
-    }
-
     return true;
+}
+
+Lowl::size_l Lowl::AudioMixer::get_frames_remaining() const {
+    return 1;
 }
 
 void Lowl::AudioMixer::mix_stream(std::shared_ptr<AudioStream> p_audio_stream) {
@@ -151,10 +135,6 @@ void Lowl::AudioMixer::mix_mixer(std::shared_ptr<AudioMixer> p_audio_mixer) {
     events->enqueue(event);
 }
 
-Lowl::size_l Lowl::AudioMixer::get_frames_remaining() const {
-    return frames_remaining.load(std::memory_order_relaxed);
-}
-
 void Lowl::AudioMixer::mix(std::shared_ptr<AudioSource> p_audio_source) {
     std::shared_ptr<AudioMixer> mixer = std::dynamic_pointer_cast<AudioMixer>(p_audio_source);
     if (mixer) {
@@ -169,8 +149,49 @@ void Lowl::AudioMixer::mix(std::shared_ptr<AudioSource> p_audio_source) {
     }
 
     std::shared_ptr<AudioStream> stream = std::dynamic_pointer_cast<AudioStream>(p_audio_source);
-    if (mixer) {
+    if (stream) {
         mix_stream(stream);
+        return;
+    }
+}
+
+void Lowl::AudioMixer::remove_mixer(std::shared_ptr<AudioMixer> p_audio_mixer) {
+    AudioMixerEvent event = {};
+    event.type = AudioMixerEvent::RemoveAudioMixer;
+    event.ptr = p_audio_mixer;
+    events->enqueue(event);
+}
+
+void Lowl::AudioMixer::remove_data(std::shared_ptr<AudioData> p_audio_data) {
+    AudioMixerEvent event = {};
+    event.type = AudioMixerEvent::RemoveAudioData;
+    event.ptr = p_audio_data;
+    events->enqueue(event);
+}
+
+void Lowl::AudioMixer::remove_stream(std::shared_ptr<AudioStream> p_audio_stream) {
+    AudioMixerEvent event = {};
+    event.type = AudioMixerEvent::RemoveAudioStream;
+    event.ptr = p_audio_stream;
+    events->enqueue(event);
+}
+
+void Lowl::AudioMixer::remove(std::shared_ptr<AudioSource> p_audio_source) {
+    std::shared_ptr<AudioMixer> mixer = std::dynamic_pointer_cast<AudioMixer>(p_audio_source);
+    if (mixer) {
+        remove_mixer(mixer);
+        return;
+    }
+
+    std::shared_ptr<AudioData> audio_data = std::dynamic_pointer_cast<AudioData>(p_audio_source);
+    if (audio_data) {
+        remove_data(audio_data);
+        return;
+    }
+
+    std::shared_ptr<AudioStream> stream = std::dynamic_pointer_cast<AudioStream>(p_audio_source);
+    if (stream) {
+        remove_stream(stream);
         return;
     }
 }

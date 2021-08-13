@@ -22,35 +22,10 @@ namespace Lowl {
 
     private:
         std::vector<AudioFrame> frames;
-        size_t position;
-        std::atomic_flag is_not_cancel = ATOMIC_FLAG_INIT;
-        std::atomic_flag is_not_reset = ATOMIC_FLAG_INIT;
-        bool in_mixer;
+        std::atomic<size_t> position;
+        size_t size;
 
     public:
-        /**
-         * * Do not use this method, intended for mixer only
-         */
-        bool is_in_mixer() const;
-
-        /**
-         * Do not use this method, intended for mixer only
-         */
-        void set_in_mixer(bool p_in_mixer);
-
-    public:
-        /**
-         * signals read to interrupt
-         * next read call will start reading data from beginning.
-         */
-        void cancel_read();
-
-        /**
-         * signals read to reset
-         * next read call will start reading data from beginning.
-         */
-        void reset_read();
-
         /**
          * returns all frames.
          */
@@ -59,7 +34,7 @@ namespace Lowl {
         /**
          * returns a new AudioData created from a slice of its frames.
          */
-        std::shared_ptr<AudioData> create_slice(double begin_sec, double end_sec);
+        std::unique_ptr<AudioData> create_slice(double begin_sec, double end_sec);
 
         /**
          * reads a frame
@@ -72,9 +47,9 @@ namespace Lowl {
 
         virtual size_l get_frames_remaining() const override;
 
-        AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate, Channel p_channel, Volume p_volume = 1.0, Panning p_panning = 0.5);
+        AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate, Channel p_channel);
 
-        virtual ~AudioData() = default;
+        virtual ~AudioData();
     };
 }
 

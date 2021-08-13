@@ -105,7 +105,7 @@ Lowl::AudioReader::read_frames(Lowl::AudioFormat p_audio_format, Lowl::SampleFor
             for (float sample : samples) {
                 AudioFrame frame{};
                 frame.left = sample;
-                frame.right = sample;
+                frame.right = 0;
                 frames.push_back(frame);
             }
             break;

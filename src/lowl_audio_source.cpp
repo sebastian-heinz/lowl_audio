@@ -1,12 +1,13 @@
 #include "lowl_audio_source.h"
 
 #include <cmath>
+#include <algorithm>
 
-Lowl::AudioSource::AudioSource(SampleRate p_sample_rate, Channel p_channel, Volume p_volume, Panning p_panning) {
+Lowl::AudioSource::AudioSource(SampleRate p_sample_rate, Channel p_channel) {
     sample_rate = p_sample_rate;
     channel = p_channel;
-    volume = p_volume;
-    panning = p_panning;
+    volume.store(DEFAULT_VOLUME);
+    panning.store(DEFAULT_PANNING);
 }
 
 Lowl::SampleRate Lowl::AudioSource::get_sample_rate() const {
@@ -26,42 +27,39 @@ int Lowl::AudioSource::get_channel_num() const {
 }
 
 void Lowl::AudioSource::set_volume(Lowl::Volume p_volume) {
-    volume = p_volume;
+    volume.store(p_volume);
 }
 
 Lowl::Volume Lowl::AudioSource::get_volume() {
-    return volume;
+    return volume.load();
 }
 
 void Lowl::AudioSource::set_panning(Lowl::Panning p_panning) {
-    panning = p_panning;
+    std::clamp(p_panning, MIN_PANNING, MAX_PANNING);
+    panning.store(p_panning);
 }
 
 Lowl::Panning Lowl::AudioSource::get_panning() {
-    return panning;
+    return panning.load();
 }
 
 void Lowl::AudioSource::process_volume(Lowl::AudioFrame &audio_frame) {
-    switch (channel) {
-        case Lowl::Channel::Stereo:
-            audio_frame.left *= volume;
-            audio_frame.right *= volume;
-            break;
-        case Lowl::Channel::Mono:
-            audio_frame.left *= volume;
-            break;
+    Volume vol = volume.load();
+    for (int current_channel = 0; current_channel < Lowl::get_channel_num(channel); current_channel++) {
+        audio_frame[current_channel] *= vol;
     }
 }
 
 void Lowl::AudioSource::process_panning(Lowl::AudioFrame &audio_frame) {
+    Panning pan = panning.load();
     switch (channel) {
         case Lowl::Channel::Stereo:
-            audio_frame.left *= std::sqrt(1.0-panning);
-            audio_frame.right *= std::sqrt(panning);
+            audio_frame.left *= std::sqrt(1.0 - pan);
+            audio_frame.right *= std::sqrt(1.0 + pan);
             break;
         case Lowl::Channel::Mono:
-            audio_frame.left *= std::sqrt(1.0-panning);
-            audio_frame.right = audio_frame.left*std::sqrt(panning);
+            audio_frame.left *= std::sqrt(1.0 - pan);
+            audio_frame.right *= std::sqrt(1.0 + pan);
             break;
     }
 }

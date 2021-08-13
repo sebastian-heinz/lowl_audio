@@ -23,9 +23,17 @@ namespace Lowl {
     typedef double double_l;
 
     typedef uint16_l SpaceId;
+
     typedef double_l SampleRate;
+    static constexpr SampleRate NO_SAMPLE_RATE = 0;
+
     typedef double_l Volume;
+    static constexpr Volume DEFAULT_VOLUME = 1.0;
+
+    /// Range from -1 to 1
     typedef double_l Panning;
-    typedef unsigned long long TimeNsEpoch;
+    static constexpr Panning DEFAULT_PANNING = 0.0;
+    static constexpr Panning MAX_PANNING = 1.0;
+    static constexpr Panning MIN_PANNING = -1.0;
 }
 #endif //LOWL_TYPEDEF_H

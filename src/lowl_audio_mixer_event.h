@@ -6,8 +6,10 @@ namespace Lowl {
         static const uint8_t MixAudioStream = 0;
         static const uint8_t MixAudioData = 1;
         static const uint8_t MixAudioMixer = 2;
+        static const uint8_t RemoveAudioStream = 3;
+        static const uint8_t RemoveAudioData = 4;
+        static const uint8_t RemoveAudioMixer = 5;
 
-        // todo potentially timing to run at specific time
         uint8_t type;
         std::shared_ptr<void> ptr;
     };

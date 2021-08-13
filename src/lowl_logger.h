@@ -1,3 +1,6 @@
+#ifndef LOWL_LOGGER_H
+#define LOWL_LOGGER_H
+
 #include <string>
 #include <chrono>
 #include <ctime>
@@ -43,4 +46,4 @@ namespace Lowl {
     };
 }
 
-//#endif
+#endif

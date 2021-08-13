@@ -3,6 +3,8 @@
 #include "lowl_device_pa.h"
 #include "lowl_logger.h"
 
+#include <algorithm>
+
 #ifdef PA_USE_WASAPI
 #include <pa_win_wasapi.h>
 #endif
@@ -27,12 +29,13 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
     float *dst = (float *) p_output_buffer;
     unsigned long current_frame = 0;
     for (; current_frame < p_frames_per_buffer; current_frame++) {
-        AudioFrame frame;
+        AudioFrame frame{};
         if (!audio_source->read(frame)) {
             // stream empty
             break;
         }
         for (int current_channel = 0; current_channel < audio_source->get_channel_num(); current_channel++) {
+            std::clamp(frame[current_channel], AudioFrame::MIN_SAMPLE_VALUE, AudioFrame::MAX_SAMPLE_VALUE);
             *dst++ = frame[current_channel];
         }
     }
@@ -90,6 +93,7 @@ void Lowl::PaDevice::stop_stream(Error &error) {
     If a stream callback returns a value other than paContinue the stream is NOT
     considered to be stopped.
     */
+    active = false;
     PaError pa_error = Pa_IsStreamStopped(stream);
     if (pa_error == 1) {
         // stopped
@@ -102,7 +106,7 @@ void Lowl::PaDevice::stop_stream(Error &error) {
         return;
     }
     pa_error = Pa_StopStream(stream);
-    active = false;
+
     if (pa_error != PaErrorCode::paNoError) {
         error.set_error(static_cast<ErrorCode>(pa_error));
         return;
@@ -210,6 +214,7 @@ void Lowl::PaDevice::start(Error &error) {
 
 void Lowl::PaDevice::stop(Error &error) {
     stop_stream(error);
+    audio_source = nullptr;
     if (error.has_error()) {
         return;
     }
