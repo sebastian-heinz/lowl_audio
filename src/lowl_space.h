@@ -37,7 +37,9 @@ namespace Lowl {
         Channel channel;
 
     public:
-        void play(SpaceId p_id, Volume p_volume = 1, Panning p_panning = 0.5);
+        void play(SpaceId p_id, Volume p_volume, Panning p_panning);
+
+        void play(SpaceId p_id);
 
         void stop(SpaceId p_id);
 

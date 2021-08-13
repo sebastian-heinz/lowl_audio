@@ -22,7 +22,8 @@ namespace Lowl {
 
     private:
         std::vector<AudioFrame> frames;
-        size_t position;
+        std::atomic<size_t> position;
+        size_t size;
 
     public:
         /**
@@ -33,7 +34,7 @@ namespace Lowl {
         /**
          * returns a new AudioData created from a slice of its frames.
          */
-        std::shared_ptr<AudioData> create_slice(double begin_sec, double end_sec);
+        std::unique_ptr<AudioData> create_slice(double begin_sec, double end_sec);
 
         /**
          * reads a frame
@@ -46,7 +47,7 @@ namespace Lowl {
 
         virtual size_l get_frames_remaining() const override;
 
-        AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate, Channel p_channel, Volume p_volume = 1.0, Panning p_panning = 0.5);
+        AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate, Channel p_channel);
 
         virtual ~AudioData();
     };

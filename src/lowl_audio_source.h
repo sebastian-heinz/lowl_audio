@@ -25,7 +25,7 @@ namespace Lowl {
         void process_panning(AudioFrame &audio_frame);
 
     public:
-        AudioSource(SampleRate p_sample_rate, Channel p_channel, Volume p_volume = 1.0, Panning p_panning = 0.5);
+        AudioSource(SampleRate p_sample_rate, Channel p_channel);
 
         virtual ~AudioSource() = default;
 

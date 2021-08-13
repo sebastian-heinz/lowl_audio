@@ -3,6 +3,8 @@
 #include "lowl_device_pa.h"
 #include "lowl_logger.h"
 
+#include <algorithm>
+
 #ifdef PA_USE_WASAPI
 #include <pa_win_wasapi.h>
 #endif
@@ -33,12 +35,7 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
             break;
         }
         for (int current_channel = 0; current_channel < audio_source->get_channel_num(); current_channel++) {
-            if (frame[current_channel] > 1.0) {
-                frame[current_channel] = 1.0;
-            }
-            if (frame[current_channel] < -1.0) {
-                frame[current_channel] = -1.0;
-            }
+            std::clamp(frame[current_channel], AudioFrame::MIN_SAMPLE_VALUE, AudioFrame::MAX_SAMPLE_VALUE);
             *dst++ = frame[current_channel];
         }
     }

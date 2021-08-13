@@ -1,12 +1,10 @@
 #include "lowl_audio_mixer.h"
 
 #include "lowl_logger.h"
-#include "lowl_audio_util.h"
 
 #include <string>
 
-Lowl::AudioMixer::AudioMixer(SampleRate p_sample_rate, Channel p_channel, Volume p_volume, Panning p_panning)
-        : AudioSource(p_sample_rate, p_channel, p_volume, p_panning) {
+Lowl::AudioMixer::AudioMixer(SampleRate p_sample_rate, Channel p_channel) : AudioSource(p_sample_rate, p_channel) {
     sample_rate = p_sample_rate;
     channel = p_channel;
     streams = std::vector<std::shared_ptr<AudioStream>>();
@@ -151,14 +149,13 @@ void Lowl::AudioMixer::mix(std::shared_ptr<AudioSource> p_audio_source) {
     }
 
     std::shared_ptr<AudioStream> stream = std::dynamic_pointer_cast<AudioStream>(p_audio_source);
-    if (mixer) {
+    if (stream) {
         mix_stream(stream);
         return;
     }
 }
 
 void Lowl::AudioMixer::remove_mixer(std::shared_ptr<AudioMixer> p_audio_mixer) {
-    Lowl::AudioUtil::release_pool->add(p_audio_mixer);
     AudioMixerEvent event = {};
     event.type = AudioMixerEvent::RemoveAudioMixer;
     event.ptr = p_audio_mixer;
@@ -166,7 +163,6 @@ void Lowl::AudioMixer::remove_mixer(std::shared_ptr<AudioMixer> p_audio_mixer) {
 }
 
 void Lowl::AudioMixer::remove_data(std::shared_ptr<AudioData> p_audio_data) {
-    Lowl::AudioUtil::release_pool->add(p_audio_data);
     AudioMixerEvent event = {};
     event.type = AudioMixerEvent::RemoveAudioData;
     event.ptr = p_audio_data;
@@ -174,7 +170,6 @@ void Lowl::AudioMixer::remove_data(std::shared_ptr<AudioData> p_audio_data) {
 }
 
 void Lowl::AudioMixer::remove_stream(std::shared_ptr<AudioStream> p_audio_stream) {
-    Lowl::AudioUtil::release_pool->add(p_audio_stream);
     AudioMixerEvent event = {};
     event.type = AudioMixerEvent::RemoveAudioStream;
     event.ptr = p_audio_stream;
@@ -195,7 +190,7 @@ void Lowl::AudioMixer::remove(std::shared_ptr<AudioSource> p_audio_source) {
     }
 
     std::shared_ptr<AudioStream> stream = std::dynamic_pointer_cast<AudioStream>(p_audio_source);
-    if (mixer) {
+    if (stream) {
         remove_stream(stream);
         return;
     }

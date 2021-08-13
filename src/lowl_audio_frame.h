@@ -6,6 +6,8 @@
 namespace Lowl {
     struct AudioFrame {
         static constexpr unsigned int MAX_CHANNEL = 2;
+        static constexpr float MAX_SAMPLE_VALUE = 1.0;
+        static constexpr float MIN_SAMPLE_VALUE = -1.0;
 
         float left;
         float right;
@@ -26,10 +28,10 @@ namespace Lowl {
         // 5.1
         // 0: L: left
         // 1: R: right
-        // 2: C: center
-        // 3: LFE: subwoofer
-        // 4: SL: surround left
-        // 5: SR: surround right
+        // 2: SL: surround left
+        // 3: SR: surround right
+        // 4: C: center
+        // 5: LFE: subwoofer
 
         _INLINE_ const float &operator[](int idx) const { return idx == 0 ? left : right; }
 

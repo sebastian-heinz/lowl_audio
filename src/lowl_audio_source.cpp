@@ -1,12 +1,13 @@
 #include "lowl_audio_source.h"
 
 #include <cmath>
+#include <algorithm>
 
-Lowl::AudioSource::AudioSource(SampleRate p_sample_rate, Channel p_channel, Volume p_volume, Panning p_panning) {
+Lowl::AudioSource::AudioSource(SampleRate p_sample_rate, Channel p_channel) {
     sample_rate = p_sample_rate;
     channel = p_channel;
-    volume.store(p_volume);
-    panning.store(p_panning);
+    volume.store(DEFAULT_VOLUME);
+    panning.store(DEFAULT_PANNING);
 }
 
 Lowl::SampleRate Lowl::AudioSource::get_sample_rate() const {
@@ -34,6 +35,7 @@ Lowl::Volume Lowl::AudioSource::get_volume() {
 }
 
 void Lowl::AudioSource::set_panning(Lowl::Panning p_panning) {
+    std::clamp(p_panning, MIN_PANNING, MAX_PANNING);
     panning.store(p_panning);
 }
 

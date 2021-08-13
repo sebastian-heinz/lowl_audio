@@ -39,10 +39,10 @@ namespace Lowl {
             if (object == nullptr) {
                 return;
             }
+            std::lock_guard<std::mutex> lock(mutex);
             if (std::find(pool.begin(), pool.end(), object) != pool.end()) {
                 return;
             }
-            std::lock_guard<std::mutex> lock(mutex);
             pool.template emplace_back<>(object);
         }
 

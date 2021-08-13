@@ -44,8 +44,17 @@ void Lowl::Space::play(SpaceId p_id, Volume p_volume, Panning p_panning) {
     if (!audio_data) {
         return;
     }
+    mixer->remove(audio_data);
     audio_data->set_volume(p_volume);
     audio_data->set_panning(p_panning);
+    mixer->mix_data(audio_data);
+}
+
+void Lowl::Space::play(Lowl::SpaceId p_id) {
+    std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
+    if (!audio_data) {
+        return;
+    }
     mixer->remove(audio_data);
     mixer->mix_data(audio_data);
 }
@@ -174,3 +183,4 @@ std::shared_ptr<Lowl::AudioMixer> Lowl::Space::get_mixer() {
 
 Lowl::Space::~Space() {
 }
+

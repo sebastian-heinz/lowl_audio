@@ -70,7 +70,7 @@ namespace Lowl {
          */
         virtual void remove_mixer(std::shared_ptr<AudioMixer> p_audio_mixer);
 
-        AudioMixer(SampleRate p_sample_rate, Channel p_channel, Volume p_volume = 1.0, Panning p_panning = 0.5);
+        AudioMixer(SampleRate p_sample_rate, Channel p_channel);
 
         virtual ~AudioMixer() = default;
     };

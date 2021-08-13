@@ -4,7 +4,6 @@ project(lowl_audio)
 set(LOWL_LIB_MAIN lowl_audio_lib)
 
 
-message([LOWL] CMAKE_CXX_COMPILER_ID: ${CMAKE_CXX_COMPILER_ID})
 message([LOWL] Project: ${PROJECT_NAME})
 message([LOWL] BuildType: ${CMAKE_BUILD_TYPE})
 message([LOWL] CMAKE_CXX_COMPILER_ID: ${CMAKE_CXX_COMPILER_ID})
@@ -28,8 +27,7 @@ if(MINGW)
     message([LOWL] MINGW)
 endif()
 
-
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
