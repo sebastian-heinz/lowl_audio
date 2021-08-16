@@ -8,7 +8,7 @@ Lowl::AudioFrame Lowl::ChannelConverter::to_stereo(AudioFrame p_audio_frame) con
 
 Lowl::AudioFrame Lowl::ChannelConverter::to_mono(AudioFrame p_audio_frame) const {
     p_audio_frame[0] = (p_audio_frame[0] + p_audio_frame[1]) * 0.5;
-    p_audio_frame[1] = 0;
+    p_audio_frame[1] = p_audio_frame[0];
     return p_audio_frame;
 }
 

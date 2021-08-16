@@ -23,7 +23,9 @@ namespace Lowl {
     private:
         std::vector<AudioFrame> frames;
         std::atomic<size_t> position;
+        std::atomic<size_t> seek_position;
         size_t size;
+        std::atomic_flag is_not_reset;
 
     public:
         /**
@@ -34,7 +36,22 @@ namespace Lowl {
         /**
          * returns a new AudioData created from a slice of its frames.
          */
-        std::unique_ptr<AudioData> create_slice(double begin_sec, double end_sec);
+        std::unique_ptr<AudioData> create_slice(double p_begin_sec, double p_end_sec);
+
+        /**
+         * resets the current position to the start
+         */
+        void reset();
+
+        /**
+         * sets the play head to the specified time
+         */
+        void seek_time(double_l p_seconds);
+
+        /**
+         * sets the play head to the specified frame
+         */
+        void seek_frame(size_t p_frame);
 
         /**
          * reads a frame
@@ -43,7 +60,7 @@ namespace Lowl {
          *  - false will be returned indicating that the read frame is invalid.
          *  - position will be reset to the beginning, next call to read() will return the first frame again.
          */
-        virtual bool read(AudioFrame &audio_frame) override;
+        virtual ReadResult read(AudioFrame &audio_frame) override;
 
         virtual size_l get_frames_remaining() const override;
 

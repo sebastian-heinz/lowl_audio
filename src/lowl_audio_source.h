@@ -12,6 +12,13 @@ namespace Lowl {
 
     class AudioSource {
 
+    public:
+        enum class ReadResult {
+            Read = 0,
+            Pause = 1,
+            End = 2,
+        };
+
     private:
         std::atomic<Volume> volume;
         std::atomic<Volume> panning;
@@ -19,6 +26,7 @@ namespace Lowl {
     protected:
         SampleRate sample_rate;
         Channel channel;
+        std::atomic<bool> is_playing;
 
         void process_volume(AudioFrame &audio_frame);
 
@@ -29,7 +37,7 @@ namespace Lowl {
 
         virtual ~AudioSource() = default;
 
-        virtual bool read(AudioFrame &audio_frame) = 0;
+        virtual ReadResult read(AudioFrame &audio_frame) = 0;
 
         virtual size_l get_frames_remaining() const = 0;
 
@@ -48,6 +56,14 @@ namespace Lowl {
         void set_panning(Panning p_panning);
 
         Panning get_panning();
+
+        void pause();
+
+        bool is_pause();
+
+        void play();
+
+        bool is_play();
     };
 }
 

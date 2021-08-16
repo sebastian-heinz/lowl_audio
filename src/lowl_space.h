@@ -4,6 +4,7 @@
 #include "lowl_typedef.h"
 #include "lowl_audio_data.h"
 #include "lowl_audio_mixer.h"
+#include "lowl_device.h"
 
 #include <string>
 
@@ -24,19 +25,20 @@ namespace Lowl {
      *    pass this to the device or a mixer for playback.
      * 5) use play() and stop() to produce the sounds
      */
-    class Space {
+    class Space : public AudioSource {
     public:
         static const SpaceId InvalidSpaceId = 0;
 
     private:
         std::vector<std::shared_ptr<AudioData>> audio_data_lookup;
-        std::shared_ptr<AudioMixer> mixer;
+        std::unique_ptr<AudioMixer> mixer;
         SpaceId current_id;
-        bool is_loaded;
-        SampleRate sample_rate;
-        Channel channel;
 
     public:
+        virtual size_l get_frames_remaining() const override;
+
+        virtual ReadResult read(AudioFrame &audio_frame) override;
+
         void play(SpaceId p_id, Volume p_volume, Panning p_panning);
 
         void play(SpaceId p_id);
@@ -47,22 +49,20 @@ namespace Lowl {
 
         SpaceId add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error);
 
-        void load();
-
-        void set_sample_rate(SampleRate p_sample_rate);
-
-        void set_channel(Channel p_channel);
-
         void set_volume(SpaceId p_id, Volume p_volume);
 
         void set_panning(SpaceId p_id, Panning p_panning);
 
-        std::shared_ptr<AudioMixer> get_mixer();
+        void reset(SpaceId p_id);
 
-        Space();
+        void seek_time(SpaceId p_id, double_l p_seconds);
+
+        void seek_frame(SpaceId p_id, size_t p_frame);
+
+        Space(SampleRate p_sample_rate, Channel p_channel);
 
         ~Space();
-    
+
     private:
         std::shared_ptr<AudioData> get_audio_data(SpaceId p_id);
     };

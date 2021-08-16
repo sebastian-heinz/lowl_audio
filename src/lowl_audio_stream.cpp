@@ -4,13 +4,16 @@ Lowl::AudioStream::AudioStream(SampleRate p_sample_rate, Channel p_channel) : Au
     frame_queue = std::make_unique<moodycamel::ReaderWriterQueue<AudioFrame>>(100);
 }
 
-bool Lowl::AudioStream::read(AudioFrame &audio_frame) {
+Lowl::AudioSource::ReadResult Lowl::AudioStream::read(AudioFrame &audio_frame) {
+    if (!is_playing) {
+        return ReadResult::Pause;
+    }
     if (!frame_queue->try_dequeue(audio_frame)) {
-        return false;
+        return ReadResult::End;
     }
     process_volume(audio_frame);
     process_panning(audio_frame);
-    return true;
+    return ReadResult::Read;
 }
 
 bool Lowl::AudioStream::write(const AudioFrame &p_audio_frame) {

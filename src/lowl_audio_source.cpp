@@ -8,6 +8,7 @@ Lowl::AudioSource::AudioSource(SampleRate p_sample_rate, Channel p_channel) {
     channel = p_channel;
     volume.store(DEFAULT_VOLUME);
     panning.store(DEFAULT_PANNING);
+    is_playing = true;
 }
 
 Lowl::SampleRate Lowl::AudioSource::get_sample_rate() const {
@@ -62,4 +63,20 @@ void Lowl::AudioSource::process_panning(Lowl::AudioFrame &audio_frame) {
             audio_frame.right *= std::sqrt(1.0 + pan);
             break;
     }
+}
+
+void Lowl::AudioSource::pause() {
+    is_playing = false;
+}
+
+bool Lowl::AudioSource::is_pause() {
+    return !is_playing;
+}
+
+void Lowl::AudioSource::play() {
+    is_playing = true;
+}
+
+bool Lowl::AudioSource::is_play() {
+    return is_playing;
 }
