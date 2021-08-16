@@ -86,8 +86,8 @@ void mix(std::shared_ptr<Lowl::Device> device) {
     std::shared_ptr<Lowl::AudioMixer> mixer = std::make_unique<Lowl::AudioMixer>(data_1->get_sample_rate(),
                                                                                  data_1->get_channel());
 
-    mixer->mix_data(data_1);
-    mixer->mix_data(data_2);
+    mixer->mix(data_1);
+    mixer->mix(data_2);
 
 
     device->start(mixer, error);
@@ -107,16 +107,13 @@ void mix(std::shared_ptr<Lowl::Device> device) {
  * example on how to use space
  */
 void space(std::shared_ptr<Lowl::Device> device) {
-
-    std::unique_ptr<Lowl::Space> space = std::make_unique<Lowl::Space>();
+    std::shared_ptr<Lowl::Space> space = std::make_shared<Lowl::Space>(44100.0, Lowl::Channel::Stereo);
     Lowl::Error error;
 
     space->add_audio("/Users/railgun/Downloads/CantinaBand60.wav", error);
     space->add_audio("/Users/railgun/Downloads/StarWars60.wav", error);
 
-    space->load();
-
-    device->start(space->get_mixer(), error);
+    device->start(space, error);
     if (error.has_error()) {
         std::cout << "Err: device->start\n";
         return;
@@ -143,7 +140,7 @@ void space(std::shared_ptr<Lowl::Device> device) {
             space->play(selected_id);
         }
 
-        std::cout << "frames remaining: \n" + std::to_string(space->get_mixer()->get_frames_remaining()) + "\n";
+        std::cout << "frames remaining: \n" + std::to_string(space->get_frames_remaining()) + "\n";
     }
 
     device->stop(error);
