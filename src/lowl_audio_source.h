@@ -41,6 +41,8 @@ namespace Lowl {
 
         virtual size_l get_frames_remaining() const = 0;
 
+        virtual size_l get_frame_position() const = 0;
+
         SampleRate get_sample_rate() const;
 
         Channel get_channel() const;

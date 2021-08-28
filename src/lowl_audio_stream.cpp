@@ -32,3 +32,7 @@ void Lowl::AudioStream::write(const std::vector<AudioFrame> &p_audio_frames) {
 Lowl::size_l Lowl::AudioStream::get_frames_remaining() const {
     return frame_queue->size_approx();
 }
+
+Lowl::size_l Lowl::AudioStream::get_frame_position() const {
+    return 0;
+}

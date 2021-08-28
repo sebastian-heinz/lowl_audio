@@ -76,3 +76,7 @@ void Lowl::AudioData::seek_time(Lowl::double_l p_seconds) {
     seek_position = frame;
     is_not_reset.clear();
 }
+
+Lowl::size_l Lowl::AudioData::get_frame_position() const {
+    return position;
+}

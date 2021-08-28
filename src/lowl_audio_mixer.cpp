@@ -69,10 +69,6 @@ Lowl::AudioSource::ReadResult Lowl::AudioMixer::read(Lowl::AudioFrame &audio_fra
     return ReadResult::Read;
 }
 
-Lowl::size_l Lowl::AudioMixer::get_frames_remaining() const {
-    return 1;
-}
-
 void Lowl::AudioMixer::mix(std::shared_ptr<AudioSource> p_audio_source) {
     if (p_audio_source->get_sample_rate() != sample_rate) {
         std::string message = "Lowl::AudioMixer::mix: p_audio_source(" + std::to_string(sample_rate) +
@@ -90,4 +86,12 @@ void Lowl::AudioMixer::remove(std::shared_ptr<AudioSource> p_audio_source) {
     event.type = AudioMixerEvent::Remove;
     event.audio_source = p_audio_source;
     events->enqueue(event);
+}
+
+Lowl::size_l Lowl::AudioMixer::get_frames_remaining() const {
+    return 1;
+}
+
+Lowl::size_l Lowl::AudioMixer::get_frame_position() const {
+    return 0;
 }

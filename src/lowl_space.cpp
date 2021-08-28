@@ -57,7 +57,7 @@ Lowl::SpaceId Lowl::Space::add_audio(const std::string &p_path, Error &error) {
     return add_audio(std::move(audio_data), error);
 }
 
-void Lowl::Space::play(SpaceId p_id, Volume p_volume, Panning p_panning) {
+void Lowl::Space::play(SpaceId p_id, Volume p_volume, Panning p_panning) const {
     std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
     if (!audio_data) {
         return;
@@ -67,7 +67,7 @@ void Lowl::Space::play(SpaceId p_id, Volume p_volume, Panning p_panning) {
     mixer->mix(audio_data);
 }
 
-void Lowl::Space::play(Lowl::SpaceId p_id) {
+void Lowl::Space::play(Lowl::SpaceId p_id) const {
     std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
     if (!audio_data) {
         return;
@@ -75,7 +75,7 @@ void Lowl::Space::play(Lowl::SpaceId p_id) {
     mixer->mix(audio_data);
 }
 
-void Lowl::Space::stop(SpaceId p_id) {
+void Lowl::Space::stop(SpaceId p_id) const {
     std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
     if (!audio_data) {
         return;
@@ -83,7 +83,7 @@ void Lowl::Space::stop(SpaceId p_id) {
     mixer->remove(audio_data);
 }
 
-void Lowl::Space::set_volume(SpaceId p_id, Volume p_volume) {
+void Lowl::Space::set_volume(SpaceId p_id, Volume p_volume) const {
     std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
     if (!audio_data) {
         return;
@@ -91,7 +91,7 @@ void Lowl::Space::set_volume(SpaceId p_id, Volume p_volume) {
     audio_data->set_volume(p_volume);
 }
 
-void Lowl::Space::set_panning(SpaceId p_id, Panning p_panning) {
+void Lowl::Space::set_panning(SpaceId p_id, Panning p_panning) const {
     std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
     if (!audio_data) {
         return;
@@ -99,7 +99,7 @@ void Lowl::Space::set_panning(SpaceId p_id, Panning p_panning) {
     audio_data->set_panning(p_panning);
 }
 
-void Lowl::Space::seek_frame(Lowl::SpaceId p_id, size_t p_frame) {
+void Lowl::Space::seek_frame(Lowl::SpaceId p_id, size_t p_frame) const {
     std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
     if (!audio_data) {
         return;
@@ -107,7 +107,7 @@ void Lowl::Space::seek_frame(Lowl::SpaceId p_id, size_t p_frame) {
     audio_data->seek_frame(p_frame);
 }
 
-void Lowl::Space::seek_time(Lowl::SpaceId p_id, Lowl::double_l p_seconds) {
+void Lowl::Space::seek_time(Lowl::SpaceId p_id, Lowl::double_l p_seconds) const {
     std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
     if (!audio_data) {
         return;
@@ -115,7 +115,7 @@ void Lowl::Space::seek_time(Lowl::SpaceId p_id, Lowl::double_l p_seconds) {
     audio_data->seek_time(p_seconds);
 }
 
-void Lowl::Space::reset(Lowl::SpaceId p_id) {
+void Lowl::Space::reset(Lowl::SpaceId p_id) const {
     std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
     if (!audio_data) {
         return;
@@ -123,7 +123,23 @@ void Lowl::Space::reset(Lowl::SpaceId p_id) {
     audio_data->reset();
 }
 
-std::shared_ptr<Lowl::AudioData> Lowl::Space::get_audio_data(SpaceId p_id) {
+Lowl::size_l Lowl::Space::get_frame_position(Lowl::SpaceId p_id) const {
+    std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
+    if (!audio_data) {
+        return 0;
+    }
+    return audio_data->get_frame_position();
+}
+
+Lowl::size_l Lowl::Space::get_frames_remaining(Lowl::SpaceId p_id) const {
+    std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
+    if (!audio_data) {
+        return 0;
+    }
+    return audio_data->get_frames_remaining();
+}
+
+std::shared_ptr<Lowl::AudioData> Lowl::Space::get_audio_data(SpaceId p_id) const {
     if (p_id >= current_id) {
         return nullptr;
     }
@@ -143,3 +159,8 @@ Lowl::AudioSource::ReadResult Lowl::Space::read(Lowl::AudioFrame &audio_frame) {
 Lowl::size_l Lowl::Space::get_frames_remaining() const {
     return 1;
 }
+
+Lowl::size_l Lowl::Space::get_frame_position() const {
+    return 0;
+}
+

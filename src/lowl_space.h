@@ -37,34 +37,40 @@ namespace Lowl {
     public:
         virtual size_l get_frames_remaining() const override;
 
+        virtual size_l get_frame_position() const override;
+
         virtual ReadResult read(AudioFrame &audio_frame) override;
 
-        void play(SpaceId p_id, Volume p_volume, Panning p_panning);
+        void play(SpaceId p_id, Volume p_volume, Panning p_panning) const;
 
-        void play(SpaceId p_id);
+        void play(SpaceId p_id) const;
 
-        void stop(SpaceId p_id);
+        void stop(SpaceId p_id) const;
 
         SpaceId add_audio(const std::string &p_path, Error &error);
 
         SpaceId add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error);
 
-        void set_volume(SpaceId p_id, Volume p_volume);
+        virtual size_l get_frames_remaining(SpaceId p_id) const;
 
-        void set_panning(SpaceId p_id, Panning p_panning);
+        virtual size_l get_frame_position(SpaceId p_id) const;
 
-        void reset(SpaceId p_id);
+        void set_volume(SpaceId p_id, Volume p_volume) const;
 
-        void seek_time(SpaceId p_id, double_l p_seconds);
+        void set_panning(SpaceId p_id, Panning p_panning) const;
 
-        void seek_frame(SpaceId p_id, size_t p_frame);
+        void reset(SpaceId p_id) const;
+
+        void seek_time(SpaceId p_id, double_l p_seconds) const;
+
+        void seek_frame(SpaceId p_id, size_t p_frame) const;
 
         Space(SampleRate p_sample_rate, Channel p_channel);
 
         ~Space();
 
     private:
-        std::shared_ptr<AudioData> get_audio_data(SpaceId p_id);
+        std::shared_ptr<AudioData> get_audio_data(SpaceId p_id) const;
     };
 }
 

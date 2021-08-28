@@ -64,6 +64,8 @@ namespace Lowl {
 
         virtual size_l get_frames_remaining() const override;
 
+        virtual size_l get_frame_position() const override;
+
         AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate, Channel p_channel);
 
         virtual ~AudioData();

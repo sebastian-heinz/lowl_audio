@@ -22,6 +22,8 @@ namespace Lowl {
     public:
         virtual size_l get_frames_remaining() const override;
 
+        virtual size_l get_frame_position() const override;
+
         virtual ReadResult read(AudioFrame &audio_frame) override;
 
         bool write(const AudioFrame &p_audio_frame);
