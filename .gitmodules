@@ -17,3 +17,6 @@
 [submodule "third_party/doctest"]
 	path = third_party/doctest
 	url = https://github.com/onqtam/doctest.git
+[submodule "third_party/nvwa"]
+	path = third_party/nvwa
+	url = https://github.com/adah1972/nvwa.git
