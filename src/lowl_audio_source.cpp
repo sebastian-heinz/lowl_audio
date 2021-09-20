@@ -62,6 +62,8 @@ void Lowl::AudioSource::process_panning(Lowl::AudioFrame &audio_frame) {
             audio_frame.left *= std::sqrt(1.0 - pan);
             audio_frame.right *= std::sqrt(1.0 + pan);
             break;
+        case Lowl::Channel::None:
+            break;
     }
 }
 

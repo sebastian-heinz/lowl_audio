@@ -17,6 +17,7 @@ namespace Lowl {
             Read = 0,
             Pause = 1,
             End = 2,
+            Remove = 3,
         };
 
     private:

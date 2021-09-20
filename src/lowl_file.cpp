@@ -8,7 +8,7 @@ std::string Lowl::File::get_path() {
 void Lowl::File::open(const std::string &p_path, Lowl::Error &error) {
     close();
     file_stream = std::make_unique<std::ifstream>(p_path.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
-    if (!file_stream) {
+    if (!file_stream->is_open() || !file_stream->good()) {
         close();
         error.set_error(ErrorCode::Error);
         return;

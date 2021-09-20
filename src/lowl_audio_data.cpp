@@ -21,7 +21,7 @@ Lowl::AudioSource::ReadResult Lowl::AudioData::read(Lowl::AudioFrame &audio_fram
     }
     if (position >= size) {
         position = 0;
-        return ReadResult::End;
+        return ReadResult::Remove;
     }
     audio_frame = frames[position]; // creates copy
     process_volume(audio_frame);

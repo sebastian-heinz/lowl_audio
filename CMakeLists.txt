@@ -1,41 +1,16 @@
 cmake_minimum_required(VERSION 3.6)
 project(lowl_audio)
 
-set(LOWL_LIB_MAIN lowl_audio_lib)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
+set(LOWL_LIB_MAIN lowl_audio_lib)
 
 message([LOWL] Project: ${PROJECT_NAME})
 message([LOWL] BuildType: ${CMAKE_BUILD_TYPE})
 message([LOWL] CMAKE_CXX_COMPILER_ID: ${CMAKE_CXX_COMPILER_ID})
 message([LOWL] CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME})
-if(WIN32)
-    message([LOWL] WIN32)
-endif()
-if(APPLE)
-    message([LOWL] APPLE)
-endif()
-if(UNIX)
-    message([LOWL] UNIX)
-endif()
-if(MSVC)
-    message([LOWL] MSVC)
-endif()
-if(MSYS)
-    message([LOWL] MSYS)
-endif()
-if(MINGW)
-    message([LOWL] MINGW)
-endif()
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-IF(CMAKE_BUILD_TYPE MATCHES Debug)
-message([LOWL] Setting optimization level for Debug build to -O0)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
-ENDIF()
 
 set(LOWL_PA_DEFAULT_DRIVER_PRIORITY "ALSA,OSS,JACK,COREAUDIO,WASAPI,WDMKS,DSOUND,WMME,ASIO,ASIHPI")
 
@@ -70,19 +45,88 @@ set(LOWL_SOURCES
         src/node/lowl_node_re_sampler.cpp
         )
 
-add_library(${LOWL_LIB_MAIN} ${LOWL_SOURCES})
+set(NVWA_SOURCES
+        third_party/nvwa/nvwa/debug_new.cpp
+        )
+
+add_library(${LOWL_LIB_MAIN} ${NVWA_SOURCES} ${LOWL_SOURCES})
+
+if(WIN32)
+    message([LOWL] WIN32)
+    target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_WIN)
+endif()
+if(APPLE)
+    message([LOWL] APPLE)
+endif()
+if(UNIX)
+    message([LOWL] UNIX)
+    target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_UNIX)
+endif()
+if(MSVC)
+    message([LOWL] MSVC)
+endif()
+if(MSYS)
+    message([LOWL] MSYS)
+endif()
+if(MINGW)
+    message([LOWL] MINGW)
+endif()
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message([LOWL] Clang)
+    target_compile_options(${LOWL_LIB_MAIN} PRIVATE
+            -O2
+            #-Werror
+            -D_FORTIFY_SOURCE=2
+            )
+    target_compile_options(${LOWL_LIB_MAIN} PRIVATE
+            -Walloca
+            -Wcast-qual
+            -Wconversion
+            -Wformat=2
+            -Wformat-security
+            -Wnull-dereference
+            -Wstack-protector
+            -Wvla
+            -Warray-bounds
+            -Warray-bounds-pointer-arithmetic
+            -Wassign-enum
+            -Wbad-function-cast
+            -Wconditional-uninitialized
+            -Wconversion
+            -Wfloat-equal
+            -Wformat-type-confusion
+            -Widiomatic-parentheses
+            -Wimplicit-fallthrough
+            -Wloop-analysis
+            -Wpointer-arith
+            -Wshift-sign-overflow
+            -Wshorten-64-to-32
+            -Wswitch-enum
+            -Wtautological-constant-in-range-compare
+            -Wunreachable-code-aggressive
+            -Wthread-safety
+            -Wthread-safety-beta
+            -Wcomma
+            )
+    target_link_options(${LOWL_LIB_MAIN} PRIVATE
+            LINKER:-z,relro
+            LINKER:-z,now
+            LINKER:-z,noexecstack
+            LINKER:-z,separate-code
+            )
+endif()
+
+IF(CMAKE_BUILD_TYPE MATCHES Debug)
+    message([LOWL] Debug)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
+ENDIF()
+
 set_target_properties(${LOWL_LIB_MAIN} PROPERTIES PREFIX "")
 target_include_directories(${LOWL_LIB_MAIN} PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>")
 target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_DUMMY)
 target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_PORTAUDIO)
 target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE "LOWL_PA_DEFAULT_DRIVER_PRIORITY=\"${LOWL_PA_DEFAULT_DRIVER_PRIORITY}\"")
-
-IF (WIN32)
-    target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_WIN)
-ENDIF ()
-IF (UNIX)
-    target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_UNIX)
-ENDIF ()
 
 # readerwriterqueue
 add_subdirectory(third_party/readerwriterqueue)

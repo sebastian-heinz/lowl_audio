@@ -1,5 +1,7 @@
 #include <lowl.h>
 
+#include "../../third_party/nvwa/nvwa/debug_new.h"
+
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -110,8 +112,12 @@ void space(std::shared_ptr<Lowl::Device> device) {
     std::shared_ptr<Lowl::Space> space = std::make_shared<Lowl::Space>(44100.0, Lowl::Channel::Stereo);
     Lowl::Error error;
 
-    space->add_audio("/Users/railgun/Downloads/CantinaBand60.wav", error);
-    space->add_audio("/Users/railgun/Downloads/StarWars60.wav", error);
+    space->add_audio("/Users/railgun/Downloads/audio/CantinaBand60.wav", error);
+    space->add_audio("/Users/railgun/Downloads/audio/StarWars60.wav", error);
+    if (error.has_error()) {
+        std::cout << "Err: space->add_audio\n";
+        return;
+    }
 
     device->start(space, error);
     if (error.has_error()) {
@@ -208,6 +214,12 @@ int run() {
  * example how to select a device
  */
 int main() {
+    nvwa::new_verbose_flag = true;
+
+    char* a = new char[10];
+
+
+
     Lowl::Logger::set_log_level(Lowl::Logger::Level::Debug);
     Lowl::Logger::register_std_out_log_receiver();
 

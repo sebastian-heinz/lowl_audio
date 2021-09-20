@@ -93,6 +93,10 @@ std::string Lowl::Error::to_error_text(Lowl::ErrorCode p_error) {
             // PA Wrapper
         case ErrorCode::Pa_GetDeviceInfo:
             return "Pa_GetDeviceInfo";
+        case ErrorCode::PaUnknownSampleFormat:
+            return "PaUnknownSampleFormat";
+        case ErrorCode::AudioStreamAlreadyInitialized:
+            return "AudioStreamAlreadyInitialized";
     }
     return "NOT DECLARED";
 }
@@ -103,4 +107,8 @@ int Lowl::Error::get_error_code() {
 
 std::string Lowl::Error::get_error_text() {
     return to_error_text(error);
+}
+
+void Lowl::Error::clear() {
+    error = ErrorCode::NoError;
 }

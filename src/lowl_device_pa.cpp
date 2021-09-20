@@ -40,6 +40,8 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
             break;
         } else if (read_result == AudioSource::ReadResult::Pause) {
             break;
+        } else if (read_result == AudioSource::ReadResult::Remove) {
+            break;
         }
     }
 
@@ -271,6 +273,10 @@ PaSampleFormat Lowl::PaDevice::get_pa_sample_format(Lowl::SampleFormat sample_fo
         case Lowl::SampleFormat::U_INT_8: {
             pa_sample_format = paUInt8;
             break;
+        }
+        case Lowl::SampleFormat::FLOAT_64:{
+            error.set_error(ErrorCode::PaUnknownSampleFormat);
+            pa_sample_format = (PaSampleFormat) 0;
         }
         case Lowl::SampleFormat::Unknown: {
             error.set_error(ErrorCode::PaUnknownSampleFormat);

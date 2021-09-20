@@ -1,7 +1,6 @@
 #include "lowl_audio_mixer.h"
 
 #include "lowl_logger.h"
-#include "lowl_audio_data.h"
 
 #include <string>
 
@@ -42,15 +41,13 @@ Lowl::AudioSource::ReadResult Lowl::AudioMixer::read(Lowl::AudioFrame &audio_fra
             audio_frame += read_frame;
             has_output = true;
         } else if (read_result == ReadResult::End) {
-            std::shared_ptr<AudioData> data = std::dynamic_pointer_cast<AudioData>(source);
-            if (data) {
-                // data empty - data will be removed and need to be added again
-                int idx = &source - &sources[0];
-                sources[idx] = nullptr;
-                has_empty_data = true;
-            }
             continue;
         } else if (read_result == ReadResult::Pause) {
+            continue;
+        } else if (read_result == ReadResult::Remove) {
+            int idx = &source - &sources[0];
+            sources[idx] = nullptr;
+            has_empty_data = true;
             continue;
         }
     }
