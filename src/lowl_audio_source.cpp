@@ -24,7 +24,7 @@ Lowl::SampleFormat Lowl::AudioSource::get_sample_format() const {
 }
 
 int Lowl::AudioSource::get_channel_num() const {
-    return Lowl::get_channel_num(channel);
+    return (int)Lowl::get_channel_num(channel);
 }
 
 void Lowl::AudioSource::set_volume(Lowl::Volume p_volume) {
@@ -55,12 +55,12 @@ void Lowl::AudioSource::process_panning(Lowl::AudioFrame &audio_frame) {
     Panning pan = panning.load();
     switch (channel) {
         case Lowl::Channel::Stereo:
-            audio_frame.left *= std::sqrt(1.0 - pan);
-            audio_frame.right *= std::sqrt(1.0 + pan);
+            audio_frame.left *= std::sqrtf(1.0f - pan);
+            audio_frame.right *= std::sqrtf(1.0f + pan);
             break;
         case Lowl::Channel::Mono:
-            audio_frame.left *= std::sqrt(1.0 - pan);
-            audio_frame.right *= std::sqrt(1.0 + pan);
+            audio_frame.left *= std::sqrtf(1.0f - pan);
+            audio_frame.right *= std::sqrtf(1.0f + pan);
             break;
         case Lowl::Channel::None:
             break;

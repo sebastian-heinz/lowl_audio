@@ -21,17 +21,20 @@ namespace Lowl {
     typedef std::uint32_t uint32_l;
     typedef std::size_t size_l;
     typedef double double_l;
+    typedef float float_l;
 
     typedef uint16_l SpaceId;
+    typedef double_l TimeSeconds;
+    typedef float_l Sample;
 
-    typedef double_l SampleRate;
+    typedef float_l SampleRate;
     static constexpr SampleRate NO_SAMPLE_RATE = 0;
 
-    typedef double_l Volume;
+    typedef float_l Volume;
     static constexpr Volume DEFAULT_VOLUME = 1.0;
 
     /// Range from -1 to 1
-    typedef double_l Panning;
+    typedef float_l Panning;
     static constexpr Panning DEFAULT_PANNING = 0.0;
     static constexpr Panning MAX_PANNING = 1.0;
     static constexpr Panning MIN_PANNING = -1.0;

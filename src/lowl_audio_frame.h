@@ -6,11 +6,11 @@
 namespace Lowl {
     struct AudioFrame {
         static constexpr unsigned int MAX_CHANNEL = 2;
-        static constexpr float MAX_SAMPLE_VALUE = 1.0;
-        static constexpr float MIN_SAMPLE_VALUE = -1.0;
+        static constexpr Sample MAX_SAMPLE_VALUE = 1.0;
+        static constexpr Sample MIN_SAMPLE_VALUE = -1.0;
 
-        float left;
-        float right;
+        Sample left;
+        Sample right;
 
         // Mono
         // 0: M: mono
@@ -33,9 +33,9 @@ namespace Lowl {
         // 4: C: center
         // 5: LFE: subwoofer
 
-        _INLINE_ const float &operator[](int idx) const { return idx == 0 ? left : right; }
+        _INLINE_ const Sample &operator[](int idx) const { return idx == 0 ? left : right; }
 
-        _INLINE_ float &operator[](int idx) { return idx == 0 ? left : right; }
+        _INLINE_ Sample &operator[](int idx) { return idx == 0 ? left : right; }
 
         _INLINE_ AudioFrame operator+(const AudioFrame &p_frame) const {
             return AudioFrame(left + p_frame.left, right + p_frame.right);
@@ -53,13 +53,13 @@ namespace Lowl {
             return AudioFrame(left / p_frame.left, right / p_frame.right);
         }
 
-        _INLINE_ AudioFrame operator+(float p_sample) const { return AudioFrame(left + p_sample, right + p_sample); }
+        _INLINE_ AudioFrame operator+(Sample p_sample) const { return AudioFrame(left + p_sample, right + p_sample); }
 
-        _INLINE_ AudioFrame operator-(float p_sample) const { return AudioFrame(left - p_sample, right - p_sample); }
+        _INLINE_ AudioFrame operator-(Sample p_sample) const { return AudioFrame(left - p_sample, right - p_sample); }
 
-        _INLINE_ AudioFrame operator*(float p_sample) const { return AudioFrame(left * p_sample, right * p_sample); }
+        _INLINE_ AudioFrame operator*(Sample p_sample) const { return AudioFrame(left * p_sample, right * p_sample); }
 
-        _INLINE_ AudioFrame operator/(float p_sample) const { return AudioFrame(left / p_sample, right / p_sample); }
+        _INLINE_ AudioFrame operator/(Sample p_sample) const { return AudioFrame(left / p_sample, right / p_sample); }
 
         _INLINE_ void operator+=(const AudioFrame &p_frame) {
             left += p_frame.left;
@@ -81,22 +81,22 @@ namespace Lowl {
             right /= p_frame.right;
         }
 
-        _INLINE_ void operator+=(float p_sample) {
+        _INLINE_ void operator+=(Sample p_sample) {
             left += p_sample;
             right += p_sample;
         }
 
-        _INLINE_ void operator-=(float p_sample) {
+        _INLINE_ void operator-=(Sample p_sample) {
             left -= p_sample;
             right -= p_sample;
         }
 
-        _INLINE_ void operator*=(float p_sample) {
+        _INLINE_ void operator*=(Sample p_sample) {
             left *= p_sample;
             right *= p_sample;
         }
 
-        _INLINE_ void operator/=(float p_sample) {
+        _INLINE_ void operator/=(Sample p_sample) {
             left /= p_sample;
             right /= p_sample;
         }
@@ -105,7 +105,7 @@ namespace Lowl {
         //    return left == p_frame.left && right == p_frame.right;
         //}
 
-        _INLINE_ AudioFrame(float p_l, float p_r) {
+        _INLINE_ AudioFrame(Sample p_l, Sample p_r) {
             left = p_l;
             right = p_r;
         }
