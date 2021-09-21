@@ -45,22 +45,16 @@ set(LOWL_SOURCES
         src/node/lowl_node_re_sampler.cpp
         )
 
-set(NVWA_SOURCES
-        third_party/nvwa/nvwa/debug_new.cpp
-        )
-
-add_library(${LOWL_LIB_MAIN} ${NVWA_SOURCES} ${LOWL_SOURCES})
+add_library(${LOWL_LIB_MAIN} ${LOWL_SOURCES})
 
 if(WIN32)
     message([LOWL] WIN32)
-    target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_WIN)
 endif()
 if(APPLE)
     message([LOWL] APPLE)
 endif()
 if(UNIX)
     message([LOWL] UNIX)
-    target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_UNIX)
 endif()
 if(MSVC)
     message([LOWL] MSVC)

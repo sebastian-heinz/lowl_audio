@@ -1,7 +1,5 @@
 #include <lowl.h>
 
-#include "../../third_party/nvwa/nvwa/debug_new.h"
-
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -214,12 +212,6 @@ int run() {
  * example how to select a device
  */
 int main() {
-    nvwa::new_verbose_flag = true;
-
-    char* a = new char[10];
-
-
-
     Lowl::Logger::set_log_level(Lowl::Logger::Level::Debug);
     Lowl::Logger::register_std_out_log_receiver();
 
