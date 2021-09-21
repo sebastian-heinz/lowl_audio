@@ -1,10 +1,10 @@
-#ifndef LOWL_SPACE_H
-#define LOWL_SPACE_H
+#ifndef LOWL_AUDIO_SPACE_H
+#define LOWL_AUDIO_SPACE_H
 
 #include "lowl_typedef.h"
 #include "lowl_audio_data.h"
 #include "lowl_audio_mixer.h"
-#include "lowl_device.h"
+#include "lowl_audio_device.h"
 
 #include <string>
 
@@ -25,7 +25,7 @@ namespace Lowl {
      *    pass this to the device or a mixer for playback.
      * 5) use play() and stop() to produce the sounds
      */
-    class Space : public AudioSource {
+    class AudioSpace : public AudioSource {
     public:
         static const SpaceId InvalidSpaceId = 0;
 
@@ -65,9 +65,9 @@ namespace Lowl {
 
         void seek_frame(SpaceId p_id, size_t p_frame) const;
 
-        Space(SampleRate p_sample_rate, Channel p_channel);
+        AudioSpace(SampleRate p_sample_rate, AudioChannel p_channel);
 
-        ~Space();
+        ~AudioSpace();
 
     private:
         std::shared_ptr<AudioData> get_audio_data(SpaceId p_id) const;

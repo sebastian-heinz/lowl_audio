@@ -1,10 +1,10 @@
 #ifdef LOWL_DRIVER_PORTAUDIO
 
-#include "lowl_driver_pa.h"
-#include "lowl_device_pa.h"
+#include "lowl_audio_driver_pa.h"
+#include "lowl_audio_device_pa.h"
 #include "lowl_logger.h"
 
-void Lowl::PaDriver::create_devices(Error &error) {
+void Lowl::AudioDriverPa::create_devices(Error &error) {
     devices.clear();
 
     PaDeviceIndex default_device_index = get_default_output_device_index();
@@ -23,7 +23,7 @@ void Lowl::PaDriver::create_devices(Error &error) {
                 continue;
             }
             std::string name = "[" + std::string(api_info->name) + "] " + std::string(device_info->name);
-            std::shared_ptr<PaDevice> device = std::make_shared<PaDevice>();
+            std::shared_ptr<AudioDevicePa> device = std::make_shared<AudioDevicePa>();
             device->set_name(name);
             device->set_device_index(device_index);
             devices.push_back(device);
@@ -42,18 +42,18 @@ void Lowl::PaDriver::create_devices(Error &error) {
     }
 }
 
-void Lowl::PaDriver::initialize(Error &error) {
+void Lowl::AudioDriverPa::initialize(Error &error) {
     create_devices(error);
 }
 
-Lowl::PaDriver::PaDriver() : Driver() {
+Lowl::AudioDriverPa::AudioDriverPa() : AudioDriver() {
     name = std::string("Port Audio");
 }
 
-Lowl::PaDriver::~PaDriver() {
+Lowl::AudioDriverPa::~AudioDriverPa() {
 }
 
-PaHostApiIndex Lowl::PaDriver::get_default_host_api_index() {
+PaHostApiIndex Lowl::AudioDriverPa::get_default_host_api_index() {
 #ifdef LOWL_PA_DEFAULT_DRIVER_PRIORITY
     PaHostApiIndex api_count = Pa_GetHostApiCount();
     std::string default_driver_priority_setting = std::string(LOWL_PA_DEFAULT_DRIVER_PRIORITY);
@@ -127,7 +127,7 @@ PaHostApiIndex Lowl::PaDriver::get_default_host_api_index() {
     return Pa_GetDefaultHostApi();
 }
 
-PaDeviceIndex Lowl::PaDriver::get_default_output_device_index() {
+PaDeviceIndex Lowl::AudioDriverPa::get_default_output_device_index() {
     PaHostApiIndex default_host_api = get_default_host_api_index();
     if (default_host_api < 0) {
         Logger::log(Logger::Level::Warn,

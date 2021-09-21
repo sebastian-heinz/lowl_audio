@@ -48,7 +48,7 @@ Lowl::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, E
 
     size_t frames_read = bytes_read / bytes_per_frame;
     SampleRate sample_rate = wav.sampleRate;
-    Channel channel = get_channel(wav.channels);
+    AudioChannel channel = get_channel(wav.channels);
     size_t bytes_per_sample = bytes_per_frame / wav.channels;
 
 

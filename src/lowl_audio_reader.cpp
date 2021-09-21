@@ -35,7 +35,7 @@ Lowl::AudioReader::AudioReader() {
 }
 
 std::vector<Lowl::AudioFrame>
-Lowl::AudioReader::read_frames(Lowl::AudioFormat p_audio_format, Lowl::SampleFormat p_sample_format, Lowl::Channel p_channel,
+Lowl::AudioReader::read_frames(Lowl::AudioFormat p_audio_format, Lowl::SampleFormat p_sample_format, Lowl::AudioChannel p_channel,
                                const std::unique_ptr<uint8_t[]> &p_buffer, size_t p_size, Lowl::Error &error) {
 
     size_t sample_size = get_sample_size(p_sample_format);
@@ -101,7 +101,7 @@ Lowl::AudioReader::read_frames(Lowl::AudioFormat p_audio_format, Lowl::SampleFor
     }
 
     switch (p_channel) {
-        case Lowl::Channel::Mono: {
+        case Lowl::AudioChannel::Mono: {
             for (float sample : samples) {
                 AudioFrame frame{};
                 frame.left = sample;
@@ -110,7 +110,7 @@ Lowl::AudioReader::read_frames(Lowl::AudioFormat p_audio_format, Lowl::SampleFor
             }
             break;
         }
-        case Lowl::Channel::Stereo: {
+        case Lowl::AudioChannel::Stereo: {
             size_t num_channels = get_channel_num(p_channel);
             size_t num_frames = num_samples / num_channels;
             for (size_t current_frame = 0; current_frame < num_frames; current_frame++) {

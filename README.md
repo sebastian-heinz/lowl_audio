@@ -176,11 +176,11 @@ int main()
 
 int main() 
 {
-    // create a Lowl::Space
-    // note: the Lowl::Space represents a collection of sounds, a use case might be a game as
+    // create a Lowl::AudioSpace
+    // note: the Lowl::AudioSpace represents a collection of sounds, a use case might be a game as
     // one can load all sounds of a level into a space as part of the loading process.
     // and the playback is managed via an Id rather than requirement to manage references.
-    std::shared_ptr<Lowl::Space> space = std::make_shared<Lowl::Space>();
+    std::shared_ptr<Lowl::AudioSpace> space = std::make_shared<Lowl::AudioSpace>();
     
     Lowl::Error error;
     
@@ -208,7 +208,7 @@ int main()
 
     // run until a invalid Lowl::SpaceId was selected
     while (true) {
-        Lowl::SpaceId selected_id = Lowl::Space::InvalidSpaceId;
+        Lowl::SpaceId selected_id = Lowl::AudioSpace::InvalidSpaceId;
         std::cout << "Select Sound:\n";
         std::string user_input;
         std::getline(std::cin, user_input);
@@ -217,7 +217,7 @@ int main()
         } catch (const std::exception &e) {
             continue;
         }
-        if (selected_id <= Lowl::Space::InvalidSpaceId) {
+        if (selected_id <= Lowl::AudioSpace::InvalidSpaceId) {
             // id not available, stop
             std::cout << "Stop Selecting SpaceId\n";
             break;

@@ -26,23 +26,18 @@ set(LOWL_SOURCES
         src/lowl_audio_stream.cpp
         src/lowl_audio_util.cpp
         src/lowl_buffer.cpp
-        src/lowl_device.cpp
-        src/lowl_channel_converter.cpp
-        src/lowl_driver.cpp
-        src/lowl_driver_dummy.cpp
-        src/lowl_device_pa.cpp
-        src/lowl_driver_pa.cpp
+        src/lowl_audio_device.cpp
+        src/lowl_audio_channel_converter.cpp
+        src/lowl_audio_driver.cpp
+        src/lowl_audio_driver_dummy.cpp
+        src/lowl_audio_device_pa.cpp
+        src/lowl_audio_driver_pa.cpp
         src/lowl_error.cpp
         src/lowl_file.cpp
         src/lowl_logger.cpp
         src/lowl_re_sampler.cpp
         src/lowl_sample_converter.cpp
-        src/lowl_space.cpp
-        src/node/lowl_node.cpp
-        src/node/lowl_node_in_stream.cpp
-        src/node/lowl_node_out_stream.cpp
-        src/node/lowl_node_process.cpp
-        src/node/lowl_node_re_sampler.cpp
+        src/lowl_audio_space.cpp
         )
 
 add_library(${LOWL_LIB_MAIN} ${LOWL_SOURCES})

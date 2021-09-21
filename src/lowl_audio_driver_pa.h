@@ -1,15 +1,15 @@
-#ifndef LOWL_DRIVER_PA_H
-#define LOWL_DRIVER_PA_H
+#ifndef LOWL_AUDIO_DRIVER_PA_H
+#define LOWL_AUDIO_DRIVER_PA_H
 
 #ifdef LOWL_DRIVER_PORTAUDIO
 
-#include "lowl_driver.h"
+#include "lowl_audio_driver.h"
 
 #include <portaudio.h>
 
 namespace Lowl {
 
-    class PaDriver : public Driver {
+    class AudioDriverPa : public AudioDriver {
 
     private:
         void create_devices(Error &error);
@@ -19,9 +19,9 @@ namespace Lowl {
     public:
         void initialize(Error &error) override;
 
-        PaDriver();
+        AudioDriverPa();
 
-        ~PaDriver() override;
+        ~AudioDriverPa() override;
     };
 }
 

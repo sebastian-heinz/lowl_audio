@@ -1,7 +1,7 @@
 #include "lowl_re_sampler.h"
 
 Lowl::ReSampler::ReSampler(Lowl::SampleRate p_sample_rate_src, Lowl::SampleRate p_sample_rate_dst,
-                           Lowl::Channel p_channel, size_t p_sample_buffer_size, double p_req_trans_band) {
+                           Lowl::AudioChannel p_channel, size_t p_sample_buffer_size, double p_req_trans_band) {
     current_frame = 0;
     total_frames_in = 0;
     total_re_sampled_frames = 0;

@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-Lowl::AudioData::AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate, Channel p_channel)
+Lowl::AudioData::AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate, AudioChannel p_channel)
         : AudioSource(p_sample_rate, p_channel) {
     frames = std::vector<AudioFrame>(p_audio_frames);
     position = 0;

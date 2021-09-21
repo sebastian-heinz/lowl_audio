@@ -2,7 +2,7 @@
 #define LOWL_AUDIO_SOURCE_H
 
 #include "lowl_typedef.h"
-#include "lowl_channel.h"
+#include "lowl_audio_channel.h"
 #include "lowl_sample_format.h"
 #include "lowl_audio_frame.h"
 
@@ -26,7 +26,7 @@ namespace Lowl {
 
     protected:
         SampleRate sample_rate;
-        Channel channel;
+        AudioChannel channel;
         std::atomic<bool> is_playing;
 
         void process_volume(AudioFrame &audio_frame);
@@ -34,7 +34,7 @@ namespace Lowl {
         void process_panning(AudioFrame &audio_frame);
 
     public:
-        AudioSource(SampleRate p_sample_rate, Channel p_channel);
+        AudioSource(SampleRate p_sample_rate, AudioChannel p_channel);
 
         virtual ~AudioSource() = default;
 
@@ -46,7 +46,7 @@ namespace Lowl {
 
         SampleRate get_sample_rate() const;
 
-        Channel get_channel() const;
+        AudioChannel get_channel() const;
 
         int get_channel_num() const;
 

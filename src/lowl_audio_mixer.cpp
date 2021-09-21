@@ -4,7 +4,7 @@
 
 #include <string>
 
-Lowl::AudioMixer::AudioMixer(SampleRate p_sample_rate, Channel p_channel) : AudioSource(p_sample_rate, p_channel) {
+Lowl::AudioMixer::AudioMixer(SampleRate p_sample_rate, AudioChannel p_channel) : AudioSource(p_sample_rate, p_channel) {
     sources = std::vector<std::shared_ptr<AudioSource>>();
     events = std::make_unique<moodycamel::ConcurrentQueue<AudioMixerEvent>>();
     read_frame = {};

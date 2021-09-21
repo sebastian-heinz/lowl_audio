@@ -3,7 +3,7 @@
 #include <cmath>
 #include <algorithm>
 
-Lowl::AudioSource::AudioSource(SampleRate p_sample_rate, Channel p_channel) {
+Lowl::AudioSource::AudioSource(SampleRate p_sample_rate, AudioChannel p_channel) {
     sample_rate = p_sample_rate;
     channel = p_channel;
     volume.store(DEFAULT_VOLUME);
@@ -15,7 +15,7 @@ Lowl::SampleRate Lowl::AudioSource::get_sample_rate() const {
     return sample_rate;
 }
 
-Lowl::Channel Lowl::AudioSource::get_channel() const {
+Lowl::AudioChannel Lowl::AudioSource::get_channel() const {
     return channel;
 }
 
@@ -54,15 +54,15 @@ void Lowl::AudioSource::process_volume(Lowl::AudioFrame &audio_frame) {
 void Lowl::AudioSource::process_panning(Lowl::AudioFrame &audio_frame) {
     Panning pan = panning.load();
     switch (channel) {
-        case Lowl::Channel::Stereo:
+        case Lowl::AudioChannel::Stereo:
             audio_frame.left *= std::sqrtf(1.0f - pan);
             audio_frame.right *= std::sqrtf(1.0f + pan);
             break;
-        case Lowl::Channel::Mono:
+        case Lowl::AudioChannel::Mono:
             audio_frame.left *= std::sqrtf(1.0f - pan);
             audio_frame.right *= std::sqrtf(1.0f + pan);
             break;
-        case Lowl::Channel::None:
+        case Lowl::AudioChannel::None:
             break;
     }
 }
