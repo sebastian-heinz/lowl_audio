@@ -2,9 +2,9 @@
 
 #include "lowl_audio_format.h"
 
-#define DR_WAV_IMPLEMENTATION
+//#define DR_WAV_IMPLEMENTATION
 
-#include <dr_wav.h>
+#include <lowl_dr_imp.h>
 
 std::unique_ptr<Lowl::AudioData>
 Lowl::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Error &error) {
@@ -16,12 +16,12 @@ Lowl::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, E
     }
 
     /* Cannot use this function for compressed formats. */
-    if (drwav__is_compressed_format_tag(wav.translatedFormatTag)) {
+    if (lowl_drwav__is_compressed_format_tag(wav.translatedFormatTag)) {
         // todo uninit?
         return nullptr;
     }
 
-    uint32_t bytes_per_frame = drwav_get_bytes_per_pcm_frame(&wav);
+    uint32_t bytes_per_frame = lowl_drwav_get_bytes_per_pcm_frame(&wav);
     if (bytes_per_frame == 0) {
         return nullptr;
     }
@@ -29,9 +29,9 @@ Lowl::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, E
     /* Don't try to read more samples than can potentially fit in the output buffer. */
     /* Intentionally uint64 instead of size_t so we can do a check that we're not reading too much on 32-bit builds. */
     uint64_t bytes_to_read_test = wav.totalPCMFrameCount * bytes_per_frame;
-    if (bytes_to_read_test > DRWAV_SIZE_MAX) {
+    if (bytes_to_read_test > lowl_drwav_size_max()) {
         /* Round the number of bytes to read to a clean frame boundary. */
-        bytes_to_read_test = (DRWAV_SIZE_MAX / bytes_per_frame) * bytes_per_frame;
+        bytes_to_read_test = (lowl_drwav_size_max() / bytes_per_frame) * bytes_per_frame;
     }
 
     /*

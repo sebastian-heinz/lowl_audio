@@ -21,7 +21,10 @@ Lowl::SpaceId Lowl::AudioSpace::add_audio(std::unique_ptr<AudioData> p_audio_dat
 
     std::shared_ptr<AudioData> audio = std::move(p_audio_data);
     SampleRate rate = audio->get_sample_rate();
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wfloat-equal"
     if (rate != sample_rate) {
+#pragma clang diagnostic pop
         std::unique_ptr<AudioData> resampled = ReSampler::resample(audio, sample_rate);
         audio = std::move(resampled);
     }

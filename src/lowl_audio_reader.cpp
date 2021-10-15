@@ -84,6 +84,11 @@ Lowl::AudioReader::read_frames(Lowl::AudioFormat p_audio_format, Lowl::SampleFor
                 }
                 break;
             }
+            case Lowl::SampleFormat::Unknown:
+            case Lowl::SampleFormat::FLOAT_64:
+            case Lowl::SampleFormat::INT_24:
+            case Lowl::SampleFormat::INT_8:
+            case Lowl::SampleFormat::U_INT_8:
             default: {
                 // error SampleFormat not supported for AudioFormat
                 break;
@@ -122,6 +127,7 @@ Lowl::AudioReader::read_frames(Lowl::AudioFormat p_audio_format, Lowl::SampleFor
             }
             break;
         }
+        case Lowl::AudioChannel::None:
         default: {
             // channels not supported
             break;

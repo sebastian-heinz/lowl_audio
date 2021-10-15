@@ -8,8 +8,10 @@
 #include "lowl_audio_channel.h"
 #include "lowl_audio_data.h"
 
+
 #include <readerwriterqueue.h>
-#include <CDSPResampler.h>
+#include <lowl_third_party.h>
+//#include <CDSPResampler.h>
 
 #include <vector>
 
@@ -19,7 +21,7 @@ namespace Lowl {
         SampleRate sample_rate_src;
         SampleRate sample_rate_dst;
         AudioChannel channel;
-        int num_channel;
+        size_t num_channel;
         size_t current_frame;
         std::vector<AudioFrame> resamples;
         std::vector<std::vector<double>> samples;

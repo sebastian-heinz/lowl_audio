@@ -46,7 +46,7 @@ namespace Lowl {
         /**
          * sets the play head to the specified time
          */
-        void seek_time(double_l p_seconds);
+        void seek_time(TimeSeconds p_seconds);
 
         /**
          * sets the play head to the specified frame

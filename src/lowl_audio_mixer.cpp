@@ -45,8 +45,12 @@ Lowl::AudioSource::ReadResult Lowl::AudioMixer::read(Lowl::AudioFrame &audio_fra
         } else if (read_result == ReadResult::Pause) {
             continue;
         } else if (read_result == ReadResult::Remove) {
-            int idx = &source - &sources[0];
-            sources[idx] = nullptr;
+            long idx = &source - &sources[0];
+            if (idx < 0 && idx >= sources.size()) {
+                continue;
+            }
+            unsigned long ul_idx = static_cast<unsigned long>(idx);
+            sources[ul_idx] = nullptr;
             has_empty_data = true;
             continue;
         }
@@ -67,7 +71,10 @@ Lowl::AudioSource::ReadResult Lowl::AudioMixer::read(Lowl::AudioFrame &audio_fra
 }
 
 void Lowl::AudioMixer::mix(std::shared_ptr<AudioSource> p_audio_source) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wfloat-equal"
     if (p_audio_source->get_sample_rate() != sample_rate) {
+#pragma clang diagnostic pop
         std::string message = "Lowl::AudioMixer::mix: p_audio_source(" + std::to_string(sample_rate) +
                               ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate.";
         Logger::log(Logger::Level::Warn, message);

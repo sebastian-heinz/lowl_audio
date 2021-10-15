@@ -34,7 +34,7 @@ PaStreamCallbackResult Lowl::AudioDevicePa::callback(const void *p_input_buffer,
         if (read_result == AudioSource::ReadResult::Read) {
             for (int current_channel = 0; current_channel < audio_source->get_channel_num(); current_channel++) {
                 std::clamp(frame[current_channel], AudioFrame::MIN_SAMPLE_VALUE, AudioFrame::MAX_SAMPLE_VALUE);
-                *dst++ = frame[current_channel];
+                *dst++ = (float) frame[current_channel];
             }
         } else if (read_result == AudioSource::ReadResult::End) {
             break;
@@ -49,7 +49,7 @@ PaStreamCallbackResult Lowl::AudioDevicePa::callback(const void *p_input_buffer,
 
         // fill buffer with silence if not enough samples available.
         unsigned long missing_frames = p_frames_per_buffer - current_frame;
-        unsigned long missing_samples = missing_frames * audio_source->get_channel_num();
+        unsigned long missing_samples = missing_frames * (unsigned long) audio_source->get_channel_num();
 
         // TODO check if this is correct
         //memset(&dst[0], 0, missing_samples);
@@ -59,7 +59,7 @@ PaStreamCallbackResult Lowl::AudioDevicePa::callback(const void *p_input_buffer,
         }
     }
 
-    double time_request_ms = (p_frames_per_buffer / audio_source->get_sample_rate()) * 1000;
+    double time_request_ms = ((double) p_frames_per_buffer / audio_source->get_sample_rate()) * 1000;
     return paContinue;
 }
 
@@ -178,7 +178,8 @@ bool Lowl::AudioDevicePa::is_supported(Lowl::AudioChannel p_channel, Lowl::Sampl
 }
 
 PaStreamParameters
-Lowl::AudioDevicePa::create_output_parameters(Lowl::AudioChannel p_channel, Lowl::SampleFormat p_sample_format, Error &error) {
+Lowl::AudioDevicePa::create_output_parameters(Lowl::AudioChannel p_channel, Lowl::SampleFormat p_sample_format,
+                                              Error &error) {
     const PaDeviceInfo *device_info = Pa_GetDeviceInfo(device_index);
     if (device_info == nullptr) {
         error.set_error(ErrorCode::Pa_GetDeviceInfo);
@@ -274,9 +275,10 @@ PaSampleFormat Lowl::AudioDevicePa::get_pa_sample_format(Lowl::SampleFormat samp
             pa_sample_format = paUInt8;
             break;
         }
-        case Lowl::SampleFormat::FLOAT_64:{
+        case Lowl::SampleFormat::FLOAT_64: {
             error.set_error(ErrorCode::PaUnknownSampleFormat);
             pa_sample_format = (PaSampleFormat) 0;
+            break;
         }
         case Lowl::SampleFormat::Unknown: {
             error.set_error(ErrorCode::PaUnknownSampleFormat);

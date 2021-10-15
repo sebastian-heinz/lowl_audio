@@ -55,12 +55,12 @@ void Lowl::AudioSource::process_panning(Lowl::AudioFrame &audio_frame) {
     Panning pan = panning.load();
     switch (channel) {
         case Lowl::AudioChannel::Stereo:
-            audio_frame.left *= std::sqrtf(1.0f - pan);
-            audio_frame.right *= std::sqrtf(1.0f + pan);
+            audio_frame.left *= std::sqrt(1.0 - pan);
+            audio_frame.right *= std::sqrt(1.0 + pan);
             break;
         case Lowl::AudioChannel::Mono:
-            audio_frame.left *= std::sqrtf(1.0f - pan);
-            audio_frame.right *= std::sqrtf(1.0f + pan);
+            audio_frame.left *= std::sqrt(1.0 - pan);
+            audio_frame.right *= std::sqrt(1.0 + pan);
             break;
         case Lowl::AudioChannel::None:
             break;

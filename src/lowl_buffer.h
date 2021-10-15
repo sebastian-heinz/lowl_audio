@@ -42,7 +42,7 @@ namespace Lowl {
 
         Buffer *slice(size_t p_length);
 
-        Buffer(void *p_data, int p_length);
+        Buffer(void *p_data, size_t p_length);
 
         Buffer();
 

@@ -16,6 +16,7 @@ set(LOWL_PA_DEFAULT_DRIVER_PRIORITY "ALSA,OSS,JACK,COREAUDIO,WASAPI,WDMKS,DSOUND
 
 set(LOWL_SOURCES
         src/lowl.cpp
+
         src/lowl_audio_source.cpp
         src/lowl_audio_data.cpp
         src/lowl_audio_mixer.cpp
@@ -32,15 +33,21 @@ set(LOWL_SOURCES
         src/lowl_audio_driver_dummy.cpp
         src/lowl_audio_device_pa.cpp
         src/lowl_audio_driver_pa.cpp
+        src/lowl_audio_space.cpp
+
         src/lowl_error.cpp
         src/lowl_file.cpp
         src/lowl_logger.cpp
         src/lowl_re_sampler.cpp
         src/lowl_sample_converter.cpp
-        src/lowl_audio_space.cpp
         )
 
 add_library(${LOWL_LIB_MAIN} ${LOWL_SOURCES})
+set_target_properties(${LOWL_LIB_MAIN} PROPERTIES PREFIX "")
+target_include_directories(${LOWL_LIB_MAIN} PUBLIC include/)
+target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_DUMMY)
+target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_PORTAUDIO)
+target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE "LOWL_PA_DEFAULT_DRIVER_PRIORITY=\"${LOWL_PA_DEFAULT_DRIVER_PRIORITY}\"")
 
 if (WIN32)
     message([LOWL] WIN32)
@@ -65,7 +72,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     #set_source_files_properties(${LOWL_SOURCES} PROPERTIES COMPILE_OPTIONS -Werror)
     target_compile_options(${LOWL_LIB_MAIN} PRIVATE
             -O2
-            #-Werror
+            -Werror
             -D_FORTIFY_SOURCE=2
             )
     target_compile_options(${LOWL_LIB_MAIN} PRIVATE
@@ -112,11 +119,7 @@ IF (CMAKE_BUILD_TYPE MATCHES Debug)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
 ENDIF ()
 
-set_target_properties(${LOWL_LIB_MAIN} PROPERTIES PREFIX "")
-target_include_directories(${LOWL_LIB_MAIN} PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>")
-target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_DUMMY)
-target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_PORTAUDIO)
-target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE "LOWL_PA_DEFAULT_DRIVER_PRIORITY=\"${LOWL_PA_DEFAULT_DRIVER_PRIORITY}\"")
+
 
 # readerwriterqueue
 add_subdirectory(third_party/readerwriterqueue)
@@ -131,16 +134,31 @@ add_subdirectory(third_party/portaudio)
 target_link_libraries(${LOWL_LIB_MAIN} PRIVATE portaudio_static)
 
 # dr_lib
-target_include_directories(${LOWL_LIB_MAIN} PRIVATE third_party/dr_libs)
+add_subdirectory(third_party)
+target_link_libraries(${LOWL_LIB_MAIN} PRIVATE lowl_third_party)
+
+#SET_SOURCE_FILES_PROPERTIES(thi/r8brain-free-src/CDSPHBUpsampler.h PROPERTIES COMPILE_FLAGS "-O3")
+#set(LOWL_LIB_DR_LIBS lowl_dr_libs_lib)
+#add_library(${LOWL_LIB_DR_LIBS} INTERFACE)
+#target_include_directories(${LOWL_LIB_DR_LIBS} INTERFACE third_party/dr_libs)
+#set_target_properties(${LOWL_LIB_DR_LIBS} PROPERTIES COMPILE_OPTIONS "")
+#set_source_files_properties(third_party/dr_libs PROPERTIES COMPILE_OPTIONS "-Wno-unused-parameter;-Wno-missing-field-initializer")
+#target_compile_options(${LOWL_LIB_DR_LIBS} INTERFACE)
+#target_link_libraries(${LOWL_LIB_MAIN} PRIVATE ${LOWL_LIB_DR_LIBS})
+
+#target_include_directories(${LOWL_LIB_MAIN} PRIVATE third_party/dr_libs)
+#set_source_files_properties(third_party/dr_libs/dr_flac.h PROPERTIES COMPILE_OPTIONS "")
 
 # r8brain-free-src
-add_compile_definitions(_USE_MATH_DEFINES)
-target_include_directories(${LOWL_LIB_MAIN} PUBLIC third_party/r8brain-free-src)
-target_sources(${LOWL_LIB_MAIN}
-        PRIVATE
-        third_party/r8brain-free-src/pffft.cpp
-        third_party/r8brain-free-src/r8bbase.cpp
-        )
+#set(LOWL_LIB_R8BRAIN lowl_r8brain_lib)
+#set(LOWL_LIB_R8BRAIN_SOURCES
+#        third_party/r8brain-free-src/pffft.cpp
+#        third_party/r8brain-free-src/r8bbase.cpp
+#        )
+#add_library(${LOWL_LIB_R8BRAIN} ${LOWL_LIB_R8BRAIN_SOURCES})
+#target_include_directories(${LOWL_LIB_R8BRAIN} PUBLIC third_party/r8brain-free-src)
+#target_compile_definitions(${LOWL_LIB_R8BRAIN} PRIVATE _USE_MATH_DEFINES)
+#target_link_libraries(${LOWL_LIB_MAIN} PRIVATE ${LOWL_LIB_R8BRAIN})
 # https://github.com/avaneev/r8brain-free-src#usage-information
 #add_definitions(-DR8B_PFFFT=1)
 

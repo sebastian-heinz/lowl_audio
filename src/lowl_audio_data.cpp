@@ -76,11 +76,9 @@ void Lowl::AudioData::seek_frame(size_t p_frame) {
     is_not_reset.clear();
 }
 
-void Lowl::AudioData::seek_time(Lowl::double_l p_seconds) {
-    size_t frame = p_seconds * sample_rate;
-    std::clamp<size_t>(frame, 0, size - 1);
-    seek_position = frame;
-    is_not_reset.clear();
+void Lowl::AudioData::seek_time(TimeSeconds p_seconds) {
+    size_t frame = static_cast<size_t>(p_seconds * sample_rate);
+    seek_frame(frame);
 }
 
 Lowl::size_l Lowl::AudioData::get_frame_position() const {
