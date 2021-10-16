@@ -40,14 +40,14 @@ int main()
 {
     // initialize the library
     Lowl::Error error;
-    Lowl::DrLib::initialize(error);
+    Lowl::Lib::initialize(error);
     if (error.has_error()) {
         std::cout << "Err: Lowl::initialize\n";
         return -1;
     }
 
     // query a list of available drivers
-    std::vector<std::shared_ptr<Lowl::Driver>> drivers = Lowl::DrLib::get_drivers(error);
+    std::vector<std::shared_ptr<Lowl::Driver>> drivers = Lowl::Lib::get_drivers(error);
     if (error.has_error()) {
         std::cout << "Err: Lowl::get_drivers\n";
         return -1;
@@ -93,7 +93,7 @@ int main()
 
 int main() 
 {
-    std::shared_ptr<Lowl::AudioData> data = Lowl::DrLib::create_data("/Users/name/Downloads/music.wav", error);
+    std::shared_ptr<Lowl::AudioData> data = Lowl::Lib::create_data("/Users/name/Downloads/music.wav", error);
     if (error.has_error()) {
         std::cout << "Err:  Lowl::create_stream\n";
         return -1;
@@ -322,19 +322,6 @@ a list of related information to audio programming
 - [Audio recording bitdepth](https://lists.apple.com/archives/coreaudio-api/2009/Dec/msg00046.html)
 - [CppCon 2015: Timur Doumler “C++ in the Audio Industry”](https://www.youtube.com/watch?v=boPEO2auJj4)
 ---
-
-## Alternatives
-- [miniaudio](https://github.com/mackron/miniaudio)
-  - plus
-    - license
-    - everything you can ask for (almost)
-    - active
-  - minus
-    - no mixer
-- [SoLoud](https://github.com/jarikomppa/soloud)
-  - minus
-    - no recent updates
-    - issues in tracker cropping up
 
 ## TODO
 - .ogg format
