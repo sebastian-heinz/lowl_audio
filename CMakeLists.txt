@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.9)
 project(lowl_audio)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -69,7 +69,6 @@ if (MINGW)
 endif ()
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message([LOWL] Clang)
-    #set_source_files_properties(${LOWL_SOURCES} PROPERTIES COMPILE_OPTIONS -Werror)
     target_compile_options(${LOWL_LIB_MAIN} PRIVATE
             -O2
             -Werror
@@ -119,48 +118,12 @@ IF (CMAKE_BUILD_TYPE MATCHES Debug)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
 ENDIF ()
 
-
-
-# readerwriterqueue
-add_subdirectory(third_party/readerwriterqueue)
-target_link_libraries(${LOWL_LIB_MAIN} PUBLIC readerwriterqueue)
-
-# concurrentqueue
-add_subdirectory(third_party/concurrentqueue)
-target_link_libraries(${LOWL_LIB_MAIN} PUBLIC concurrentqueue)
-
-# portaudio
-add_subdirectory(third_party/portaudio)
-target_link_libraries(${LOWL_LIB_MAIN} PRIVATE portaudio_static)
-
-# dr_lib
+# Third Party
 add_subdirectory(third_party)
-target_link_libraries(${LOWL_LIB_MAIN} PRIVATE lowl_third_party)
+target_link_libraries(${LOWL_LIB_MAIN} PUBLIC lowl_third_party)
 
-#SET_SOURCE_FILES_PROPERTIES(thi/r8brain-free-src/CDSPHBUpsampler.h PROPERTIES COMPILE_FLAGS "-O3")
-#set(LOWL_LIB_DR_LIBS lowl_dr_libs_lib)
-#add_library(${LOWL_LIB_DR_LIBS} INTERFACE)
-#target_include_directories(${LOWL_LIB_DR_LIBS} INTERFACE third_party/dr_libs)
-#set_target_properties(${LOWL_LIB_DR_LIBS} PROPERTIES COMPILE_OPTIONS "")
-#set_source_files_properties(third_party/dr_libs PROPERTIES COMPILE_OPTIONS "-Wno-unused-parameter;-Wno-missing-field-initializer")
-#target_compile_options(${LOWL_LIB_DR_LIBS} INTERFACE)
-#target_link_libraries(${LOWL_LIB_MAIN} PRIVATE ${LOWL_LIB_DR_LIBS})
-
-#target_include_directories(${LOWL_LIB_MAIN} PRIVATE third_party/dr_libs)
-#set_source_files_properties(third_party/dr_libs/dr_flac.h PROPERTIES COMPILE_OPTIONS "")
-
-# r8brain-free-src
-#set(LOWL_LIB_R8BRAIN lowl_r8brain_lib)
-#set(LOWL_LIB_R8BRAIN_SOURCES
-#        third_party/r8brain-free-src/pffft.cpp
-#        third_party/r8brain-free-src/r8bbase.cpp
-#        )
-#add_library(${LOWL_LIB_R8BRAIN} ${LOWL_LIB_R8BRAIN_SOURCES})
-#target_include_directories(${LOWL_LIB_R8BRAIN} PUBLIC third_party/r8brain-free-src)
-#target_compile_definitions(${LOWL_LIB_R8BRAIN} PRIVATE _USE_MATH_DEFINES)
-#target_link_libraries(${LOWL_LIB_MAIN} PRIVATE ${LOWL_LIB_R8BRAIN})
-# https://github.com/avaneev/r8brain-free-src#usage-information
-#add_definitions(-DR8B_PFFFT=1)
-
-add_subdirectory(demo)
+# Unit Test
 add_subdirectory(test)
+
+# Example App
+add_subdirectory(demo)

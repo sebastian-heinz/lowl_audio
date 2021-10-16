@@ -40,14 +40,14 @@ int main()
 {
     // initialize the library
     Lowl::Error error;
-    Lowl::Lib::initialize(error);
+    Lowl::DrLib::initialize(error);
     if (error.has_error()) {
         std::cout << "Err: Lowl::initialize\n";
         return -1;
     }
 
     // query a list of available drivers
-    std::vector<std::shared_ptr<Lowl::Driver>> drivers = Lowl::Lib::get_drivers(error);
+    std::vector<std::shared_ptr<Lowl::Driver>> drivers = Lowl::DrLib::get_drivers(error);
     if (error.has_error()) {
         std::cout << "Err: Lowl::get_drivers\n";
         return -1;
@@ -93,7 +93,7 @@ int main()
 
 int main() 
 {
-    std::shared_ptr<Lowl::AudioData> data = Lowl::Lib::create_data("/Users/name/Downloads/music.wav", error);
+    std::shared_ptr<Lowl::AudioData> data = Lowl::DrLib::create_data("/Users/name/Downloads/music.wav", error);
     if (error.has_error()) {
         std::cout << "Err:  Lowl::create_stream\n";
         return -1;

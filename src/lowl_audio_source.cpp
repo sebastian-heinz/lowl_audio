@@ -23,8 +23,8 @@ Lowl::SampleFormat Lowl::AudioSource::get_sample_format() const {
     return Lowl::SampleFormat::FLOAT_32;
 }
 
-int Lowl::AudioSource::get_channel_num() const {
-    return (int)Lowl::get_channel_num(channel);
+size_t Lowl::AudioSource::get_channel_num() const {
+    return Lowl::get_channel_num(channel);
 }
 
 void Lowl::AudioSource::set_volume(Lowl::Volume p_volume) {

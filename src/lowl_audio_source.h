@@ -48,7 +48,7 @@ namespace Lowl {
 
         AudioChannel get_channel() const;
 
-        int get_channel_num() const;
+        size_t get_channel_num() const;
 
         SampleFormat get_sample_format() const;
 

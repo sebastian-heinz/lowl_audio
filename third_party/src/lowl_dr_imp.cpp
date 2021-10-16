@@ -11,22 +11,19 @@
 
 #include "../include/lowl_dr_imp.h"
 
-DRWAV_INLINE drwav_uint64 lowl_drwav_size_max() {
+drwav_uint64 LowlThirdParty::DrLib::lowl_drwav_size_max() {
     return DRWAV_SIZE_MAX;
 }
 
-DRWAV_INLINE drwav_uint64 lowl_drflac_size_max() {
-    return DRFLAC_SIZE_MAX;
-}
-
-DRWAV_INLINE drwav_bool32 lowl_drwav__is_compressed_format_tag(drwav_uint16 formatTag) {
+drwav_bool32 LowlThirdParty::DrLib::lowl_drwav__is_compressed_format_tag(drwav_uint16 formatTag) {
     return drwav__is_compressed_format_tag(formatTag);
 }
 
-drwav_uint32 lowl_drwav_get_bytes_per_pcm_frame(drwav *pWav) {
+drwav_uint32 LowlThirdParty::DrLib::lowl_drwav_get_bytes_per_pcm_frame(drwav *pWav) {
     return drwav_get_bytes_per_pcm_frame(pWav);
 }
 
 #undef DR_FLAC_IMPLEMENTATION
 #undef DR_MP3_IMPLEMENTATION
 #undef DR_MP3_IMPLEMENTATION
+
