@@ -142,6 +142,14 @@ Lowl::size_l Lowl::AudioSpace::get_frames_remaining(Lowl::SpaceId p_id) const {
     return audio_data->get_frames_remaining();
 }
 
+Lowl::size_l Lowl::AudioSpace::get_frame_count(Lowl::SpaceId p_id) const {
+    std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
+    if (!audio_data) {
+        return 0;
+    }
+    return audio_data->get_frame_count();
+}
+
 std::shared_ptr<Lowl::AudioData> Lowl::AudioSpace::get_audio_data(SpaceId p_id) const {
     if (p_id >= current_id) {
         return nullptr;
@@ -164,6 +172,10 @@ Lowl::size_l Lowl::AudioSpace::get_frames_remaining() const {
 }
 
 Lowl::size_l Lowl::AudioSpace::get_frame_position() const {
+    return 0;
+}
+
+Lowl::size_l Lowl::AudioSpace::get_frame_count() const {
     return 0;
 }
 

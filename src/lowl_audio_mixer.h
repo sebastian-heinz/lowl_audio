@@ -23,6 +23,8 @@ namespace Lowl {
 
         virtual size_l get_frame_position() const override;
 
+        virtual size_l get_frame_count() const override;
+
         /**
          * mixes a single frame from all sources
          */
