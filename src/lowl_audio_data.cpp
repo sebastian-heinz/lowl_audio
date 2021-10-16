@@ -84,3 +84,7 @@ void Lowl::AudioData::seek_time(TimeSeconds p_seconds) {
 Lowl::size_l Lowl::AudioData::get_frame_position() const {
     return position;
 }
+
+Lowl::size_l Lowl::AudioData::get_frame_count() const {
+    return size;
+}

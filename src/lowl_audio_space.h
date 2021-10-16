@@ -39,6 +39,8 @@ namespace Lowl {
 
         virtual size_l get_frame_position() const override;
 
+        virtual size_l get_frame_count() const override;
+
         virtual ReadResult read(AudioFrame &audio_frame) override;
 
         void play(SpaceId p_id, Volume p_volume, Panning p_panning) const;
@@ -52,6 +54,8 @@ namespace Lowl {
         SpaceId add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error);
 
         virtual size_l get_frames_remaining(SpaceId p_id) const;
+
+        virtual size_l get_frame_count(SpaceId p_id) const;
 
         virtual size_l get_frame_position(SpaceId p_id) const;
 

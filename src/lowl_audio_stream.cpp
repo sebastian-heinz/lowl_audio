@@ -36,3 +36,7 @@ Lowl::size_l Lowl::AudioStream::get_frames_remaining() const {
 Lowl::size_l Lowl::AudioStream::get_frame_position() const {
     return 0;
 }
+
+Lowl::size_l Lowl::AudioStream::get_frame_count() const {
+    return 0;
+}
