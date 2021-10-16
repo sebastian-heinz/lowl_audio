@@ -4,7 +4,7 @@
 #include "lowl_sample_format.h"
 #include "lowl_error.h"
 #include "lowl_audio_frame.h"
-#include "lowl_channel.h"
+#include "lowl_audio_channel.h"
 #include "lowl_audio_source.h"
 
 #include <readerwriterqueue.h>
@@ -30,7 +30,7 @@ namespace Lowl {
 
         void write(const std::vector<AudioFrame> &p_audio_frames);
 
-        AudioStream(SampleRate p_sample_rate, Channel p_channel);
+        AudioStream(SampleRate p_sample_rate, AudioChannel p_channel);
 
         virtual ~AudioStream() = default;
     };

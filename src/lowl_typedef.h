@@ -21,8 +21,11 @@ namespace Lowl {
     typedef std::uint32_t uint32_l;
     typedef std::size_t size_l;
     typedef double double_l;
+    typedef float float_l;
 
     typedef uint16_l SpaceId;
+    typedef double_l TimeSeconds;
+    typedef double_l Sample;
 
     typedef double_l SampleRate;
     static constexpr SampleRate NO_SAMPLE_RATE = 0;

@@ -1,11 +1,10 @@
 #include "lowl_audio_mixer.h"
 
 #include "lowl_logger.h"
-#include "lowl_audio_data.h"
 
 #include <string>
 
-Lowl::AudioMixer::AudioMixer(SampleRate p_sample_rate, Channel p_channel) : AudioSource(p_sample_rate, p_channel) {
+Lowl::AudioMixer::AudioMixer(SampleRate p_sample_rate, AudioChannel p_channel) : AudioSource(p_sample_rate, p_channel) {
     sources = std::vector<std::shared_ptr<AudioSource>>();
     events = std::make_unique<moodycamel::ConcurrentQueue<AudioMixerEvent>>();
     read_frame = {};
@@ -42,15 +41,17 @@ Lowl::AudioSource::ReadResult Lowl::AudioMixer::read(Lowl::AudioFrame &audio_fra
             audio_frame += read_frame;
             has_output = true;
         } else if (read_result == ReadResult::End) {
-            std::shared_ptr<AudioData> data = std::dynamic_pointer_cast<AudioData>(source);
-            if (data) {
-                // data empty - data will be removed and need to be added again
-                int idx = &source - &sources[0];
-                sources[idx] = nullptr;
-                has_empty_data = true;
-            }
             continue;
         } else if (read_result == ReadResult::Pause) {
+            continue;
+        } else if (read_result == ReadResult::Remove) {
+            long idx = &source - &sources[0];
+            if (idx < 0 && idx >= sources.size()) {
+                continue;
+            }
+            unsigned long ul_idx = static_cast<unsigned long>(idx);
+            sources[ul_idx] = nullptr;
+            has_empty_data = true;
             continue;
         }
     }
@@ -70,7 +71,10 @@ Lowl::AudioSource::ReadResult Lowl::AudioMixer::read(Lowl::AudioFrame &audio_fra
 }
 
 void Lowl::AudioMixer::mix(std::shared_ptr<AudioSource> p_audio_source) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wfloat-equal"
     if (p_audio_source->get_sample_rate() != sample_rate) {
+#pragma clang diagnostic pop
         std::string message = "Lowl::AudioMixer::mix: p_audio_source(" + std::to_string(sample_rate) +
                               ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate.";
         Logger::log(Logger::Level::Warn, message);

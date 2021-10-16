@@ -4,7 +4,7 @@
 #include "lowl_sample_format.h"
 #include "lowl_error.h"
 #include "lowl_audio_frame.h"
-#include "lowl_channel.h"
+#include "lowl_audio_channel.h"
 #include "lowl_audio_source.h"
 
 #include <vector>
@@ -46,7 +46,7 @@ namespace Lowl {
         /**
          * sets the play head to the specified time
          */
-        void seek_time(double_l p_seconds);
+        void seek_time(TimeSeconds p_seconds);
 
         /**
          * sets the play head to the specified frame
@@ -66,7 +66,7 @@ namespace Lowl {
 
         virtual size_l get_frame_position() const override;
 
-        AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate, Channel p_channel);
+        AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate, AudioChannel p_channel);
 
         virtual ~AudioData();
     };

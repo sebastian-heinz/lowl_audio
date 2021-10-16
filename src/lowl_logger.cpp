@@ -46,7 +46,7 @@ namespace Lowl {
 
         char buffer[128];
 
-        int string_size = strftime(
+        size_t string_size = strftime(
                 buffer, sizeof(buffer),
                 LOGGER_PRETTY_TIME_FORMAT,
                 time_info
@@ -54,7 +54,7 @@ namespace Lowl {
 
         int ms = to_ms(tp) % 1000;
 
-        string_size += std::snprintf(
+        string_size += (size_t) std::snprintf(
                 buffer + string_size, sizeof(buffer) - string_size,
                 LOGGER_PRETTY_MS_FORMAT, ms
         );

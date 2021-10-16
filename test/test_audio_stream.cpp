@@ -7,7 +7,7 @@
 
 TEST_CASE("AudioStream") {
     std::shared_ptr<Lowl::AudioStream> audio_stream
-            = std::make_unique<Lowl::AudioStream>(44100.0, Lowl::Channel::Stereo);
+            = std::make_unique<Lowl::AudioStream>(44100.0, Lowl::AudioChannel::Stereo);
 
     Lowl::AudioFrame read;
     Lowl::AudioSource::ReadResult result;

@@ -52,19 +52,16 @@ uint8_t Lowl::Buffer::read_u8() {
 }
 
 uint16_t Lowl::Buffer::read_u16() {
-    uint16_t value = (read_u8() | read_u8() << 8);
+    uint16_t value = (uint16_t) (read_u8() | read_u8() << 8);
     return value;
 }
 
 uint32_t Lowl::Buffer::read_u32() {
-    uint32_t value = read_u8() | (read_u8() << 8) | (read_u8() << 16) | (read_u8() << 24);
+    uint32_t value = (uint32_t) (read_u8() | (read_u8() << 8) | (read_u8() << 16) | (read_u8() << 24));
     return value;
 }
 
 void Lowl::Buffer::read_data(void *p_dst, size_t p_length) {
-    if (p_length < 0) {
-        return;
-    }
     if (p_dst == nullptr) {
         return;
     }
@@ -79,15 +76,6 @@ void Lowl::Buffer::read_data(void *p_dst, size_t p_length) {
 }
 
 void Lowl::Buffer::get_data(size_t p_src_offset, size_t p_src_count, void *p_dst, size_t p_dst_length) const {
-    if (p_src_offset < 0) {
-        return;
-    }
-    if (p_src_count < 0) {
-        return;
-    }
-    if (p_dst_length < 0) {
-        return;
-    }
     if (p_dst == nullptr) {
         return;
     }
@@ -100,7 +88,6 @@ void Lowl::Buffer::get_data(size_t p_src_offset, size_t p_src_count, void *p_dst
     if (p_dst_length < p_src_count) {
         return;
     }
-    //void * memcpy ( void * destination, const void * source, size_t num );
     memcpy(p_dst, &data[p_src_offset], p_src_count);
 }
 
@@ -150,7 +137,7 @@ Lowl::Buffer *Lowl::Buffer::slice(size_t p_length) {
 }
 
 void Lowl::Buffer::grow(size_t p_length) {
-    int new_real_length = real_length + p_length;
+    size_t new_real_length = real_length + p_length;
     void *newloc = realloc(data, new_real_length);
     if (!newloc) {
         return;
@@ -159,7 +146,7 @@ void Lowl::Buffer::grow(size_t p_length) {
     real_length = new_real_length;
 }
 
-Lowl::Buffer::Buffer(void *p_data, int p_length) {
+Lowl::Buffer::Buffer(void *p_data, size_t p_length) {
     real_length = p_length;
     data = (uint8_t *) malloc(real_length);
     position = 0;

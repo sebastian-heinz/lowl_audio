@@ -1,15 +1,15 @@
-#ifndef LOWL_DEVICE_PA_H
-#define LOWL_DEVICE_PA_H
+#ifndef LOWL_AUDIO_DEVICE_PA_H
+#define LOWL_AUDIO_DEVICE_PA_H
 
 #ifdef LOWL_DRIVER_PORTAUDIO
 
-#include "lowl_device.h"
+#include "lowl_audio_device.h"
 
 #include <portaudio.h>
 
 namespace Lowl {
 
-    class PaDevice : public Device {
+    class AudioDevicePa : public AudioDevice {
 
     private:
         PaDeviceIndex device_index;
@@ -27,7 +27,7 @@ namespace Lowl {
         void close_stream(Error &error);
 
         PaStreamParameters
-        create_output_parameters(Lowl::Channel p_channel, Lowl::SampleFormat p_sample_format, Error &error);
+        create_output_parameters(Lowl::AudioChannel p_channel, Lowl::SampleFormat p_sample_format, Error &error);
 
         PaSampleFormat get_pa_sample_format(SampleFormat sample_format, Error &error);
 
@@ -38,7 +38,7 @@ namespace Lowl {
 
         virtual void stop(Error &error) override;
 
-        virtual bool is_supported(Lowl::Channel channel, Lowl::SampleRate sample_rate, Lowl::SampleFormat sample_format,
+        virtual bool is_supported(Lowl::AudioChannel channel, Lowl::SampleRate sample_rate, Lowl::SampleFormat sample_format,
                                   Error &error) override;
 
         virtual Lowl::SampleRate get_default_sample_rate() override;
@@ -54,9 +54,9 @@ namespace Lowl {
 
         void set_device_index(PaDeviceIndex device_index);
 
-        PaDevice();
+        AudioDevicePa();
 
-        ~PaDevice();
+        ~AudioDevicePa();
     };
 }
 

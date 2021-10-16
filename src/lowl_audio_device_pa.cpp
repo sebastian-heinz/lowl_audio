@@ -1,6 +1,6 @@
 #ifdef LOWL_DRIVER_PORTAUDIO
 
-#include "lowl_device_pa.h"
+#include "lowl_audio_device_pa.h"
 #include "lowl_logger.h"
 
 #include <algorithm>
@@ -12,16 +12,16 @@
 static int audio_callback(const void *p_input_buffer, void *p_output_buffer,
                           unsigned long p_frames_per_buffer, const PaStreamCallbackTimeInfo *p_time_info,
                           PaStreamCallbackFlags p_status_flags, void *p_user_data) {
-    Lowl::PaDevice *device = (Lowl::PaDevice *) p_user_data;
+    Lowl::AudioDevicePa *device = (Lowl::AudioDevicePa *) p_user_data;
     return device->callback(p_input_buffer, p_output_buffer,
                             p_frames_per_buffer, p_time_info, p_status_flags
     );
 }
 
-PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void *p_output_buffer,
-                                                unsigned long p_frames_per_buffer,
-                                                const PaStreamCallbackTimeInfo *p_time_info,
-                                                PaStreamCallbackFlags p_status_flags) {
+PaStreamCallbackResult Lowl::AudioDevicePa::callback(const void *p_input_buffer, void *p_output_buffer,
+                                                     unsigned long p_frames_per_buffer,
+                                                     const PaStreamCallbackTimeInfo *p_time_info,
+                                                     PaStreamCallbackFlags p_status_flags) {
     if (!active) {
         return paAbort;
     }
@@ -34,11 +34,13 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
         if (read_result == AudioSource::ReadResult::Read) {
             for (int current_channel = 0; current_channel < audio_source->get_channel_num(); current_channel++) {
                 std::clamp(frame[current_channel], AudioFrame::MIN_SAMPLE_VALUE, AudioFrame::MAX_SAMPLE_VALUE);
-                *dst++ = frame[current_channel];
+                *dst++ = (float) frame[current_channel];
             }
         } else if (read_result == AudioSource::ReadResult::End) {
             break;
         } else if (read_result == AudioSource::ReadResult::Pause) {
+            break;
+        } else if (read_result == AudioSource::ReadResult::Remove) {
             break;
         }
     }
@@ -47,7 +49,7 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
 
         // fill buffer with silence if not enough samples available.
         unsigned long missing_frames = p_frames_per_buffer - current_frame;
-        unsigned long missing_samples = missing_frames * audio_source->get_channel_num();
+        unsigned long missing_samples = missing_frames * (unsigned long) audio_source->get_channel_num();
 
         // TODO check if this is correct
         //memset(&dst[0], 0, missing_samples);
@@ -57,11 +59,11 @@ PaStreamCallbackResult Lowl::PaDevice::callback(const void *p_input_buffer, void
         }
     }
 
-    double time_request_ms = (p_frames_per_buffer / audio_source->get_sample_rate()) * 1000;
+    double time_request_ms = ((double) p_frames_per_buffer / audio_source->get_sample_rate()) * 1000;
     return paContinue;
 }
 
-void Lowl::PaDevice::start_stream(Error &error) {
+void Lowl::AudioDevicePa::start_stream(Error &error) {
     /*
     A stream is active after a successful call to Pa_StartStream(), until it
     becomes inactive either as a result of a call to Pa_StopStream() or
@@ -89,7 +91,7 @@ void Lowl::PaDevice::start_stream(Error &error) {
     }
 }
 
-void Lowl::PaDevice::stop_stream(Error &error) {
+void Lowl::AudioDevicePa::stop_stream(Error &error) {
     /*
     A stream is considered to be stopped prior to a successful call to
     Pa_StartStream and after a successful call to Pa_StopStream or Pa_AbortStream.
@@ -116,7 +118,7 @@ void Lowl::PaDevice::stop_stream(Error &error) {
     }
 }
 
-void Lowl::PaDevice::open_stream(Error &error) {
+void Lowl::AudioDevicePa::open_stream(Error &error) {
 
     unsigned long frames_per_buffer = paFramesPerBufferUnspecified;
     PaStreamFlags stream_flags = paNoFlag;
@@ -152,7 +154,7 @@ void Lowl::PaDevice::open_stream(Error &error) {
     }
 }
 
-void Lowl::PaDevice::close_stream(Error &error) {
+void Lowl::AudioDevicePa::close_stream(Error &error) {
     PaError pa_error = Pa_CloseStream(stream);
     if (pa_error != PaErrorCode::paNoError) {
         error.set_error(static_cast<ErrorCode>(pa_error));
@@ -160,8 +162,8 @@ void Lowl::PaDevice::close_stream(Error &error) {
     }
 }
 
-bool Lowl::PaDevice::is_supported(Lowl::Channel p_channel, Lowl::SampleRate p_sample_rate,
-                                  Lowl::SampleFormat p_sample_format, Error &error) {
+bool Lowl::AudioDevicePa::is_supported(Lowl::AudioChannel p_channel, Lowl::SampleRate p_sample_rate,
+                                       Lowl::SampleFormat p_sample_format, Error &error) {
     const PaStreamParameters output_parameter = create_output_parameters(p_channel, p_sample_format, error);
     if (error.has_error()) {
         return false;
@@ -176,7 +178,8 @@ bool Lowl::PaDevice::is_supported(Lowl::Channel p_channel, Lowl::SampleRate p_sa
 }
 
 PaStreamParameters
-Lowl::PaDevice::create_output_parameters(Lowl::Channel p_channel, Lowl::SampleFormat p_sample_format, Error &error) {
+Lowl::AudioDevicePa::create_output_parameters(Lowl::AudioChannel p_channel, Lowl::SampleFormat p_sample_format,
+                                              Error &error) {
     const PaDeviceInfo *device_info = Pa_GetDeviceInfo(device_index);
     if (device_info == nullptr) {
         error.set_error(ErrorCode::Pa_GetDeviceInfo);
@@ -199,12 +202,12 @@ Lowl::PaDevice::create_output_parameters(Lowl::Channel p_channel, Lowl::SampleFo
     return output_parameter;
 }
 
-void Lowl::PaDevice::start(std::shared_ptr<AudioSource> p_audio_source, Lowl::Error &error) {
+void Lowl::AudioDevicePa::start(std::shared_ptr<AudioSource> p_audio_source, Lowl::Error &error) {
     audio_source = p_audio_source;
     start(error);
 }
 
-void Lowl::PaDevice::start(Error &error) {
+void Lowl::AudioDevicePa::start(Error &error) {
     open_stream(error);
     if (error.has_error()) {
         return;
@@ -215,7 +218,7 @@ void Lowl::PaDevice::start(Error &error) {
     }
 }
 
-void Lowl::PaDevice::stop(Error &error) {
+void Lowl::AudioDevicePa::stop(Error &error) {
     stop_stream(error);
     audio_source = nullptr;
     if (error.has_error()) {
@@ -227,16 +230,16 @@ void Lowl::PaDevice::stop(Error &error) {
     }
 }
 
-void Lowl::PaDevice::set_device_index(PaDeviceIndex p_device_index) {
+void Lowl::AudioDevicePa::set_device_index(PaDeviceIndex p_device_index) {
     device_index = p_device_index;
 }
 
-Lowl::PaDevice::PaDevice() {
+Lowl::AudioDevicePa::AudioDevicePa() {
     active = false;
     stream = nullptr;
 }
 
-Lowl::PaDevice::~PaDevice() {
+Lowl::AudioDevicePa::~AudioDevicePa() {
     PaError pa_error = Pa_CloseStream(stream);
     if (pa_error != PaErrorCode::paNoError) {
     }
@@ -245,7 +248,7 @@ Lowl::PaDevice::~PaDevice() {
     stream = nullptr;
 }
 
-PaSampleFormat Lowl::PaDevice::get_pa_sample_format(Lowl::SampleFormat sample_format, Lowl::Error &error) {
+PaSampleFormat Lowl::AudioDevicePa::get_pa_sample_format(Lowl::SampleFormat sample_format, Lowl::Error &error) {
     PaSampleFormat pa_sample_format;
     switch (sample_format) {
         case Lowl::SampleFormat::FLOAT_32: {
@@ -272,6 +275,11 @@ PaSampleFormat Lowl::PaDevice::get_pa_sample_format(Lowl::SampleFormat sample_fo
             pa_sample_format = paUInt8;
             break;
         }
+        case Lowl::SampleFormat::FLOAT_64: {
+            error.set_error(ErrorCode::PaUnknownSampleFormat);
+            pa_sample_format = (PaSampleFormat) 0;
+            break;
+        }
         case Lowl::SampleFormat::Unknown: {
             error.set_error(ErrorCode::PaUnknownSampleFormat);
             pa_sample_format = (PaSampleFormat) 0;
@@ -281,7 +289,7 @@ PaSampleFormat Lowl::PaDevice::get_pa_sample_format(Lowl::SampleFormat sample_fo
     return pa_sample_format;
 }
 
-Lowl::SampleRate Lowl::PaDevice::get_default_sample_rate() {
+Lowl::SampleRate Lowl::AudioDevicePa::get_default_sample_rate() {
     const PaDeviceInfo *device_info = Pa_GetDeviceInfo(device_index);
     if (device_info == nullptr) {
         return 0;
@@ -290,7 +298,7 @@ Lowl::SampleRate Lowl::PaDevice::get_default_sample_rate() {
     return sample_rate;
 }
 
-void Lowl::PaDevice::set_exclusive_mode(bool p_exclusive_mode, Lowl::Error &error) {
+void Lowl::AudioDevicePa::set_exclusive_mode(bool p_exclusive_mode, Lowl::Error &error) {
     if (p_exclusive_mode) {
         if (active) {
             // stream already running
@@ -304,7 +312,7 @@ void Lowl::PaDevice::set_exclusive_mode(bool p_exclusive_mode, Lowl::Error &erro
     }
 }
 
-void Lowl::PaDevice::enable_exclusive_mode(PaStreamParameters &stream_parameters, Lowl::Error &error) {
+void Lowl::AudioDevicePa::enable_exclusive_mode(PaStreamParameters &stream_parameters, Lowl::Error &error) {
     if (stream_parameters.device != device_index) {
         // parameter mismatch this device
         error.set_error(ErrorCode::Error);

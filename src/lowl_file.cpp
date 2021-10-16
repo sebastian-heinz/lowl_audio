@@ -8,13 +8,13 @@ std::string Lowl::File::get_path() {
 void Lowl::File::open(const std::string &p_path, Lowl::Error &error) {
     close();
     file_stream = std::make_unique<std::ifstream>(p_path.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
-    if (!file_stream) {
+    if (!file_stream->is_open() || !file_stream->good()) {
         close();
         error.set_error(ErrorCode::Error);
         return;
     }
     std::ifstream::pos_type size = file_stream->tellg();
-    file_size = size;
+    file_size = (size_t)size;
     file_stream->seekg(0, std::ios::beg);
     path = p_path;
 }
@@ -32,7 +32,7 @@ bool Lowl::File::seek(size_t p_position) {
     if (!file_stream) {
         return false;
     }
-    file_stream->seekg(p_position, std::ios::beg);
+    file_stream->seekg(static_cast<long long>(p_position), std::ios::beg);
     if (file_stream->fail()) {
         return false;
     }
@@ -51,7 +51,7 @@ bool Lowl::File::get_position(size_t &position) const {
         position = 0;
         return false;
     }
-    position = stream_position;
+    position = static_cast<size_t>(stream_position);
     return true;
 }
 
@@ -74,9 +74,9 @@ std::unique_ptr<uint8_t[]> Lowl::File::read_buffer(size_t &length) const {
         length = 0;
         return data;
     }
-    file_stream->read(reinterpret_cast<char *>(data.get()), length);
+    file_stream->read(reinterpret_cast<char *>(data.get()), static_cast<long>(length));
     if (file_stream->eof()) {
-        length = file_stream->gcount();
+        length = static_cast<size_t>(file_stream->gcount());
         // The function stopped extracting characters because the input sequence has no more characters available (end-of-file reached).
     }
     if (file_stream->fail()) {

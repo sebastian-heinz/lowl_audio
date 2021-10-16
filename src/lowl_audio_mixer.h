@@ -38,7 +38,7 @@ namespace Lowl {
          */
         virtual void remove(std::shared_ptr<AudioSource> p_audio_source);
 
-        AudioMixer(SampleRate p_sample_rate, Channel p_channel);
+        AudioMixer(SampleRate p_sample_rate, AudioChannel p_channel);
 
         virtual ~AudioMixer() = default;
     };

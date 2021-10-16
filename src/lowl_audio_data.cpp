@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-Lowl::AudioData::AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate, Channel p_channel)
+Lowl::AudioData::AudioData(std::vector<Lowl::AudioFrame> p_audio_frames, SampleRate p_sample_rate, AudioChannel p_channel)
         : AudioSource(p_sample_rate, p_channel) {
     frames = std::vector<AudioFrame>(p_audio_frames);
     position = 0;
@@ -21,7 +21,7 @@ Lowl::AudioSource::ReadResult Lowl::AudioData::read(Lowl::AudioFrame &audio_fram
     }
     if (position >= size) {
         position = 0;
-        return ReadResult::End;
+        return ReadResult::Remove;
     }
     audio_frame = frames[position]; // creates copy
     process_volume(audio_frame);
@@ -34,26 +34,32 @@ std::vector<Lowl::AudioFrame> Lowl::AudioData::get_frames() {
     return std::vector<AudioFrame>(frames);
 }
 
-std::unique_ptr<Lowl::AudioData> Lowl::AudioData::create_slice(double p_begin_sec, double p_end_sec) {
-    size_t first_frame = p_begin_sec * sample_rate;
-    size_t last_frame = p_end_sec * sample_rate;
+std::unique_ptr<Lowl::AudioData> Lowl::AudioData::create_slice(TimeSeconds p_begin_sec, TimeSeconds p_end_sec) {
+    size_t first_frame = static_cast<size_t>(p_begin_sec * sample_rate);
+    size_t last_frame = static_cast<size_t>(p_end_sec * sample_rate);
     std::clamp<size_t>(first_frame, 0, size - 1);
     std::clamp<size_t>(last_frame, 0, size - 1);
     std::vector<AudioFrame> slice;
     if (p_end_sec > 0.0) {
-        slice = std::vector<AudioFrame>(frames.begin() + first_frame, frames.begin() + last_frame);
+        slice = std::vector<AudioFrame>(
+                frames.begin() + static_cast<std::vector<AudioFrame>::difference_type>(first_frame),
+                frames.begin() + static_cast<std::vector<AudioFrame>::difference_type>(last_frame)
+        );
     } else {
-        slice = std::vector<AudioFrame>(frames.begin() + first_frame, frames.end());
+        slice = std::vector<AudioFrame>(
+                frames.begin() + static_cast<std::vector<AudioFrame>::difference_type>(first_frame),
+                frames.end()
+        );
     }
     return std::make_unique<Lowl::AudioData>(slice, sample_rate, channel);
 }
 
 Lowl::size_l Lowl::AudioData::get_frames_remaining() const {
-    int remaining = size - position;
+    int64_t remaining = static_cast<int64_t>(size - position);
     if (remaining < 0) {
         remaining = 0;
     }
-    return remaining;
+    return static_cast<size_l>(remaining);
 }
 
 Lowl::AudioData::~AudioData() {
@@ -70,11 +76,9 @@ void Lowl::AudioData::seek_frame(size_t p_frame) {
     is_not_reset.clear();
 }
 
-void Lowl::AudioData::seek_time(Lowl::double_l p_seconds) {
-    size_t frame = p_seconds * sample_rate;
-    std::clamp<size_t>(frame, 0, size - 1);
-    seek_position = frame;
-    is_not_reset.clear();
+void Lowl::AudioData::seek_time(TimeSeconds p_seconds) {
+    size_t frame = static_cast<size_t>(p_seconds * sample_rate);
+    seek_frame(frame);
 }
 
 Lowl::size_l Lowl::AudioData::get_frame_position() const {

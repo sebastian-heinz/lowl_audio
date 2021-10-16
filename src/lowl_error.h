@@ -59,6 +59,8 @@ namespace Lowl {
 
         void set_error(ErrorCode p_error);
 
+        void clear();
+
         ErrorCode get_error();
 
         int get_error_code();

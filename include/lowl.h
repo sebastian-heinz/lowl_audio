@@ -4,14 +4,10 @@
 #include "../src/lowl_audio_reader.h"
 #include "../src/lowl_audio_data.h"
 #include "../src/lowl_audio_stream.h"
-#include "../src/lowl_driver.h"
+#include "../src/lowl_audio_driver.h"
 #include "../src/lowl_file_format.h"
 #include "../src/lowl_audio_mixer.h"
-#include "../src/node/lowl_node.h"
-#include "../src/node/lowl_node_in_stream.h"
-#include "../src/node/lowl_node_out_stream.h"
-#include "../src/node/lowl_node_re_sampler.h"
-#include "../src/lowl_space.h"
+#include "../src/lowl_audio_space.h"
 #include "../src/lowl_audio_util.h"
 #include "../src/lowl_logger.h"
 
@@ -23,11 +19,11 @@ namespace Lowl {
 
     private:
         static std::atomic_flag initialized;
-        static std::vector<std::shared_ptr<Lowl::Driver>> drivers;
+        static std::vector<std::shared_ptr<Lowl::AudioDriver>> drivers;
 
     public:
 
-        static std::vector<std::shared_ptr<Lowl::Driver>> get_drivers(Error &error);
+        static std::vector<std::shared_ptr<Lowl::AudioDriver>> get_drivers(Error &error);
 
         static void initialize(Error &error);
 
@@ -42,7 +38,7 @@ namespace Lowl {
 
         static FileFormat detect_format(const std::string &p_path, Error &error);
 
-        static std::shared_ptr<Device> get_default_device(Error &error);
+        static std::shared_ptr<AudioDevice> get_default_device(Error &error);
     };
 }
 #endif /* LOWL_H */

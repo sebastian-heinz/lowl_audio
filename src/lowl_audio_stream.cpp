@@ -1,6 +1,6 @@
 #include "lowl_audio_stream.h"
 
-Lowl::AudioStream::AudioStream(SampleRate p_sample_rate, Channel p_channel) : AudioSource(p_sample_rate, p_channel) {
+Lowl::AudioStream::AudioStream(SampleRate p_sample_rate, AudioChannel p_channel) : AudioSource(p_sample_rate, p_channel) {
     frame_queue = std::make_unique<moodycamel::ReaderWriterQueue<AudioFrame>>(100);
 }
 
