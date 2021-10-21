@@ -1,6 +1,7 @@
 #ifdef LOWL_DRIVER_PORTAUDIO
 
 #include "lowl_audio_device_pa.h"
+
 #include "lowl_logger.h"
 
 #include <algorithm>

@@ -1,15 +1,13 @@
 #include "../include/lowl.h"
 
 #ifdef LOWL_DRIVER_DUMMY
-
 #include "lowl_audio_driver_dummy.h"
-
 #endif
-
 #ifdef LOWL_DRIVER_PORTAUDIO
-
 #include "lowl_audio_driver_pa.h"
-
+#endif
+#ifdef LOWL_DRIVER_CORE_AUDIO
+#include "lowl_audio_driver_core_audio.h"
 #endif
 
 #include <memory>
@@ -33,6 +31,9 @@ void Lowl::Lib::initialize(Error &error) {
             return;
         }
         drivers.push_back(std::make_shared<AudioDriverPa>());
+#endif
+#ifdef LOWL_DRIVER_CORE_AUDIO
+        drivers.push_back(std::make_shared<AudioDriverCoreAudio>());
 #endif
     }
 }

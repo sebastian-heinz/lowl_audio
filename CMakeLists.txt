@@ -28,10 +28,12 @@ set(LOWL_SOURCES
         src/lowl_audio_util.cpp
         src/lowl_buffer.cpp
         src/lowl_audio_device.cpp
+        src/lowl_audio_device_core_audio.cpp
+        src/lowl_audio_device_pa.cpp
         src/lowl_audio_channel_converter.cpp
         src/lowl_audio_driver.cpp
+        src/lowl_audio_driver_core_audio.cpp
         src/lowl_audio_driver_dummy.cpp
-        src/lowl_audio_device_pa.cpp
         src/lowl_audio_driver_pa.cpp
         src/lowl_audio_space.cpp
 
@@ -45,7 +47,9 @@ set(LOWL_SOURCES
 add_library(${LOWL_LIB_MAIN} ${LOWL_SOURCES})
 set_target_properties(${LOWL_LIB_MAIN} PROPERTIES PREFIX "")
 target_include_directories(${LOWL_LIB_MAIN} PUBLIC include/)
+
 target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_DUMMY)
+target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_CORE_AUDIO)
 target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_PORTAUDIO)
 target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE "LOWL_PA_DEFAULT_DRIVER_PRIORITY=\"${LOWL_PA_DEFAULT_DRIVER_PRIORITY}\"")
 
@@ -67,13 +71,28 @@ endif ()
 if (MINGW)
     message([LOWL] MINGW)
 endif ()
+IF (CMAKE_BUILD_TYPE MATCHES Debug)
+    message([LOWL] Debug)
+    set(LOWL_DEBUG TRUE)
+ENDIF()
+
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message([LOWL] Clang)
-    target_compile_options(${LOWL_LIB_MAIN} PRIVATE
-            -O2
-            -Werror
-            -D_FORTIFY_SOURCE=2
-            )
+    IF (LOWL_DEBUG)
+        message([LOWL] Setting Debug Flags)
+        target_compile_options(${LOWL_LIB_MAIN} PRIVATE
+                -O0
+                -Werror
+                )
+    ELSE()
+        message([LOWL] Setting Release Flags)
+        target_compile_options(${LOWL_LIB_MAIN} PRIVATE
+                -O2
+                -Werror
+                -D_FORTIFY_SOURCE=2
+                )
+    ENDIF ()
     target_compile_options(${LOWL_LIB_MAIN} PRIVATE
             -Walloca
             -Wcast-qual
@@ -111,12 +130,6 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
             LINKER:-z,separate-code
             )
 endif ()
-
-IF (CMAKE_BUILD_TYPE MATCHES Debug)
-    message([LOWL] Debug)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
-ENDIF ()
 
 # Third Party
 add_subdirectory(third_party)

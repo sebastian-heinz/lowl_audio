@@ -1,6 +1,7 @@
 #ifdef LOWL_DRIVER_PORTAUDIO
 
 #include "lowl_audio_driver_pa.h"
+
 #include "lowl_audio_device_pa.h"
 #include "lowl_logger.h"
 
@@ -22,9 +23,10 @@ void Lowl::AudioDriverPa::create_devices(Error &error) {
                 // only output
                 continue;
             }
-            std::string name = "[" + std::string(api_info->name) + "] " + std::string(device_info->name);
+            std::string device_name =
+                    "[" + name + "] " + "[" + std::string(api_info->name) + "] " + std::string(device_info->name);
             std::shared_ptr<AudioDevicePa> device = std::make_shared<AudioDevicePa>();
-            device->set_name(name);
+            device->set_name(device_name);
             device->set_device_index(device_index);
             devices.push_back(device);
 
@@ -36,7 +38,7 @@ void Lowl::AudioDriverPa::create_devices(Error &error) {
                 }
                 default_device = device;
                 Logger::log(Logger::Level::Debug,
-                            "Lowl::PaDriver::create_devices: default_device assigned: " + name);
+                            "Lowl::PaDriver::create_devices: default_device assigned: " + device_name);
             }
         }
     }
