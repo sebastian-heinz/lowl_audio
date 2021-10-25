@@ -17,7 +17,17 @@ namespace Lowl {
 
     private:
         void create_devices(Error &error);
-        std::shared_ptr<AudioDeviceCoreAudio> create_device(AudioObjectID device_id, Error &error);
+
+        std::shared_ptr<AudioDeviceCoreAudio> create_device(AudioObjectID p_device_id, Error &error);
+
+
+        std::string get_device_name(AudioObjectID p_device_id);
+
+        uint32_t get_device_stream_count(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope);
+
+        SampleRate get_device_default_sample_rate(AudioObjectID p_device_id);
+
+
 
     public:
         void initialize(Error &error) override;

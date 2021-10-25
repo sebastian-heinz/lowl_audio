@@ -74,6 +74,7 @@ endif ()
 IF (CMAKE_BUILD_TYPE MATCHES Debug)
     message([LOWL] Debug)
     set(LOWL_DEBUG TRUE)
+    target_compile_definitions(${LOWL_LIB_MAIN} PUBLIC LOWL_DEBUG)
 ENDIF()
 
 

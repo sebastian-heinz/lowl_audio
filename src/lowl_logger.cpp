@@ -2,6 +2,9 @@
 
 #include <iostream>
 
+#include <vector>
+#include <cstdarg>
+
 #define LOGGER_PRETTY_TIME_FORMAT "%Y-%m-%d %H:%M:%S"
 #define LOGGER_PRETTY_MS_FORMAT ".%03d"
 #define LOGGER_PREFIX "LOWL"
@@ -91,6 +94,26 @@ namespace Lowl {
 
     void Logger::set_log_level(Logger::Level p_level) {
         log_level = p_level;
+    }
+
+    void Logger::log(const char *p_file_name, const char *p_file_function, int p_file_line, Level p_level, std::string p_message) {
+        log(p_level, "p_message");
+    }
+
+    std::string Logger::format(const char *const p_fmt, ...) {
+        auto temp = std::vector<char>{};
+        auto length = std::size_t{63};
+        std::va_list args;
+        while (temp.size() <= length) {
+            temp.resize(length + 1);
+            va_start(args, p_fmt);
+            const auto status = std::vsnprintf(temp.data(), temp.size(), p_fmt, args);
+            va_end(args);
+            if (status < 0)
+                throw std::runtime_error{"string formatting error"};
+            length = static_cast<std::size_t>(status);
+        }
+        return std::string{temp.data(), length};
     }
 
 }

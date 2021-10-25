@@ -13,6 +13,10 @@ namespace Lowl {
 
     private:
         AudioObjectID device_id;
+        Lowl::SampleRate default_sample_rate;
+        Lowl::AudioChannel output_channel;
+        uint32_t input_stream_count;
+        uint32_t output_stream_count;
 
     public:
         void start(std::shared_ptr<AudioSource> p_audio_source, Error &error) override;
@@ -27,6 +31,9 @@ namespace Lowl {
         void set_exclusive_mode(bool p_exclusive_mode, Error &error) override;
 
         void set_device_id(AudioObjectID p_device_id);
+
+        void set_input_stream_count(uint32_t p_input_stream_count);
+        void set_output_stream_count(uint32_t p_output_stream_count);
 
         AudioDeviceCoreAudio();
 
