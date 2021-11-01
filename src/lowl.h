@@ -1,15 +1,15 @@
 #ifndef LOWL_H
 #define LOWL_H
 
-#include "../src/lowl_audio_reader.h"
-#include "../src/lowl_audio_data.h"
-#include "../src/lowl_audio_stream.h"
-#include "../src/lowl_audio_driver.h"
-#include "../src/lowl_file_format.h"
-#include "../src/lowl_audio_mixer.h"
-#include "../src/lowl_audio_space.h"
-#include "../src/lowl_audio_util.h"
-#include "../src/lowl_logger.h"
+#include "audio/lowl_audio_driver.h"
+#include "lowl_audio_reader.h"
+#include "lowl_audio_data.h"
+#include "lowl_audio_stream.h"
+#include "lowl_file_format.h"
+#include "lowl_audio_mixer.h"
+#include "lowl_audio_space.h"
+#include "lowl_audio_util.h"
+#include "lowl_logger.h"
 
 #include <vector>
 

@@ -4,7 +4,7 @@
 #include "lowl_typedef.h"
 #include "lowl_audio_data.h"
 #include "lowl_audio_mixer.h"
-#include "lowl_audio_device.h"
+#include "audio/lowl_audio_device.h"
 
 #include <string>
 

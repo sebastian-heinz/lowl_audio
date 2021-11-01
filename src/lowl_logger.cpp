@@ -56,7 +56,6 @@ namespace Lowl {
         write(log);
     }
 
-
     template<typename T>
     int Logger::to_ms(const std::chrono::time_point<T> &tp) {
         auto dur = tp.time_since_epoch();

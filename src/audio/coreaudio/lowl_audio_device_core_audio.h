@@ -3,7 +3,7 @@
 
 #ifdef LOWL_DRIVER_CORE_AUDIO
 
-#include "lowl_audio_device.h"
+#include "audio/lowl_audio_device.h"
 
 #include <CoreAudio/AudioHardware.h>
 

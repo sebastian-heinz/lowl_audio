@@ -3,7 +3,7 @@
 
 #ifdef LOWL_DRIVER_PORTAUDIO
 
-#include "lowl_audio_driver.h"
+#include "audio/lowl_audio_driver.h"
 
 #include <portaudio.h>
 

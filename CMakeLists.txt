@@ -27,26 +27,29 @@ set(LOWL_SOURCES
         src/lowl_audio_stream.cpp
         src/lowl_audio_util.cpp
         src/lowl_buffer.cpp
-        src/lowl_audio_device.cpp
-        src/lowl_audio_device_core_audio.cpp
-        src/lowl_audio_device_pa.cpp
         src/lowl_audio_channel_converter.cpp
-        src/lowl_audio_driver.cpp
-        src/lowl_audio_driver_core_audio.cpp
-        src/lowl_audio_driver_dummy.cpp
-        src/lowl_audio_driver_pa.cpp
         src/lowl_audio_space.cpp
-
         src/lowl_error.cpp
         src/lowl_file.cpp
         src/lowl_logger.cpp
         src/lowl_re_sampler.cpp
         src/lowl_sample_converter.cpp
+
+        src/audio/lowl_audio_device.cpp
+        src/audio/lowl_audio_driver.cpp
+
+        src/audio/dummy/lowl_audio_driver_dummy.cpp
+
+        src/audio/coreaudio/lowl_audio_driver_core_audio.cpp
+        src/audio/coreaudio/lowl_audio_device_core_audio.cpp
+
+        src/audio/portaudio/lowl_audio_driver_pa.cpp
+        src/audio/portaudio/lowl_audio_device_pa.cpp
         )
 
 add_library(${LOWL_LIB_MAIN} ${LOWL_SOURCES})
 set_target_properties(${LOWL_LIB_MAIN} PROPERTIES PREFIX "")
-target_include_directories(${LOWL_LIB_MAIN} PUBLIC include/)
+target_include_directories(${LOWL_LIB_MAIN} PUBLIC src/)
 
 target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_DUMMY)
 target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_CORE_AUDIO)

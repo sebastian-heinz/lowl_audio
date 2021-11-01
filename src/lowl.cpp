@@ -1,13 +1,13 @@
-#include "../include/lowl.h"
+#include "lowl.h"
 
 #ifdef LOWL_DRIVER_DUMMY
-#include "lowl_audio_driver_dummy.h"
+#include "audio/dummy/lowl_audio_driver_dummy.h"
 #endif
 #ifdef LOWL_DRIVER_PORTAUDIO
-#include "lowl_audio_driver_pa.h"
+#include "audio/portaudio/lowl_audio_driver_pa.h"
 #endif
 #ifdef LOWL_DRIVER_CORE_AUDIO
-#include "lowl_audio_driver_core_audio.h"
+#include "audio/coreaudio/lowl_audio_driver_core_audio.h"
 #endif
 
 #include <memory>
