@@ -75,9 +75,8 @@ void Lowl::AudioMixer::mix(std::shared_ptr<AudioSource> p_audio_source) {
 #pragma clang diagnostic ignored "-Wfloat-equal"
     if (p_audio_source->get_sample_rate() != sample_rate) {
 #pragma clang diagnostic pop
-        std::string message = "Lowl::AudioMixer::mix: p_audio_source(" + std::to_string(sample_rate) +
-                              ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate.";
-        Logger::log(Logger::Level::Warn, message);
+        LOWL_LOG_WARN("Lowl::AudioMixer::mix: p_audio_source(" + std::to_string(sample_rate) +
+                      ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate.");
     }
     AudioMixerEvent event = {};
     event.type = AudioMixerEvent::Mix;

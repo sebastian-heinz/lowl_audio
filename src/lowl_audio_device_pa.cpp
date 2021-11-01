@@ -345,7 +345,7 @@ void Lowl::AudioDevicePa::enable_exclusive_mode(PaStreamParameters &stream_param
     }
 #endif
     if (!exclusive_mode_applied) {
-        Logger::log(Logger::Level::Warn, "!exclusive_mode_applied");
+        LOWL_LOG_WARN("!exclusive_mode_applied");
     }
 }
 

@@ -75,13 +75,11 @@ void Lowl::AudioDriverCoreAudio::create_devices(Error &error) {
         devices.push_back(device);
         if (device_id == default_out_device_id) {
             if (default_device) {
-                Logger::log(Logger::Level::Warn,
-                            "Lowl::AudioDriverCoreAudio::create_devices: default_device already assigned");
+                LOWL_LOG_WARN("default_device already assigned");
                 continue;
             }
             default_device = device;
-            Logger::log(Logger::Level::Debug,
-                        "Lowl::AudioDriverCoreAudio::create_devices: default_device assigned: " + name);
+            LOWL_LOG_DEBUG("default_device assigned: " + name);
         }
     }
 }
@@ -197,7 +195,7 @@ Lowl::SampleRate Lowl::AudioDriverCoreAudio::get_device_default_sample_rate(Audi
             &default_sample_rate
     );
     if (result != kAudioHardwareNoError) {
-        Logger::log(Logger::Level::Warn, "!exclusive_mode_applied");
+        LOWL_LOG_WARN("!exclusive_mode_applied");
         default_sample_rate = 0.0;
         // err
     }

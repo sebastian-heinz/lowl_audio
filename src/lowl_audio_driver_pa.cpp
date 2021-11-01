@@ -10,7 +10,7 @@ void Lowl::AudioDriverPa::create_devices(Error &error) {
 
     PaDeviceIndex default_device_index = get_default_output_device_index();
     if (default_device_index == paNoDevice) {
-        Logger::log(Logger::Level::Warn, "Lowl::PaDriver::create_devices: default_device_index == paNoDevice");
+        LOWL_LOG_WARN("Lowl::PaDriver::create_devices: default_device_index == paNoDevice");
     }
 
     PaHostApiIndex api_count = Pa_GetHostApiCount();
@@ -32,13 +32,11 @@ void Lowl::AudioDriverPa::create_devices(Error &error) {
 
             if (device_index == default_device_index) {
                 if (default_device) {
-                    Logger::log(Logger::Level::Warn,
-                                "Lowl::PaDriver::create_devices: default_device already assigned");
+                    LOWL_LOG_WARN("Lowl::PaDriver::create_devices: default_device already assigned");
                     continue;
                 }
                 default_device = device;
-                Logger::log(Logger::Level::Debug,
-                            "Lowl::PaDriver::create_devices: default_device assigned: " + device_name);
+                LOWL_LOG_DEBUG("Lowl::PaDriver::create_devices: default_device assigned: " + device_name);
             }
         }
     }
@@ -119,8 +117,7 @@ PaHostApiIndex Lowl::AudioDriverPa::get_default_host_api_index() {
                     break;
             }
             if (default_driver == current_driver) {
-                Logger::log(Logger::Level::Debug,
-                            "Lowl::PaDriver::get_default_host_api_index: default host device: " + current_driver);
+                LOWL_LOG_DEBUG("Lowl::PaDriver::get_default_host_api_index: default host device: " + current_driver);
                 return api_index;
             }
         }
@@ -132,19 +129,16 @@ PaHostApiIndex Lowl::AudioDriverPa::get_default_host_api_index() {
 PaDeviceIndex Lowl::AudioDriverPa::get_default_output_device_index() {
     PaHostApiIndex default_host_api = get_default_host_api_index();
     if (default_host_api < 0) {
-        Logger::log(Logger::Level::Warn,
-                    "Lowl::PaDriver::get_default_output_device_index: default_host_api < 0");
+        LOWL_LOG_WARN("Lowl::PaDriver::get_default_output_device_index: default_host_api < 0");
         return paNoDevice;
     }
     const PaHostApiInfo *api_info = Pa_GetHostApiInfo(default_host_api);
     if (!api_info) {
-        Logger::log(Logger::Level::Warn,
-                    "Lowl::PaDriver::get_default_output_device_index: !api_info");
+        LOWL_LOG_WARN("Lowl::PaDriver::get_default_output_device_index: !api_info");
         return paNoDevice;
     }
     if (api_info->defaultOutputDevice == paNoDevice) {
-        Logger::log(Logger::Level::Warn,
-                    "Lowl::PaDriver::get_default_output_device_index: api_info->defaultOutputDevice == paNoDevice");
+        LOWL_LOG_WARN("Lowl::PaDriver::get_default_output_device_index: api_info->defaultOutputDevice == paNoDevice");
         return paNoDevice;
     }
     return api_info->defaultOutputDevice;

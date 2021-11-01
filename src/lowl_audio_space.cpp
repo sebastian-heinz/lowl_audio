@@ -34,13 +34,11 @@ Lowl::SpaceId Lowl::AudioSpace::add_audio(std::unique_ptr<AudioData> p_audio_dat
         AudioChannelConverter channel_converter;
         std::unique_ptr<AudioData> converted = channel_converter.convert(channel, audio, error);
         if (error.has_error()) {
-            std::string message =
-                    "Lowl::Space::load channel_converter.convert() ErrCode:" +
-                    std::to_string(error.get_error_code()) +
-                    " ErrText:" + error.get_error_text() + ". Could not convert channels from " +
-                    std::to_string((int) ch) + " to " +
-                    std::to_string((int) channel) + " channel.";
-            Logger::log(Logger::Level::Error, message);
+            LOWL_LOG_ERROR("Lowl::Space::load channel_converter.convert() ErrCode:" +
+                           std::to_string(error.get_error_code()) +
+                           " ErrText:" + error.get_error_text() + ". Could not convert channels from " +
+                           std::to_string((int) ch) + " to " +
+                           std::to_string((int) channel) + " channel.");
             return InvalidSpaceId;
         }
         audio = std::move(converted);
