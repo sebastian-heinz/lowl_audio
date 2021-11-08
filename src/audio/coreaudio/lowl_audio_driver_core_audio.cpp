@@ -8,10 +8,6 @@
 
 void Lowl::AudioDriverCoreAudio::initialize(Lowl::Error &error) {
     create_devices(error);
-
-   // Lowl::Logger::log(Lowl::Logger::Level::Info, " test");
-    LOWL_LOG_INFO_F("test %d", 1);
-    LOWL_LOG_INFO("test");
 }
 
 void Lowl::AudioDriverCoreAudio::create_devices(Error &error) {
@@ -87,8 +83,8 @@ void Lowl::AudioDriverCoreAudio::create_devices(Error &error) {
 std::shared_ptr<Lowl::AudioDeviceCoreAudio>
 Lowl::AudioDriverCoreAudio::create_device(AudioObjectID device_id, Lowl::Error &error) {
 
-    uint32_t input_stream_count = get_device_stream_count(device_id, kAudioDevicePropertyScopeInput);
-    uint32_t output_stream_count = get_device_stream_count(device_id, kAudioDevicePropertyScopeOutput);
+    uint32_t input_stream_count = get_num_stream(device_id, kAudioDevicePropertyScopeInput);
+    uint32_t output_stream_count = get_num_stream(device_id, kAudioDevicePropertyScopeOutput);
 
     if (output_stream_count <= 0) {
         // has no output
@@ -99,30 +95,14 @@ Lowl::AudioDriverCoreAudio::create_device(AudioObjectID device_id, Lowl::Error &
     std::string device_name = get_device_name(device_id);
     Lowl::SampleRate default_sample_rate = get_device_default_sample_rate(device_id);
 
-
-//  /* Get the maximum number of input and output channels.  Fail if we can't get this. */
-
-//  err = GetChannelInfo(auhalHostApi, deviceInfo, macCoreDeviceId, 1);
-//  if (err)
-//      return err;
-
-//  err = GetChannelInfo(auhalHostApi, deviceInfo, macCoreDeviceId, 0);
-//  if (err)
-//      return err;
+    uint32_t input_channel_count = get_num_channel(device_id, kAudioDevicePropertyScopeInput);
+    uint32_t output_channel_count = get_num_channel(device_id, kAudioDevicePropertyScopeOutput);
 
     std::shared_ptr<AudioDeviceCoreAudio> device = std::make_shared<AudioDeviceCoreAudio>();
     device->set_name("[" + name + "] " + device_name);
     device->set_device_id(device_id);
 
     return device;
-}
-
-Lowl::AudioDriverCoreAudio::AudioDriverCoreAudio() : AudioDriver() {
-    name = std::string("Core Audio");
-}
-
-Lowl::AudioDriverCoreAudio::~AudioDriverCoreAudio() {
-
 }
 
 std::string Lowl::AudioDriverCoreAudio::get_device_name(AudioObjectID p_device_id) {
@@ -159,7 +139,11 @@ std::string Lowl::AudioDriverCoreAudio::get_device_name(AudioObjectID p_device_i
 }
 
 uint32_t
-Lowl::AudioDriverCoreAudio::get_device_stream_count(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope) {
+Lowl::AudioDriverCoreAudio::get_num_stream(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope) {
+    if (p_scope != kAudioDevicePropertyScopeInput && p_scope != kAudioDevicePropertyScopeOutput) {
+        // error
+    }
+
     AudioObjectPropertyAddress stream_property = {
             kAudioDevicePropertyStreams,
             p_scope,
@@ -183,7 +167,7 @@ Lowl::SampleRate Lowl::AudioDriverCoreAudio::get_device_default_sample_rate(Audi
     Float64 default_sample_rate;
     AudioObjectPropertyAddress default_sample_rate_property = {
             kAudioDevicePropertyNominalSampleRate,
-            kAudioDevicePropertyScopeOutput,
+            kAudioObjectPropertyScopeGlobal,
             kAudioObjectPropertyElementMaster
     };
     OSStatus result = AudioObjectGetPropertyData(
@@ -202,5 +186,168 @@ Lowl::SampleRate Lowl::AudioDriverCoreAudio::get_device_default_sample_rate(Audi
     return static_cast<Lowl::SampleRate>(default_sample_rate);
 }
 
+uint32_t Lowl::AudioDriverCoreAudio::get_num_channel(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope) {
+    if (p_scope != kAudioDevicePropertyScopeInput && p_scope != kAudioDevicePropertyScopeOutput) {
+        // error
+    }
+
+    AudioObjectPropertyAddress stream_config_property = {
+            kAudioDevicePropertyStreamConfiguration,
+            p_scope,
+            kAudioObjectPropertyElementMaster
+    };
+    uint32_t stream_config_data_size = 0;
+    OSStatus status = AudioObjectGetPropertyDataSize(p_device_id,
+                                                     &stream_config_property,
+                                                     0,
+                                                     nullptr,
+                                                     &stream_config_data_size);
+    if (status != kAudioHardwareNoError) {
+        // err
+    }
+
+    AudioBufferList *audio_buffers = new AudioBufferList[stream_config_data_size];
+
+    OSStatus result = AudioObjectGetPropertyData(
+            p_device_id,
+            &stream_config_property,
+            0,
+            nullptr,
+            &stream_config_data_size,
+            audio_buffers
+    );
+    if (result != kAudioHardwareNoError) {
+        // err
+    }
+
+    UInt32 num_channel = 0;
+    for (int i = 0; i < audio_buffers->mNumberBuffers; ++i) {
+        num_channel += audio_buffers->mBuffers[i].mNumberChannels;
+    }
+    delete[] audio_buffers;
+
+    return num_channel;
+}
+
+Lowl::TimeSeconds Lowl::AudioDriverCoreAudio::get_latency(AudioObjectID p_device_id, AudioStreamID p_stream_id,
+                                                          AudioObjectPropertyScope p_scope) {
+
+    UInt32 stream_latency;
+    UInt32 latency_property_size = sizeof(AudioStreamID);
+    AudioObjectPropertyAddress latency_property = {
+            kAudioStreamPropertyLatency,
+            p_scope,
+            kAudioObjectPropertyElementMaster
+    };
+    OSStatus result = AudioObjectGetPropertyData(
+            p_stream_id,
+            &latency_property,
+            0,
+            nullptr,
+            &latency_property_size,
+            &stream_latency
+    );
+    if (result != kAudioHardwareNoError) {
+        // err
+    }
+    result = AudioObjectGetPropertyData(
+            p_stream_id,
+            &latency_property,
+            0,
+            nullptr,
+            &latency_property_size,
+            &stream_latency
+    );
+    if (result != kAudioHardwareNoError) {
+        // err
+    }
+
+
+//   propSize = sizeof(UInt32);
+//   err = WARNING(PaMacCore_AudioDeviceGetProperty(
+//   macCoreDeviceId, 0, isInput, kAudioDevicePropertySafetyOffset, &propSize, &safetyOffset));
+//   if( err != paNoError ) goto error;
+
+
+    AudioObjectPropertyAddress safety_offset_property = {
+            kAudioDevicePropertySafetyOffset,
+            p_scope,
+            kAudioObjectPropertyElementMaster
+    };
+    result = AudioObjectGetPropertyData(
+            p_device_id,
+            &safety_offset_property,
+            0,
+            nullptr,
+            &latency_property_size,
+            &stream_latency
+    );
+    if (result != kAudioHardwareNoError) {
+        // err
+    }
+
+
+
+
+
+
+//   propSize = sizeof(UInt32);
+//   err = WARNING(PaMacCore_AudioDeviceGetProperty(macCoreDeviceId, 0, isInput, kAudioDevicePropertyLatency, &propSize, &deviceLatency));
+//   if( err != paNoError ) goto error;
+
+
+
+
+
+
+    //  OSStatus PaMacCore_AudioDeviceGetProperty(
+    //          AudioDeviceID         inDevice,
+    //          UInt32                inChannel,
+    //          Boolean               isInput,
+    //          AudioDevicePropertyID inPropertyID,
+    //          UInt32*               ioPropertyDataSize,
+    //          void*                 outPropertyData )
+    //  {
+    //      AudioObjectPropertyScope scope = isInput ? kAudioDevicePropertyScopeInput : kAudioDevicePropertyScopeOutput;
+    //      AudioObjectPropertyAddress address = { inPropertyID, scope, inChannel };
+    //      return AudioObjectGetPropertyData(inDevice, &address, 0, NULL, ioPropertyDataSize, outPropertyData);
+    //  }
+
+
+// if (numChannels > 0) /* do not try to retrieve the latency if there are no channels. */
+// {
+//     /* Get the latency.  Don't fail if we can't get this. */
+//     /* default to something reasonable */
+//     // deviceInfo->defaultLowInputLatency = .01;
+//     // deviceInfo->defaultHighInputLatency = .10;
+//     // deviceInfo->defaultLowOutputLatency = .01;
+//     // deviceInfo->defaultHighOutputLatency = .10;
+//     UInt32 lowLatencyFrames = 0;
+//     UInt32 highLatencyFrames = 0;
+//     err = CalculateDefaultDeviceLatencies(macCoreDeviceId, isInput, &lowLatencyFrames, &highLatencyFrames);
+//     if (err == 0) {
+
+//         double lowLatencySeconds = lowLatencyFrames / deviceInfo->defaultSampleRate;
+//         double highLatencySeconds = highLatencyFrames / deviceInfo->defaultSampleRate;
+//         if (isInput) {
+//             deviceInfo->defaultLowInputLatency = lowLatencySeconds;
+//             deviceInfo->defaultHighInputLatency = highLatencySeconds;
+//         } else {
+//             deviceInfo->defaultLowOutputLatency = lowLatencySeconds;
+//             deviceInfo->defaultHighOutputLatency = highLatencySeconds;
+//         }
+//     }
+// }
+
+    return 0;
+}
+
+Lowl::AudioDriverCoreAudio::AudioDriverCoreAudio() : AudioDriver() {
+    name = std::string("Core Audio");
+}
+
+Lowl::AudioDriverCoreAudio::~AudioDriverCoreAudio() {
+
+}
 
 #endif

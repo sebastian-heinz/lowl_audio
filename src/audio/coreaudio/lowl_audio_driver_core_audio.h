@@ -23,10 +23,13 @@ namespace Lowl {
 
         std::string get_device_name(AudioObjectID p_device_id);
 
-        uint32_t get_device_stream_count(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope);
+        uint32_t get_num_stream(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope);
+
+        uint32_t get_num_channel(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope);
 
         SampleRate get_device_default_sample_rate(AudioObjectID p_device_id);
 
+        TimeSeconds get_latency(AudioObjectID p_device_id, AudioStreamID p_stream_id, AudioObjectPropertyScope p_scope);
 
 
     public:
