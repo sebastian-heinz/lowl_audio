@@ -7,7 +7,7 @@
 #include "audio/portaudio/lowl_audio_driver_pa.h"
 #endif
 #ifdef LOWL_DRIVER_CORE_AUDIO
-#include "audio/coreaudio/lowl_audio_driver_core_audio.h"
+#include "audio/coreaudio/lowl_audio_core_audio_driver.h"
 #endif
 
 #include <memory>
@@ -33,7 +33,7 @@ void Lowl::Lib::initialize(Error &error) {
         drivers.push_back(std::make_shared<AudioDriverPa>());
 #endif
 #ifdef LOWL_DRIVER_CORE_AUDIO
-        drivers.push_back(std::make_shared<AudioDriverCoreAudio>());
+        drivers.push_back(std::make_shared<Lowl::Audio::CoreAudioDriver>());
 #endif
     }
 }

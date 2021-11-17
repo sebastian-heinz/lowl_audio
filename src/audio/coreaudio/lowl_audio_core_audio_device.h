@@ -7,9 +7,9 @@
 
 #include <CoreAudio/AudioHardware.h>
 
-namespace Lowl {
+namespace Lowl::Audio  {
 
-    class AudioDeviceCoreAudio : public AudioDevice {
+    class CoreAudioDevice : public AudioDevice {
 
     private:
         AudioObjectID device_id;
@@ -35,9 +35,9 @@ namespace Lowl {
         void set_input_stream_count(uint32_t p_input_stream_count);
         void set_output_stream_count(uint32_t p_output_stream_count);
 
-        AudioDeviceCoreAudio();
+        CoreAudioDevice();
 
-        ~AudioDeviceCoreAudio();
+        ~CoreAudioDevice();
     };
 }
 

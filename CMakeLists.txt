@@ -40,8 +40,9 @@ set(LOWL_SOURCES
 
         src/audio/dummy/lowl_audio_driver_dummy.cpp
 
-        src/audio/coreaudio/lowl_audio_driver_core_audio.cpp
-        src/audio/coreaudio/lowl_audio_device_core_audio.cpp
+        src/audio/coreaudio/lowl_audio_core_audio_driver.cpp
+        src/audio/coreaudio/lowl_audio_core_audio_device.cpp
+        src/audio/coreaudio/lowl_audio_core_audio_utilities.cpp
 
         src/audio/portaudio/lowl_audio_driver_pa.cpp
         src/audio/portaudio/lowl_audio_device_pa.cpp
