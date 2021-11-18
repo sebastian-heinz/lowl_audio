@@ -58,8 +58,19 @@ namespace Lowl {
 
         static std::string format_level(Level p_level);
 
+#if defined(__GNUC__)
         static std::string format_arguments(const char *const p_fmt, ...)
         __attribute__ ((format (printf, 1, 2)));
+#elif _MSC_VER == 1400
+#include <sal.h>
+        static std::string format_arguments(__format_string const char *const p_fmt, ...);
+#elif _MSC_VER > 1400
+#include <sal.h>
+        static std::string format_arguments(_Printf_format_string_ const char *const p_fmt, ...);
+#else
+        static std::string format_arguments(const char *const p_fmt, ...);
+#endif
+
     };
 
 }
