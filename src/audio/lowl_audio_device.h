@@ -5,6 +5,8 @@
 
 #include "audio/lowl_audio_source.h"
 
+#include <memory>
+
 namespace Lowl::Audio {
 
     class AudioDevice {
