@@ -21,13 +21,23 @@ namespace Lowl::Audio {
 
         static std::string get_device_name(AudioObjectID p_device_id);
 
+        static std::vector<AudioObjectID> get_stream_ids(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope);
+
         static uint32_t get_num_stream(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope);
 
         static uint32_t get_num_channel(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope);
 
-        static Lowl::SampleRate get_device_default_sample_rate(AudioObjectID p_device_id);
+        static SampleRate get_device_default_sample_rate(AudioObjectID p_device_id);
 
-        static Lowl::TimeSeconds get_latency(AudioObjectID p_device_id, AudioStreamID p_stream_id, AudioObjectPropertyScope p_scope);
+        static SampleCount get_latency(AudioObjectID p_device_id, AudioStreamID p_stream_id, AudioObjectPropertyScope p_scope);
+
+        static SampleCount get_device_latency(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope);
+
+        static SampleCount get_safety_offset(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope);
+
+        static SampleCount get_stream_latency(AudioStreamID p_stream_id, AudioObjectPropertyScope p_scope);
+
+        static SampleCount get_buffer_frame_size(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope);
     };
 }
 

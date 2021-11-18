@@ -51,12 +51,25 @@ Lowl::Audio::CoreAudioDriver::create_device(AudioObjectID device_id, Lowl::Error
     std::string device_name = Lowl::Audio::CoreAudioUtilities::get_device_name(device_id);
     Lowl::SampleRate default_sample_rate = Lowl::Audio::CoreAudioUtilities::get_device_default_sample_rate(device_id);
 
-    uint32_t input_channel_count = Lowl::Audio::CoreAudioUtilities::get_num_channel(device_id,
-                                                                                    kAudioDevicePropertyScopeInput);
-    uint32_t output_channel_count = Lowl::Audio::CoreAudioUtilities::get_num_channel(device_id,
-                                                                                     kAudioDevicePropertyScopeOutput);
+    uint32_t input_channel_count = Lowl::Audio::CoreAudioUtilities::get_num_channel(
+            device_id,
+            kAudioDevicePropertyScopeInput
+    );
+    uint32_t output_channel_count = Lowl::Audio::CoreAudioUtilities::get_num_channel(
+            device_id,
+            kAudioDevicePropertyScopeOutput
+    );
+    std::vector <AudioObjectID> streams = Lowl::Audio::CoreAudioUtilities::get_stream_ids(
+            device_id,
+            kAudioDevicePropertyScopeOutput
+    );
+    uint32_t latency = Lowl::Audio::CoreAudioUtilities::get_latency(
+            device_id,
+            streams[0],
+            kAudioDevicePropertyScopeOutput
+    );
 
-    std::shared_ptr<Lowl::Audio::CoreAudioDevice> device = std::make_shared<Lowl::Audio::CoreAudioDevice>();
+    std::shared_ptr <Lowl::Audio::CoreAudioDevice> device = std::make_shared<Lowl::Audio::CoreAudioDevice>();
     device->set_name("[" + name + "] " + device_name);
     device->set_device_id(device_id);
 
