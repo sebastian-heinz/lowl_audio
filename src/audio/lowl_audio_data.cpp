@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-Lowl::Audio::AudioData::AudioData(std::vector<Lowl::Audio::AudioFrame> p_audio_frames, SampleRate p_sample_rate, AudioChannel p_channel)
+Lowl::Audio::AudioData::AudioData(std::vector<AudioFrame> p_audio_frames, SampleRate p_sample_rate, AudioChannel p_channel)
         : AudioSource(p_sample_rate, p_channel) {
     frames = std::vector<AudioFrame>(p_audio_frames);
     position = 0;
@@ -11,7 +11,7 @@ Lowl::Audio::AudioData::AudioData(std::vector<Lowl::Audio::AudioFrame> p_audio_f
     is_not_reset.test_and_set();
 }
 
-Lowl::Audio::AudioSource::ReadResult Lowl::Audio::AudioData::read(Lowl::Audio::AudioFrame &audio_frame) {
+Lowl::Audio::AudioSource::ReadResult Lowl::Audio::AudioData::read(AudioFrame &audio_frame) {
     if (!is_playing) {
         return ReadResult::Pause;
     }
@@ -51,7 +51,7 @@ std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioData::create_slice(Tim
                 frames.end()
         );
     }
-    return std::make_unique<Lowl::Audio::AudioData>(slice, sample_rate, channel);
+    return std::make_unique<AudioData>(slice, sample_rate, channel);
 }
 
 Lowl::size_l Lowl::Audio::AudioData::get_frames_remaining() const {

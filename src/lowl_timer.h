@@ -35,7 +35,7 @@ namespace Lowl {
             stop();
             thread_function = p_thread_function;
             duration = p_interval;
-            thread = new std::thread(&Lowl::Timer::thread_interval, this);
+            thread = new std::thread(&Timer::thread_interval, this);
         }
 
         template<typename Rep, typename Period>
@@ -43,7 +43,7 @@ namespace Lowl {
             stop();
             thread_function = p_thread_function;
             duration = p_duration;
-            thread = new std::thread(&Lowl::Timer::thread_timer, this);
+            thread = new std::thread(&Timer::thread_timer, this);
         }
 
         void stop() {

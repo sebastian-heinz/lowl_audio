@@ -4,7 +4,7 @@ Lowl::ErrorCode Lowl::Error::get_error() {
     return error;
 }
 
-void Lowl::Error::set_error(Lowl::ErrorCode p_error) {
+void Lowl::Error::set_error(ErrorCode p_error) {
     error = p_error;
 }
 
@@ -16,11 +16,11 @@ Lowl::Error::Error() {
     error = ErrorCode::NoError;
 }
 
-int Lowl::Error::to_error_code(Lowl::ErrorCode p_error) {
+int Lowl::Error::to_error_code(ErrorCode p_error) {
     return static_cast<int>(p_error);
 }
 
-std::string Lowl::Error::to_error_text(Lowl::ErrorCode p_error) {
+std::string Lowl::Error::to_error_text(ErrorCode p_error) {
     switch (p_error) {
         case ErrorCode::NoError:
             return "NoError";

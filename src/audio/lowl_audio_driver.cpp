@@ -9,9 +9,9 @@ std::string Lowl::Audio::AudioDriver::get_name() const {
 }
 
 Lowl::Audio::AudioDriver::AudioDriver() {
-    devices = std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>>();
+    devices = std::vector<std::shared_ptr<AudioDevice>>();
     name = std::string("NoDriver");
-    default_device = std::shared_ptr<Lowl::Audio::AudioDevice>();
+    default_device = std::shared_ptr<AudioDevice>();
 }
 
 std::shared_ptr<Lowl::Audio::AudioDevice> Lowl::Audio::AudioDriver::get_default_device() const {

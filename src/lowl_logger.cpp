@@ -11,9 +11,9 @@
 
 namespace Lowl {
 
-    Lowl::Logger::LogMessageReceiver Lowl::Logger::receiver = nullptr;
-    void *Lowl::Logger::user_data = nullptr;
-    Lowl::Logger::Level Lowl::Logger::log_level = Level::Info;
+    Logger::LogMessageReceiver Logger::receiver = nullptr;
+    void *Logger::user_data = nullptr;
+    Logger::Level Logger::log_level = Level::Info;
 
     void Logger::set_log_level(Logger::Level p_level) {
         log_level = p_level;

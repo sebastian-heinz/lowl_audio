@@ -19,7 +19,7 @@ namespace Lowl::Audio {
     public:
         static std::unique_ptr<AudioStream> to_stream(std::shared_ptr<AudioData> p_audio_data);
 
-        static std::unique_ptr<Lowl::ReleasePool> release_pool;
+        static std::unique_ptr<ReleasePool> release_pool;
     };
 }
 

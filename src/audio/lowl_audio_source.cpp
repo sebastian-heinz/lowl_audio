@@ -20,14 +20,14 @@ Lowl::Audio::AudioChannel Lowl::Audio::AudioSource::get_channel() const {
 }
 
 Lowl::Audio::SampleFormat Lowl::Audio::AudioSource::get_sample_format() const {
-    return Lowl::Audio::SampleFormat::FLOAT_32;
+    return SampleFormat::FLOAT_32;
 }
 
 size_t Lowl::Audio::AudioSource::get_channel_num() const {
     return Lowl::Audio::get_channel_num(channel);
 }
 
-void Lowl::Audio::AudioSource::set_volume(Lowl::Volume p_volume) {
+void Lowl::Audio::AudioSource::set_volume(Volume p_volume) {
     volume.store(p_volume);
 }
 
@@ -35,7 +35,7 @@ Lowl::Volume Lowl::Audio::AudioSource::get_volume() {
     return volume.load();
 }
 
-void Lowl::Audio::AudioSource::set_panning(Lowl::Panning p_panning) {
+void Lowl::Audio::AudioSource::set_panning(Panning p_panning) {
     std::clamp(p_panning, MIN_PANNING, MAX_PANNING);
     panning.store(p_panning);
 }
@@ -44,25 +44,25 @@ Lowl::Panning Lowl::Audio::AudioSource::get_panning() {
     return panning.load();
 }
 
-void Lowl::Audio::AudioSource::process_volume(Lowl::Audio::AudioFrame &audio_frame) {
+void Lowl::Audio::AudioSource::process_volume(AudioFrame &audio_frame) {
     Volume vol = volume.load();
-    for (int current_channel = 0; current_channel < Lowl::Audio::get_channel_num(channel); current_channel++) {
+    for (int current_channel = 0; current_channel < Audio::get_channel_num(channel); current_channel++) {
         audio_frame[current_channel] *= vol;
     }
 }
 
-void Lowl::Audio::AudioSource::process_panning(Lowl::Audio::AudioFrame &audio_frame) {
+void Lowl::Audio::AudioSource::process_panning(AudioFrame &audio_frame) {
     Panning pan = panning.load();
     switch (channel) {
-        case Lowl::Audio::AudioChannel::Stereo:
+        case AudioChannel::Stereo:
             audio_frame.left *= std::sqrt(1.0 - pan);
             audio_frame.right *= std::sqrt(1.0 + pan);
             break;
-        case Lowl::Audio::AudioChannel::Mono:
+        case AudioChannel::Mono:
             audio_frame.left *= std::sqrt(1.0 - pan);
             audio_frame.right *= std::sqrt(1.0 + pan);
             break;
-        case Lowl::Audio::AudioChannel::None:
+        case AudioChannel::None:
             break;
     }
 }

@@ -16,7 +16,7 @@ namespace Lowl {
     class ReleasePool {
 
     private:
-        std::unique_ptr<Lowl::Timer> timer;
+        std::unique_ptr<Timer> timer;
         std::vector<std::shared_ptr<void>> pool;
         std::mutex mutex;
 
@@ -47,7 +47,7 @@ namespace Lowl {
         }
 
         ReleasePool() {
-            timer = std::make_unique<Lowl::Timer>();
+            timer = std::make_unique<Timer>();
             pool = std::vector<std::shared_ptr<void>>();
             timer->start_interval(std::bind(&ReleasePool::release_callback, this), std::chrono::seconds(10));
         }

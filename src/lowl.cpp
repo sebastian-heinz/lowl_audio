@@ -12,10 +12,10 @@
 
 #include <memory>
 
-std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>> Lowl::Lib::drivers = std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>>();
+std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>> Lowl::Lib::drivers = std::vector<std::shared_ptr<Audio::AudioDriver>>();
 std::atomic_flag Lowl::Lib::initialized = ATOMIC_FLAG_INIT;
 
-std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>> Lowl::Lib::get_drivers(Lowl::Error &error) {
+std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>> Lowl::Lib::get_drivers(Error &error) {
     return drivers;
 }
 

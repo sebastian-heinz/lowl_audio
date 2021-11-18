@@ -23,10 +23,9 @@ namespace Lowl::Audio {
 
         virtual void stop(Error &error) = 0;
 
-        virtual bool is_supported(Lowl::Audio::AudioChannel channel, Lowl::SampleRate sample_rate, Lowl::Audio::SampleFormat sample_format,
-                                  Error &error) = 0;
+        virtual bool is_supported(AudioChannel channel, SampleRate sample_rate, SampleFormat sample_format, Error &error) = 0;
 
-        virtual Lowl::SampleRate get_default_sample_rate() = 0;
+        virtual SampleRate get_default_sample_rate() = 0;
 
         virtual void set_exclusive_mode(bool p_exclusive_mode, Error &error) = 0;
 

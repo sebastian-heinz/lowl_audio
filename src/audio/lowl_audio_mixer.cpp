@@ -10,7 +10,7 @@ Lowl::Audio::AudioMixer::AudioMixer(SampleRate p_sample_rate, AudioChannel p_cha
     read_frame = {};
 }
 
-Lowl::Audio::AudioSource::ReadResult Lowl::Audio::AudioMixer::read(Lowl::Audio::AudioFrame &audio_frame) {
+Lowl::Audio::AudioSource::ReadResult Lowl::Audio::AudioMixer::read(Audio::AudioFrame &audio_frame) {
     AudioMixerEvent event;
     while (events->try_dequeue(event)) {
         switch (event.type) {
