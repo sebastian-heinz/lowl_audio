@@ -63,11 +63,30 @@ Lowl::Audio::CoreAudioDriver::create_device(AudioObjectID device_id, Lowl::Error
             device_id,
             kAudioDevicePropertyScopeOutput
     );
-    uint32_t latency = Lowl::Audio::CoreAudioUtilities::get_latency(
+    uint32_t latency_high = Lowl::Audio::CoreAudioUtilities::get_latency_high(
             device_id,
             streams[0],
             kAudioDevicePropertyScopeOutput
     );
+    uint32_t latency_low = Lowl::Audio::CoreAudioUtilities::get_latency_low(
+            64,
+            device_id,
+            streams[0],
+            kAudioDevicePropertyScopeOutput
+    );
+
+   // double lowLatencySeconds = lowLatencyFrames / deviceInfo->defaultSampleRate;
+   // double highLatencySeconds = highLatencyFrames / deviceInfo->defaultSampleRate;
+   // if (isInput)
+   // {
+   //     deviceInfo->defaultLowInputLatency = lowLatencySeconds;
+   //     deviceInfo->defaultHighInputLatency = highLatencySeconds;
+   // }
+   // else
+   // {
+   //     deviceInfo->defaultLowOutputLatency = lowLatencySeconds;
+   //     deviceInfo->defaultHighOutputLatency = highLatencySeconds;
+   // }
 
     std::shared_ptr <Lowl::Audio::CoreAudioDevice> device = std::make_shared<Lowl::Audio::CoreAudioDevice>();
     device->set_name("[" + name + "] " + device_name);

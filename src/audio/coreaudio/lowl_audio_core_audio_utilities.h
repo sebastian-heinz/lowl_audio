@@ -29,7 +29,9 @@ namespace Lowl::Audio {
 
         static SampleRate get_device_default_sample_rate(AudioObjectID p_device_id);
 
-        static SampleCount get_latency(AudioObjectID p_device_id, AudioStreamID p_stream_id, AudioObjectPropertyScope p_scope);
+        static SampleCount get_latency_low(UInt32 desired_size, AudioObjectID p_device_id, AudioStreamID p_stream_id, AudioObjectPropertyScope p_scope);
+
+        static SampleCount get_latency_high(AudioObjectID p_device_id, AudioStreamID p_stream_id, AudioObjectPropertyScope p_scope);
 
         static SampleCount get_device_latency(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope);
 
@@ -38,6 +40,8 @@ namespace Lowl::Audio {
         static SampleCount get_stream_latency(AudioStreamID p_stream_id, AudioObjectPropertyScope p_scope);
 
         static SampleCount get_buffer_frame_size(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope);
+
+        static AudioValueRange get_buffer_frame_size_range(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope);
     };
 }
 

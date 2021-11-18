@@ -4,6 +4,8 @@
 
 #include "lowl_logger.h"
 
+#include <algorithm>
+
 std::string Lowl::Audio::CoreAudioUtilities::get_device_name(AudioObjectID p_device_id) {
     CFStringRef name_cf_ref;
     uint32_t name_cf_ref_size = sizeof(name_cf_ref);
@@ -256,13 +258,26 @@ Lowl::Audio::CoreAudioUtilities::get_stream_latency(AudioStreamID p_stream_id, A
     return stream_latency;
 }
 
-Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::get_latency(AudioObjectID p_device_id, AudioStreamID p_stream_id,
-                                                               AudioObjectPropertyScope p_scope) {
+Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::get_latency_high(AudioObjectID p_device_id, AudioStreamID p_stream_id,
+                                                                    AudioObjectPropertyScope p_scope) {
     SampleCount device_latency = get_device_latency(p_device_id, p_scope);
     SampleCount stream_latency = get_stream_latency(p_stream_id, p_scope);
     SampleCount safety_offset = get_safety_offset(p_device_id, p_scope);
     SampleCount buffer_frame_size = get_buffer_frame_size(p_device_id, p_scope);
     return device_latency + stream_latency + safety_offset + buffer_frame_size;
+}
+
+Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::get_latency_low(UInt32 desired_size, AudioObjectID p_device_id, AudioStreamID p_stream_id,
+                                                                    AudioObjectPropertyScope p_scope) {
+    SampleCount device_latency = get_device_latency(p_device_id, p_scope);
+    SampleCount stream_latency = get_stream_latency(p_stream_id, p_scope);
+    SampleCount safety_offset = get_safety_offset(p_device_id, p_scope);
+    AudioValueRange audio_range = get_buffer_frame_size_range(p_device_id, p_scope);
+
+    desired_size = std::max(desired_size, (UInt32)audio_range.mMinimum);
+    desired_size = std::min(desired_size, (UInt32)audio_range.mMaximum);
+
+    return device_latency + stream_latency + safety_offset + desired_size;
 }
 
 Lowl::SampleCount
@@ -314,6 +329,28 @@ Lowl::Audio::CoreAudioUtilities::get_stream_ids(AudioObjectID p_device_id, Audio
     return streams;
 }
 
+AudioValueRange Lowl::Audio::CoreAudioUtilities::get_buffer_frame_size_range(AudioObjectID p_device_id,
+                                                                             AudioObjectPropertyScope p_scope) {
+    AudioValueRange audio_range;
+    UInt32 property_size = sizeof(audio_range);
+    AudioObjectPropertyAddress property = {
+            kAudioDevicePropertyBufferFrameSizeRange,
+            p_scope,
+            kAudioObjectPropertyElementMaster
+    };
+    OSStatus result = AudioObjectGetPropertyData(
+            p_device_id,
+            &property,
+            0,
+            nullptr,
+            &property_size,
+            &audio_range
+    );
+    if (result != kAudioHardwareNoError) {
+        // err
+    }
+    return audio_range;
+}
 
 #endif /* LOWL_DRIVER_CORE_AUDIO */
 
