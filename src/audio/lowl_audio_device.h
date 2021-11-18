@@ -1,10 +1,11 @@
 #ifndef LOWL_AUDIO_DEVICE_H
 #define LOWL_AUDIO_DEVICE_H
 
-#include "lowl_audio_stream.h"
-#include "lowl_audio_mixer.h"
+#include "lowl_error.h"
 
-namespace Lowl {
+#include "audio/lowl_audio_source.h"
+
+namespace Lowl::Audio {
 
     class AudioDevice {
 
@@ -20,7 +21,7 @@ namespace Lowl {
 
         virtual void stop(Error &error) = 0;
 
-        virtual bool is_supported(Lowl::AudioChannel channel, Lowl::SampleRate sample_rate, Lowl::SampleFormat sample_format,
+        virtual bool is_supported(Lowl::Audio::AudioChannel channel, Lowl::SampleRate sample_rate, Lowl::Audio::SampleFormat sample_format,
                                   Error &error) = 0;
 
         virtual Lowl::SampleRate get_default_sample_rate() = 0;

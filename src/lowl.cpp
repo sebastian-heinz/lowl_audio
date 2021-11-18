@@ -1,10 +1,10 @@
 #include "lowl.h"
 
 #ifdef LOWL_DRIVER_DUMMY
-#include "audio/dummy/lowl_audio_driver_dummy.h"
+#include "audio/dummy/lowl_audio_dummy_driver.h"
 #endif
 #ifdef LOWL_DRIVER_PORTAUDIO
-#include "audio/portaudio/lowl_audio_driver_pa.h"
+#include "audio/portaudio/lowl_audio_pa_driver.h"
 #endif
 #ifdef LOWL_DRIVER_CORE_AUDIO
 #include "audio/coreaudio/lowl_audio_core_audio_driver.h"
@@ -12,17 +12,17 @@
 
 #include <memory>
 
-std::vector<std::shared_ptr<Lowl::AudioDriver>> Lowl::Lib::drivers = std::vector<std::shared_ptr<Lowl::AudioDriver>>();
+std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>> Lowl::Lib::drivers = std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>>();
 std::atomic_flag Lowl::Lib::initialized = ATOMIC_FLAG_INIT;
 
-std::vector<std::shared_ptr<Lowl::AudioDriver>> Lowl::Lib::get_drivers(Error &error) {
+std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>> Lowl::Lib::get_drivers(Lowl::Error &error) {
     return drivers;
 }
 
-void Lowl::Lib::initialize(Error &error) {
+void Lowl::Lib::initialize(Lowl::Error &error) {
     if (!initialized.test_and_set()) {
 #ifdef LOWL_DRIVER_DUMMY
-        drivers.push_back(std::make_shared<AudioDriverDummy>());
+        drivers.push_back(std::make_shared<Lowl::Audio::AudioDriverDummy>());
 #endif
 #ifdef LOWL_DRIVER_PORTAUDIO
         PaError pa_error = Pa_Initialize();
@@ -30,7 +30,7 @@ void Lowl::Lib::initialize(Error &error) {
             error.set_error(Lowl::ErrorCode::Error);
             return;
         }
-        drivers.push_back(std::make_shared<AudioDriverPa>());
+        drivers.push_back(std::make_shared<Lowl::Audio::AudioDriverPa>());
 #endif
 #ifdef LOWL_DRIVER_CORE_AUDIO
         drivers.push_back(std::make_shared<Lowl::Audio::CoreAudioDriver>());
@@ -48,33 +48,33 @@ void Lowl::Lib::terminate(Error &error) {
 #endif
 }
 
-std::unique_ptr<Lowl::AudioReader> Lowl::Lib::create_reader(Lowl::FileFormat p_format, Lowl::Error &error) {
-    return Lowl::AudioReader::create_reader(p_format, error);
+std::unique_ptr<Lowl::Audio::AudioReader> Lowl::Lib::create_reader(Lowl::FileFormat p_format, Lowl::Error &error) {
+    return Lowl::Audio::AudioReader::create_reader(p_format, error);
 }
 
 Lowl::FileFormat Lowl::Lib::detect_format(const std::string &p_path, Lowl::Error &error) {
-    return Lowl::AudioReader::detect_format(p_path, error);
+    return Lowl::Audio::AudioReader::detect_format(p_path, error);
 }
 
-std::unique_ptr<Lowl::AudioData>
-Lowl::Lib::create_data(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, FileFormat p_format, Lowl::Error &error) {
-    return Lowl::AudioReader::create_data(std::move(p_buffer), p_size, p_format, error);
+std::unique_ptr<Lowl::Audio::AudioData>
+Lowl::Lib::create_data(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Lowl::FileFormat p_format, Lowl::Error &error) {
+    return Lowl::Audio::AudioReader::create_data(std::move(p_buffer), p_size, p_format, error);
 }
 
-std::unique_ptr<Lowl::AudioData> Lowl::Lib::create_data(const std::string &p_path, Lowl::Error &error) {
-    return Lowl::AudioReader::create_data(p_path, error);
+std::unique_ptr<Lowl::Audio::AudioData> Lowl::Lib::create_data(const std::string &p_path, Lowl::Error &error) {
+    return Lowl::Audio::AudioReader::create_data(p_path, error);
 }
 
-std::shared_ptr<Lowl::AudioDevice> Lowl::Lib::get_default_device(Lowl::Error &error) {
+std::shared_ptr<Lowl::Audio::AudioDevice> Lowl::Lib::get_default_device(Lowl::Error &error) {
     // This might be a bit opinionated if we have multiple drivers.
     // Iterates the drivers in reverse order, prioritizing the last added driver.
     // In the future it might be possible that a user can push a driver in the list
     // this will cause the last added driver to be checked first.
     for (auto it = drivers.rbegin(); it != drivers.rend(); ++it) {
-        std::shared_ptr<AudioDevice> default_device = (*it)->get_default_device();
+        std::shared_ptr<Lowl::Audio::AudioDevice> default_device = (*it)->get_default_device();
         if (default_device) {
             return default_device;
         }
     }
-    return std::shared_ptr<AudioDevice>();;
+    return std::shared_ptr<Lowl::Audio::AudioDevice>();;
 }

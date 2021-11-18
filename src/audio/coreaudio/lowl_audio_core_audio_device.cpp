@@ -13,8 +13,8 @@ void Lowl::Audio::CoreAudioDevice::stop(Lowl::Error &error) {
 
 }
 
-bool Lowl::Audio::CoreAudioDevice::is_supported(Lowl::AudioChannel channel, Lowl::SampleRate sample_rate,
-                                                Lowl::SampleFormat sample_format, Lowl::Error &error) {
+bool Lowl::Audio::CoreAudioDevice::is_supported(AudioChannel channel, Lowl::SampleRate sample_rate,
+                                                SampleFormat sample_format, Lowl::Error &error) {
     return false;
 }
 

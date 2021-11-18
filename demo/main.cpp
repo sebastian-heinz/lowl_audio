@@ -1,12 +1,14 @@
 #include <lowl.h>
+#include <audio/lowl_audio_space.h>
 
 #include <iostream>
 #include <thread>
 #include <chrono>
 
-void play(std::shared_ptr<Lowl::AudioDevice> device) {
+
+void play(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
     Lowl::Error error;
-    std::shared_ptr<Lowl::AudioData> data = Lowl::Lib::create_data("audio_path", error);
+    std::shared_ptr<Lowl::Audio::AudioData> data = Lowl::Lib::create_data("audio_path", error);
     if (error.has_error()) {
         std::cout << "Err:  Lowl::create_stream\n";
         return;
@@ -25,21 +27,21 @@ void play(std::shared_ptr<Lowl::AudioDevice> device) {
     }
 }
 
-void mix(std::shared_ptr<Lowl::AudioDevice> device) {
+void mix(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
     Lowl::Error error;
-    std::shared_ptr<Lowl::AudioData> data_1 = Lowl::Lib::create_data("audio_path_1", error);
+    std::shared_ptr<Lowl::Audio::AudioData> data_1 = Lowl::Lib::create_data("audio_path_1", error);
     if (error.has_error()) {
         std::cout << "Err: mix:audio_path_1 -> Lowl::create_stream\n";
         return;
     }
 
-    std::shared_ptr<Lowl::AudioData> data_2 = Lowl::Lib::create_data("audio_path_2", error);
+    std::shared_ptr<Lowl::Audio::AudioData> data_2 = Lowl::Lib::create_data("audio_path_2", error);
     if (error.has_error()) {
         std::cout << "Err: mix:audio_path_2 -> Lowl::create_stream\n";
         return;
     }
 
-    std::shared_ptr<Lowl::AudioMixer> mixer = std::make_unique<Lowl::AudioMixer>(data_1->get_sample_rate(),
+    std::shared_ptr<Lowl::Audio::AudioMixer> mixer = std::make_unique<Lowl::Audio::AudioMixer>(data_1->get_sample_rate(),
                                                                                  data_1->get_channel());
 
     mixer->mix(data_1);
@@ -62,8 +64,8 @@ void mix(std::shared_ptr<Lowl::AudioDevice> device) {
 /**
  * example on how to use space
  */
-void space(std::shared_ptr<Lowl::AudioDevice> device) {
-    std::shared_ptr<Lowl::AudioSpace> space = std::make_shared<Lowl::AudioSpace>(44100.0, Lowl::AudioChannel::Stereo);
+void space(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
+    std::shared_ptr<Lowl::Audio::AudioSpace> space = std::make_shared<Lowl::Audio::AudioSpace>(44100.0, Lowl::Audio::AudioChannel::Stereo);
     Lowl::Error error;
 
     space->add_audio("/Users/railgun/Downloads/audio/CantinaBand60.wav", error);
@@ -81,7 +83,7 @@ void space(std::shared_ptr<Lowl::AudioDevice> device) {
 
     while (true) {
 
-        Lowl::SpaceId selected_id = Lowl::AudioSpace::InvalidSpaceId;
+        Lowl::SpaceId selected_id = Lowl::Audio::AudioSpace::InvalidSpaceId;
         std::cout << "Select Sound:\n";
         std::string user_input;
         std::getline(std::cin, user_input);
@@ -91,7 +93,7 @@ void space(std::shared_ptr<Lowl::AudioDevice> device) {
             continue;
         }
 
-        if (selected_id <= Lowl::AudioSpace::InvalidSpaceId) {
+        if (selected_id <= Lowl::Audio::AudioSpace::InvalidSpaceId) {
             std::cout << "Stop Selecting SpaceId\n";
             break;
         } else if (selected_id == 3) {
@@ -121,15 +123,15 @@ int run() {
         return -1;
     }
 
-    std::vector<std::shared_ptr<Lowl::AudioDriver>> drivers = Lowl::Lib::get_drivers(error);
+    std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>> drivers = Lowl::Lib::get_drivers(error);
     if (error.has_error()) {
         std::cout << "Err: Lowl::get_drivers\n";
         return -1;
     }
 
-    std::vector<std::shared_ptr<Lowl::AudioDevice>> all_devices = std::vector<std::shared_ptr<Lowl::AudioDevice>>();
+    std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>> all_devices = std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>>();
     int current_device_index = 0;
-    for (std::shared_ptr<Lowl::AudioDriver> driver : drivers) {
+    for (std::shared_ptr<Lowl::Audio::AudioDriver> driver : drivers) {
         std::cout << "Driver: " + driver->get_name() + "\n";
         driver->initialize(error);
         if (error.has_error()) {
@@ -137,8 +139,8 @@ int run() {
             error = Lowl::Error();
         }
 
-        std::vector<std::shared_ptr<Lowl::AudioDevice>> devices = driver->get_devices();
-        for (std::shared_ptr<Lowl::AudioDevice> device : devices) {
+        std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>> devices = driver->get_devices();
+        for (std::shared_ptr<Lowl::Audio::AudioDevice> device : devices) {
             std::cout << "Device[" + std::to_string(current_device_index++) + "]: " + device->get_name() + "\n";
             all_devices.push_back(device);
         }
@@ -152,7 +154,7 @@ int run() {
         selected_index = std::stoi(user_input);
     }
 
-    std::shared_ptr<Lowl::AudioDevice> device = all_devices[selected_index];
+    std::shared_ptr<Lowl::Audio::AudioDevice> device = all_devices[selected_index];
 
     space(device);
 

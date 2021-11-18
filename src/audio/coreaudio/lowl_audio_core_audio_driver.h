@@ -5,7 +5,7 @@
 
 #include "audio/lowl_audio_driver.h"
 
-#include "lowl_audio_core_audio_device.h"
+#include "audio/coreaudio/lowl_audio_core_audio_device.h"
 
 #include <memory>
 

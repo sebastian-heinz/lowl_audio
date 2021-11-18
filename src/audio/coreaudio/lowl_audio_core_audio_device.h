@@ -14,7 +14,7 @@ namespace Lowl::Audio  {
     private:
         AudioObjectID device_id;
         Lowl::SampleRate default_sample_rate;
-        Lowl::AudioChannel output_channel;
+        Lowl::Audio::AudioChannel output_channel;
         uint32_t input_stream_count;
         uint32_t output_stream_count;
 
@@ -23,7 +23,7 @@ namespace Lowl::Audio  {
 
         void stop(Error &error) override;
 
-        bool is_supported(Lowl::AudioChannel channel, Lowl::SampleRate sample_rate, Lowl::SampleFormat sample_format,
+        bool is_supported(Lowl::Audio::AudioChannel channel, Lowl::SampleRate sample_rate, SampleFormat sample_format,
                           Error &error) override;
 
         Lowl::SampleRate get_default_sample_rate() override;

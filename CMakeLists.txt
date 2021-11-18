@@ -16,36 +16,37 @@ set(LOWL_PA_DEFAULT_DRIVER_PRIORITY "ALSA,OSS,JACK,COREAUDIO,WASAPI,WDMKS,DSOUND
 
 set(LOWL_SOURCES
         src/lowl.cpp
-
-        src/lowl_audio_source.cpp
-        src/lowl_audio_data.cpp
-        src/lowl_audio_mixer.cpp
-        src/lowl_audio_reader.cpp
-        src/lowl_audio_reader_flac.cpp
-        src/lowl_audio_reader_mp3.cpp
-        src/lowl_audio_reader_wav.cpp
-        src/lowl_audio_stream.cpp
-        src/lowl_audio_util.cpp
         src/lowl_buffer.cpp
-        src/lowl_audio_channel_converter.cpp
-        src/lowl_audio_space.cpp
         src/lowl_error.cpp
         src/lowl_file.cpp
         src/lowl_logger.cpp
-        src/lowl_re_sampler.cpp
-        src/lowl_sample_converter.cpp
 
+        src/audio/lowl_audio_data.cpp
         src/audio/lowl_audio_device.cpp
         src/audio/lowl_audio_driver.cpp
+        src/audio/lowl_audio_mixer.cpp
+        src/audio/lowl_audio_source.cpp
+        src/audio/lowl_audio_space.cpp
+        src/audio/lowl_audio_stream.cpp
+        src/audio/lowl_audio_utilities.cpp
 
-        src/audio/dummy/lowl_audio_driver_dummy.cpp
+        src/audio/convert/lowl_audio_channel_converter.cpp
+        src/audio/convert/lowl_audio_re_sampler.cpp
+        src/audio/convert/lowl_audio_sample_converter.cpp
 
         src/audio/coreaudio/lowl_audio_core_audio_driver.cpp
         src/audio/coreaudio/lowl_audio_core_audio_device.cpp
         src/audio/coreaudio/lowl_audio_core_audio_utilities.cpp
 
-        src/audio/portaudio/lowl_audio_driver_pa.cpp
-        src/audio/portaudio/lowl_audio_device_pa.cpp
+        src/audio/dummy/lowl_audio_dummy_driver.cpp
+
+        src/audio/portaudio/lowl_audio_pa_driver.cpp
+        src/audio/portaudio/lowl_audio_pa_device.cpp
+
+        src/audio/reader/lowl_audio_reader.cpp
+        src/audio/reader/lowl_audio_reader_flac.cpp
+        src/audio/reader/lowl_audio_reader_mp3.cpp
+        src/audio/reader/lowl_audio_reader_wav.cpp
         )
 
 add_library(${LOWL_LIB_MAIN} ${LOWL_SOURCES})

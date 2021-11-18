@@ -1,9 +1,11 @@
 #ifndef LOWL_AUDIO_DRIVER_H
 #define LOWL_AUDIO_DRIVER_H
 
-#include "lowl_audio_device.h"
+#include "audio/lowl_audio_device.h"
 
-namespace Lowl {
+#include <vector>
+
+namespace Lowl::Audio {
     class AudioDriver {
 
     protected:

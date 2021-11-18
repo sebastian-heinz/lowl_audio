@@ -2,10 +2,9 @@
 
 #include "lowl_audio_core_audio_driver.h"
 
-#include "audio/coreaudio/lowl_audio_core_audio_utilities.h"
 #include "lowl_logger.h"
 
-#include <CoreAudio/AudioHardware.h>
+#include "audio/coreaudio/lowl_audio_core_audio_utilities.h"
 
 void Lowl::Audio::CoreAudioDriver::initialize(Lowl::Error &error) {
     create_devices(error);
