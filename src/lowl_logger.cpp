@@ -44,8 +44,11 @@ namespace Lowl {
         receiver(p_log, user_data);
     }
 
-    void Logger::write(const char *p_file_name, const char *p_file_function, int p_file_line, Level p_level,
-                       std::string p_message) {
+    void Logger::write(const char *p_file_name,
+                       const char *p_file_function,
+                       int p_file_line,
+                       Level p_level,
+                       const std::string &p_message) {
         Log log{
                 std::string(p_file_name),
                 p_file_line,
@@ -142,5 +145,6 @@ namespace Lowl {
         );
         return std::string{buf.data(), buf.size()};
     }
+
 
 }

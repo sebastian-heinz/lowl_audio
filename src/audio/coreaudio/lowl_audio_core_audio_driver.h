@@ -18,8 +18,6 @@ namespace Lowl::Audio {
     private:
         void create_devices(Error &error);
 
-        std::shared_ptr<CoreAudioDevice> create_device(AudioObjectID p_device_id, Error &error);
-
     public:
         void initialize(Error &error) override;
 

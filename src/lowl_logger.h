@@ -51,16 +51,23 @@ namespace Lowl {
 
         static void write(const Log &p_log);
 
-        static void write(const char *p_file_name, const char *p_file_function, int p_file_line, Level p_level,
-                          std::string p_message);
+        static void write(
+                const char *p_file_name,
+                const char *p_file_function,
+                int p_file_line,
+                Level p_level,
+                const std::string &p_message
+        );
 
         static std::string format_log(const Log &p_log);
 
         static std::string format_level(Level p_level);
 
 #if defined(__GNUC__)
+
         static std::string format_arguments(const char *const p_fmt, ...)
         __attribute__ ((format (printf, 1, 2)));
+
 #elif _MSC_VER == 1400
 #include <sal.h>
         static std::string format_arguments(__format_string const char *const p_fmt, ...);
@@ -70,17 +77,22 @@ namespace Lowl {
 #else
         static std::string format_arguments(const char *const p_fmt, ...);
 #endif
-
     };
-
 }
 
 #ifdef LOWL_DEBUG
 #define LOWL_LOG_F(level, fmt, ...) Lowl::Logger::write(__FILE__, __FUNCTION__, __LINE__, level, Lowl::Logger::format_arguments(fmt, __VA_ARGS__))
 #define LOWL_LOG(level, fmt) Lowl::Logger::write(__FILE__, __FUNCTION__, __LINE__, level, fmt)
+
+#define LOWL_LOG_L_ERROR_F(error, fmt, ...) Lowl::Logger::write(__FILE__, __FUNCTION__, __LINE__, \
+Lowl::Logger::Level::Error, "[" + error.get_error_text() + "] " + Lowl::Logger::format_arguments(fmt, __VA_ARGS__))
+
+#define LOWL_LOG_L_ERROR(error) LOWL_LOG(Lowl::Logger::Level::Error, error.get_error_text())
 #else
 #define LOWL_LOG_F(level, fmt, ...) (void)0
 #define LOWL_LOG(level, fmt) (void)0
+#define LOWL_LOG_L_ERROR_F (void)0
+#define LOWL_LOG_L_ERROR(error) (void)0
 #endif
 
 #define LOWL_LOG_DEBUG_F(fmt, ...) LOWL_LOG_F(Lowl::Logger::Level::Debug, fmt, __VA_ARGS__)

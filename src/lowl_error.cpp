@@ -1,6 +1,6 @@
 #include "lowl_error.h"
 
-Lowl::ErrorCode Lowl::Error::get_error() {
+Lowl::ErrorCode Lowl::Error::get_error() const {
     return error;
 }
 
@@ -101,11 +101,11 @@ std::string Lowl::Error::to_error_text(ErrorCode p_error) {
     return "NOT DECLARED";
 }
 
-int Lowl::Error::get_error_code() {
+int Lowl::Error::get_error_code() const {
     return to_error_code(error);
 }
 
-std::string Lowl::Error::get_error_text() {
+std::string Lowl::Error::get_error_text() const {
     return to_error_text(error);
 }
 

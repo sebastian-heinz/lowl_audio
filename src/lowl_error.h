@@ -1,5 +1,5 @@
-#ifndef LOWL_ERROR
-#define LOWL_ERROR
+#ifndef LOWL_ERROR_H
+#define LOWL_ERROR_H
 
 #include <string>
 
@@ -61,17 +61,16 @@ namespace Lowl {
 
         void clear();
 
-        ErrorCode get_error();
+        ErrorCode get_error() const;
 
-        int get_error_code();
+        int get_error_code() const;
 
-        std::string get_error_text();
+        std::string get_error_text() const;
 
         bool has_error();
 
         Error();
     };
 }
-
 
 #endif
