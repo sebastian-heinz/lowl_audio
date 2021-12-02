@@ -22,7 +22,7 @@ namespace Lowl::Audio {
 
     public:
         static std::unique_ptr<CoreAudioDevice>
-        create(const std::string &p_driver_name, AudioObjectID p_device_id, Error &error);
+        construct(const std::string &p_driver_name, AudioObjectID p_device_id, Error &error);
 
         void start(std::shared_ptr<AudioSource> p_audio_source, Error &error) override;
 
