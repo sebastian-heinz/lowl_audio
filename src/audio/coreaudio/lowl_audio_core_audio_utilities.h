@@ -43,6 +43,8 @@ namespace Lowl::Audio {
         static SampleCount get_buffer_frame_size(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope, Lowl::Error &error);
 
         static AudioValueRange get_buffer_frame_size_range(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope, Lowl::Error &error);
+
+        static void set_buffer_frame_size(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope, UInt32 p_frames_per_buffer, Lowl::Error &error);
     };
 }
 

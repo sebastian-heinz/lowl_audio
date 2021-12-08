@@ -6,6 +6,7 @@
 #include "audio/lowl_audio_device.h"
 
 #include <CoreAudio/AudioHardware.h>
+#include <AudioUnit/AudioUnit.h>
 
 namespace Lowl::Audio {
 
@@ -17,6 +18,7 @@ namespace Lowl::Audio {
         Lowl::Audio::AudioChannel output_channel;
         uint32_t input_stream_count;
         uint32_t output_stream_count;
+        AudioUnit audio_unit;
 
         CoreAudioDevice();
 

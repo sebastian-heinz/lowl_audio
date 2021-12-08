@@ -115,25 +115,203 @@ Lowl::Audio::CoreAudioDevice::construct(const std::string &p_driver_name, AudioO
 
 void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_source, Lowl::Error &error) {
 
+    AudioComponentDescription desc;
+    desc.componentType = kAudioUnitType_Output;
+    desc.componentSubType = kAudioUnitSubType_HALOutput;
+    desc.componentManufacturer = kAudioUnitManufacturer_Apple;
+    desc.componentFlags = 0;
+    desc.componentFlagsMask = 0;
 
-//   int outputChannelCount;
-//   SampleFormat outputSampleFormat;
-//   SampleFormat hostOutputSampleFormat;
-//   UInt32 fixedInputLatency = 0;
-//   UInt32 fixedOutputLatency = 0;
-//   // Accumulate contributions to latency in these variables.
-//   UInt32 inputLatencyFrames = 0;
-//   UInt32 outputLatencyFrames = 0;
-//   UInt32 suggestedLatencyFramesPerBuffer = 0; //not specified
+    AudioComponent comp = AudioComponentFindNext(nullptr, &desc);
+    if (!comp) {
+        error.set_error(ErrorCode::Error);
+        return;
+    }
 
-//   /* check that output device can support inputChannelCount */
-//   if( outputChannelCount > hostApi->deviceInfos[ outputParameters->device ]->maxOutputChannels )
-//       return paInvalidChannelCount;
+    OSStatus result = noErr;
+    result = AudioComponentInstanceNew(comp, &audio_unit);
+    if (result != noErr) {
+        error.set_error(ErrorCode::Error);
+        return;
+    }
 
-//   /* Host supports interleaved float32 */
-//   hostOutputSampleFormat = paFloat32;
+    // result = AudioComponentInstanceDispose( *audioUnit );
+    // if (result != noErr) {
+    //     error.set_error(ErrorCode::Error);
+    //     return;
+    // }
+
+    /* -- add listener for dropouts -- */
+    // result = PaMacCore_AudioDeviceAddPropertyListener( *audioDevice,
+    //                                                    0,
+    //                                                    outStreamParams ? false : true,
+    //                                                    kAudioDeviceProcessorOverload,
+    //                                                    xrunCallback,
+    //                                                    addToXRunListenerList( (void *)stream ) ) ;
+    // if( result == kAudioHardwareIllegalOperationError ) {
+    //     // -- already registered, we're good
+    // } else {
+    //     // -- not already registered, just check for errors
+    //     ERR_WRAP( result );
+    // }
+
+    /* -- listen for stream start and stop -- */
+    //  ERR_WRAP( AudioUnitAddPropertyListener( *audioUnit,
+    //                                          kAudioOutputUnitProperty_IsRunning,
+    //                                          startStopCallback,
+    //                                          (void *)stream ) );
+    //
+    AudioStreamBasicDescription desiredFormat;
+    desiredFormat.mFormatID = kAudioFormatLinearPCM;
+    desiredFormat.mFormatFlags = kAudioFormatFlagsNativeFloatPacked;
+    desiredFormat.mFramesPerPacket = 1;
+    desiredFormat.mBitsPerChannel = sizeof(float) * 8;
+
+    // if( outStreamParams && !inStreamParams ) {
+    /*The callback never calls back if we don't set the FPB */
+    /*This seems weird, because I would think setting anything on the device
+      would be disruptive.*/
 
 
+    SampleCount requested_frames_per_buffer = 64;
+    SampleCount actual_frames_per_buffer = 0;
+    CoreAudioUtilities::set_buffer_frame_size(
+            device_id,
+            kAudioDevicePropertyScopeOutput,
+            requested_frames_per_buffer,
+            error
+    );
+    actual_frames_per_buffer = CoreAudioUtilities::get_buffer_frame_size(
+            device_id,
+            kAudioDevicePropertyScopeOutput,
+            error
+    );
+
+    // Did we get the size we asked for?
+    if (actual_frames_per_buffer != requested_frames_per_buffer) {
+        AudioValueRange range = CoreAudioUtilities::get_buffer_frame_size_range(
+                device_id,
+                kAudioDevicePropertyScopeOutput,
+                error
+        );
+        if (requested_frames_per_buffer < range.mMinimum) {
+            requested_frames_per_buffer = static_cast<UInt32>(range.mMinimum);
+        } else if (requested_frames_per_buffer > range.mMaximum) {
+            requested_frames_per_buffer = static_cast<UInt32>(range.mMaximum);
+        }
+        CoreAudioUtilities::set_buffer_frame_size(
+                device_id,
+                kAudioDevicePropertyScopeOutput,
+                requested_frames_per_buffer,
+                error
+        );
+        actual_frames_per_buffer = CoreAudioUtilities::get_buffer_frame_size(
+                device_id,
+                kAudioDevicePropertyScopeOutput,
+                error
+        );
+    }
+
+
+
+    ///    paResult = setBestFramesPerBuffer( *audioDevice, TRUE,
+    ///                                       requestedFramesPerBuffer,
+    ///                                       actualOutputFramesPerBuffer );
+    ///    if( paResult ) goto error;
+    ///    if( macOutputStreamFlags & paMacCoreChangeDeviceParameters ) {
+    ///        bool requireExact;
+    ///        requireExact=macOutputStreamFlags & paMacCoreFailIfConversionRequired;
+    ///        paResult = setBestSampleRateForDevice( *audioDevice, TRUE,
+    ///                                               requireExact, sampleRate );
+    ///        if( paResult ) goto error;
+    ///    }
+    //  }
+
+    //  /* -- set the quality of the output converter -- */
+    //  if( outStreamParams ) {
+    //      UInt32 value = kAudioConverterQuality_Max;
+    //      switch( macOutputStreamFlags & 0x0700 ) {
+    //          case 0x0100: /*paMacCore_ConversionQualityMin:*/
+    //              value=kRenderQuality_Min;
+    //              break;
+    //          case 0x0200: /*paMacCore_ConversionQualityLow:*/
+    //              value=kRenderQuality_Low;
+    //              break;
+    //          case 0x0300: /*paMacCore_ConversionQualityMedium:*/
+    //              value=kRenderQuality_Medium;
+    //              break;
+    //          case 0x0400: /*paMacCore_ConversionQualityHigh:*/
+    //              value=kRenderQuality_High;
+    //              break;
+    //      }
+    //      ERR_WRAP( AudioUnitSetProperty( *audioUnit,
+    //                                      kAudioUnitProperty_RenderQuality,
+    //                                      kAudioUnitScope_Global,
+    //                                      OUTPUT_ELEMENT,
+    //                                      &value,
+    //                                      sizeof(value) ) );
+    //  }
+
+    /* now set the format on the Audio Units. */
+    //if( outStreamParams )
+    //{
+    //    desiredFormat.mSampleRate    =sampleRate;
+    //    desiredFormat.mBytesPerPacket=sizeof(float)*outStreamParams->channelCount;
+    //    desiredFormat.mBytesPerFrame =sizeof(float)*outStreamParams->channelCount;
+    //    desiredFormat.mChannelsPerFrame = outStreamParams->channelCount;
+    //    ERR_WRAP( AudioUnitSetProperty( *audioUnit,
+    //                                    kAudioUnitProperty_StreamFormat,
+    //                                    kAudioUnitScope_Input,
+    //                                    OUTPUT_ELEMENT,
+    //                                    &desiredFormat,
+    //                                    sizeof(AudioStreamBasicDescription) ) );
+    //}
+
+
+    /* set the maximumFramesPerSlice */
+    /* not doing this causes real problems
+       (eg. the callback might not be called). The idea of setting both this
+       and the frames per buffer on the device is that we'll be most likely
+       to actually get the frame size we requested in the callback with the
+       minimum latency. */
+//   if( outStreamParams ) {
+//       UInt32 size = sizeof( *actualOutputFramesPerBuffer );
+//       ERR_WRAP( AudioUnitSetProperty( *audioUnit,
+//                                       kAudioUnitProperty_MaximumFramesPerSlice,
+//                                       kAudioUnitScope_Input,
+//                                       OUTPUT_ELEMENT,
+//                                       actualOutputFramesPerBuffer,
+//                                       sizeof(*actualOutputFramesPerBuffer) ) );
+//       ERR_WRAP( AudioUnitGetProperty( *audioUnit,
+//                                       kAudioUnitProperty_MaximumFramesPerSlice,
+//                                       kAudioUnitScope_Global,
+//                                       OUTPUT_ELEMENT,
+//                                       actualOutputFramesPerBuffer,
+//                                       &size ) );
+//   }
+
+
+
+    /* -- set IOProc (callback) -- */
+    //  callbackKey = outStreamParams ? kAudioUnitProperty_SetRenderCallback
+    //                                : kAudioOutputUnitProperty_SetInputCallback ;
+    //  rcbs.inputProc = AudioIOProc;
+    //  rcbs.inputProcRefCon = refCon;
+    //  ERR_WRAP( AudioUnitSetProperty( *audioUnit,
+    //                                  callbackKey,
+    //                                  kAudioUnitScope_Output,
+    //                                  outStreamParams ? OUTPUT_ELEMENT : INPUT_ELEMENT,
+    //                                  &rcbs,
+    //                                  sizeof(rcbs)) );
+
+
+    /* initialize the audio unit */
+    result = AudioUnitInitialize(audio_unit);
+    if (result != noErr) {
+        error.set_error(ErrorCode::Error);
+        return;
+    }
+    //VDBUG( ("Opened device %ld for output.\n", (long)*audioDevice ) );
 }
 
 void Lowl::Audio::CoreAudioDevice::stop(Lowl::Error &error) {
@@ -155,7 +333,7 @@ void Lowl::Audio::CoreAudioDevice::set_exclusive_mode(bool p_exclusive_mode, Low
 
 
 Lowl::Audio::CoreAudioDevice::CoreAudioDevice() : AudioDevice() {
-
+    audio_unit = nullptr;
 }
 
 Lowl::Audio::CoreAudioDevice::~CoreAudioDevice() {

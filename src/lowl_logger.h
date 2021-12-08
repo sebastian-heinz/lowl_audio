@@ -91,7 +91,7 @@ Lowl::Logger::Level::Error, "[" + error.get_error_text() + "] " + Lowl::Logger::
 #else
 #define LOWL_LOG_F(level, fmt, ...) (void)0
 #define LOWL_LOG(level, fmt) (void)0
-#define LOWL_LOG_L_ERROR_F (void)0
+#define LOWL_LOG_L_ERROR_F(error, fmt, ...) (void)0
 #define LOWL_LOG_L_ERROR(error) (void)0
 #endif
 

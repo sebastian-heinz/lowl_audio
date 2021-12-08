@@ -17,6 +17,7 @@ Lowl::Audio::AudioSpace::AudioSpace(SampleRate p_sample_rate, AudioChannel p_cha
 }
 
 Lowl::Audio::AudioSpace::~AudioSpace() {
+    int i = 1;
 }
 
 Lowl::SpaceId Lowl::Audio::AudioSpace::add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error) {
