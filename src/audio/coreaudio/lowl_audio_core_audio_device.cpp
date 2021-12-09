@@ -18,6 +18,67 @@ static OSStatus audio_callback(
     return device->callback(ioActionFlags, inTimeStamp, inBusNumber, inNumberFrames, ioData);
 }
 
+OSStatus Lowl::Audio::CoreAudioDevice::callback(
+        AudioUnitRenderActionFlags *ioActionFlags,
+        const AudioTimeStamp *inTimeStamp,
+        UInt32 inBusNumber,
+        UInt32 inNumberFrames,
+        AudioBufferList *ioData
+) {
+    OSStatus result = noErr;
+    //  AudioBufferList buffers;
+
+    long bytesPerFrame = sizeof(float) * ioData->mBuffers[0].mNumberChannels;
+    //assert( ioData->mNumberBuffers == 1 );
+    //assert( ioData->mBuffers[0].mNumberChannels == stream->userOutChan );
+    unsigned long p_frames_per_buffer = static_cast<unsigned long>(ioData->mBuffers[0].mDataByteSize / bytesPerFrame);
+
+  //  uint p_frames_per_buffer = ioData->mBuffers[0].mDataByteSize;
+
+    float *dst = static_cast<float *>(ioData->mBuffers[0].mData);
+    unsigned long current_frame = 0;
+    AudioFrame frame{};
+    for (; current_frame < p_frames_per_buffer; current_frame++) {
+        AudioSource::ReadResult read_result = audio_source->read(frame);
+        if (read_result == AudioSource::ReadResult::Read) {
+            for (int current_channel = 0; current_channel < audio_source->get_channel_num(); current_channel++) {
+                std::clamp(frame[current_channel], AudioFrame::MIN_SAMPLE_VALUE, AudioFrame::MAX_SAMPLE_VALUE);
+                *dst++ = (float) frame[current_channel];
+            }
+        } else if (read_result == AudioSource::ReadResult::End) {
+            break;
+        } else if (read_result == AudioSource::ReadResult::Pause) {
+            break;
+        } else if (read_result == AudioSource::ReadResult::Remove) {
+            break;
+        }
+    }
+
+    if (current_frame < p_frames_per_buffer) {
+        // fill buffer with silence if not enough samples available.
+        unsigned long missing_frames = p_frames_per_buffer - current_frame;
+        unsigned long missing_samples = missing_frames * (unsigned long) audio_source->get_channel_num();
+        unsigned long current_sample = 0;
+        for (; current_sample < missing_samples; current_sample++) {
+            *dst++ = 0;
+        }
+    }
+
+
+    // result = AudioUnitRender(
+    //         audio_unit,
+    //         ioActionFlags,
+    //         inTimeStamp,
+    //         CoreAudioUtilities::kInputBus,
+    //         inNumberFrames,
+    //         ioData
+    // );
+    // if (result != noErr) {
+    //     return result;
+    // }
+    return noErr;
+}
+
 std::unique_ptr<Lowl::Audio::CoreAudioDevice>
 Lowl::Audio::CoreAudioDevice::construct(const std::string &p_driver_name, AudioObjectID p_device_id, Error &error) {
     LOWL_LOG_DEBUG_F("Device:%u - creating", p_device_id);
@@ -126,6 +187,7 @@ Lowl::Audio::CoreAudioDevice::construct(const std::string &p_driver_name, AudioO
 }
 
 void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_source, Lowl::Error &error) {
+    audio_source = p_audio_source;
 
     AudioComponentDescription desc;
     desc.componentType = kAudioUnitType_Output;
@@ -175,11 +237,7 @@ void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_so
     //                                          startStopCallback,
     //                                          (void *)stream ) );
     //
-    AudioStreamBasicDescription desiredFormat;
-    desiredFormat.mFormatID = kAudioFormatLinearPCM;
-    desiredFormat.mFormatFlags = kAudioFormatFlagsNativeFloatPacked;
-    desiredFormat.mFramesPerPacket = 1;
-    desiredFormat.mBitsPerChannel = sizeof(float) * 8;
+
 
     // set preferred frames
     SampleCount frames_per_buffer = set_frames_per_buffer(64, error);
@@ -214,20 +272,29 @@ void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_so
     //                                      sizeof(value) ) );
     //  }
 
-    /* now set the format on the Audio Units. */
-    //if( outStreamParams )
-    //{
-    //    desiredFormat.mSampleRate    =sampleRate;
-    //    desiredFormat.mBytesPerPacket=sizeof(float)*outStreamParams->channelCount;
-    //    desiredFormat.mBytesPerFrame =sizeof(float)*outStreamParams->channelCount;
-    //    desiredFormat.mChannelsPerFrame = outStreamParams->channelCount;
-    //    ERR_WRAP( AudioUnitSetProperty( *audioUnit,
-    //                                    kAudioUnitProperty_StreamFormat,
-    //                                    kAudioUnitScope_Input,
-    //                                    OUTPUT_ELEMENT,
-    //                                    &desiredFormat,
-    //                                    sizeof(AudioStreamBasicDescription) ) );
-    //}
+    // set format
+    AudioStreamBasicDescription desiredFormat;
+    desiredFormat.mFormatID = kAudioFormatLinearPCM;
+    desiredFormat.mFormatFlags = kAudioFormatFlagsNativeFloatPacked;
+    desiredFormat.mFramesPerPacket = 1;
+    desiredFormat.mBitsPerChannel = sizeof(float) * 8;
+    desiredFormat.mSampleRate = audio_source->get_sample_rate();
+    desiredFormat.mBytesPerPacket = static_cast<UInt32>(sizeof(float) * audio_source->get_channel_num());
+    desiredFormat.mBytesPerFrame = static_cast<UInt32>(sizeof(float) * audio_source->get_channel_num());
+    desiredFormat.mChannelsPerFrame = static_cast<UInt32>(audio_source->get_channel_num());
+    result = AudioUnitSetProperty(
+            audio_unit,
+            kAudioUnitProperty_StreamFormat,
+            kAudioUnitScope_Input,
+            CoreAudioUtilities::kOutputBus,
+            &desiredFormat,
+            sizeof(AudioStreamBasicDescription)
+    );
+    if (result != noErr) {
+        error.set_error(ErrorCode::Error);
+        return;
+    }
+
 
     // set max frames
     CoreAudioUtilities::set_maximum_frames_per_slice(
@@ -283,16 +350,6 @@ void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_so
 
 }
 
-OSStatus Lowl::Audio::CoreAudioDevice::callback(
-        AudioUnitRenderActionFlags *ioActionFlags,
-        const AudioTimeStamp *inTimeStamp,
-        UInt32 inBusNumber,
-        UInt32 inNumberFrames,
-        AudioBufferList *ioData
-) {
-    return noErr;
-}
-
 Lowl::SampleCount Lowl::Audio::CoreAudioDevice::set_frames_per_buffer(
         SampleCount p_frames_per_buffer, Lowl::Error &error) {
 
@@ -338,7 +395,10 @@ Lowl::SampleCount Lowl::Audio::CoreAudioDevice::set_frames_per_buffer(
 }
 
 void Lowl::Audio::CoreAudioDevice::stop(Lowl::Error &error) {
-
+    OSStatus result = noErr;
+    result = AudioOutputUnitStop(audio_unit);
+    //result = BlockWhileAudioUnitIsRunning(audio_unit, 0);
+    result = AudioUnitReset(audio_unit, kAudioUnitScope_Global, 0);
 }
 
 bool Lowl::Audio::CoreAudioDevice::is_supported(AudioChannel channel, Lowl::SampleRate sample_rate,
