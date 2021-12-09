@@ -18,11 +18,21 @@ namespace Lowl::Audio {
         Lowl::Audio::AudioChannel output_channel;
         uint32_t input_stream_count;
         uint32_t output_stream_count;
-        AudioUnit audio_unit;
+        AudioUnit __nullable audio_unit;
+
+        SampleCount set_frames_per_buffer(SampleCount p_frames_per_buffer, Lowl::Error &error);
 
         CoreAudioDevice();
 
     public:
+        OSStatus callback(
+                AudioUnitRenderActionFlags *__nonnull ioActionFlags,
+                const AudioTimeStamp *__nonnull inTimeStamp,
+                UInt32 inBusNumber,
+                UInt32 inNumberFrames,
+                AudioBufferList *__nullable ioData
+        );
+
         static std::unique_ptr<CoreAudioDevice>
         construct(const std::string &p_driver_name, AudioObjectID p_device_id, Error &error);
 
