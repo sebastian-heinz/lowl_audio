@@ -424,6 +424,42 @@ Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::get_maximum_frames_per_slice(
     return max_frames_per_buffer;
 }
 
+void Lowl::Audio::CoreAudioUtilities::add_property_listener(
+        AudioObjectID p_device_id,
+        AudioObjectPropertySelector p_property,
+        AudioObjectPropertyScope p_scope,
+        AudioObjectPropertyListenerProc p_proc, void *p_user_data,
+        Lowl::Error &error) {
+    AudioObjectPropertyAddress property = {
+            p_property,
+            p_scope,
+            kAudioObjectPropertyElementMaster
+    };
+    OSStatus result = AudioObjectAddPropertyListener(p_device_id, &property, p_proc, p_user_data);
+    if (result == kAudioHardwareIllegalOperationError) {
+        // already registered
+    } else if (result != noErr) {
+        error.set_error(ErrorCode::Error);
+    }
+}
+
+void Lowl::Audio::CoreAudioUtilities::set_render_quality(AudioUnit p_audio_unit, AudioUnitScope p_scope,
+                                                         AudioUnitElement p_element, UInt32 p_render_quality,
+                                                         Lowl::Error &error) {
+    OSStatus result = AudioUnitSetProperty(
+            p_audio_unit,
+            kAudioUnitProperty_RenderQuality,
+            p_scope,
+            p_element,
+            &p_render_quality,
+            sizeof(p_render_quality)
+    );
+    if (result != noErr) {
+        error.set_error(ErrorCode::Error);
+        return;
+    }
+}
+
 
 #endif /* LOWL_DRIVER_CORE_AUDIO */
 

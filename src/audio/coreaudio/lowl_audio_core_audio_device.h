@@ -18,23 +18,40 @@ namespace Lowl::Audio {
         Lowl::Audio::AudioChannel output_channel;
         uint32_t input_stream_count;
         uint32_t output_stream_count;
-        AudioUnit __nullable audio_unit;
+        AudioUnit _Nullable audio_unit;
 
         SampleCount set_frames_per_buffer(SampleCount p_frames_per_buffer, Lowl::Error &error);
+        SampleRate set_sample_rate(SampleRate p_sample_rate, Lowl::Error &error);
 
         CoreAudioDevice();
 
     public:
-        OSStatus callback(
-                AudioUnitRenderActionFlags *__nonnull ioActionFlags,
-                const AudioTimeStamp *__nonnull inTimeStamp,
-                UInt32 inBusNumber,
-                UInt32 inNumberFrames,
-                AudioBufferList *__nullable ioData
+        static std::unique_ptr<CoreAudioDevice> construct(
+                const std::string &p_driver_name,
+                AudioObjectID p_device_id,
+                Error &error
         );
 
-        static std::unique_ptr<CoreAudioDevice>
-        construct(const std::string &p_driver_name, AudioObjectID p_device_id, Error &error);
+        OSStatus audio_callback(
+                AudioUnitRenderActionFlags *_Nonnull ioActionFlags,
+                const AudioTimeStamp *_Nonnull inTimeStamp,
+                UInt32 inBusNumber,
+                UInt32 inNumberFrames,
+                AudioBufferList *_Nullable ioData
+        );
+
+        void start_stop_callback(
+                AudioUnit _Nonnull inUnit,
+                AudioUnitPropertyID inID,
+                AudioUnitScope inScope,
+                AudioUnitElement inElement
+        );
+
+        OSStatus property_callback(
+                AudioObjectID inObjectID,
+                UInt32 inNumberAddresses,
+                const AudioObjectPropertyAddress *_Nonnull inAddresses
+        );
 
         void start(std::shared_ptr<AudioSource> p_audio_source, Error &error) override;
 

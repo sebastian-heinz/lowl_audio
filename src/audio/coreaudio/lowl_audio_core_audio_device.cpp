@@ -6,34 +6,47 @@
 
 #include "audio/coreaudio/lowl_audio_core_audio_utilities.h"
 
-static OSStatus audio_callback(
+static OSStatus osx_audio_callback(
         void *inRefCon,
         AudioUnitRenderActionFlags *ioActionFlags,
         const AudioTimeStamp *inTimeStamp,
         UInt32 inBusNumber,
         UInt32 inNumberFrames,
-        AudioBufferList *__nullable ioData
+        AudioBufferList *_Nullable ioData
 ) {
     Lowl::Audio::CoreAudioDevice *device = (Lowl::Audio::CoreAudioDevice *) inRefCon;
-    return device->callback(ioActionFlags, inTimeStamp, inBusNumber, inNumberFrames, ioData);
+    return device->audio_callback(ioActionFlags, inTimeStamp, inBusNumber, inNumberFrames, ioData);
 }
 
-OSStatus Lowl::Audio::CoreAudioDevice::callback(
+static void osx_start_stop_callback(
+        void *inRefCon,
+        AudioUnit inUnit,
+        AudioUnitPropertyID inID,
+        AudioUnitScope inScope,
+        AudioUnitElement inElement
+) {
+    Lowl::Audio::CoreAudioDevice *device = (Lowl::Audio::CoreAudioDevice *) inRefCon;
+    device->start_stop_callback(inUnit, inID, inScope, inElement);
+}
+
+OSStatus osx_property_callback(
+        AudioObjectID inObjectID,
+        UInt32 inNumberAddresses,
+        const AudioObjectPropertyAddress *inAddresses,
+        void *_Nullable inClientData) {
+    Lowl::Audio::CoreAudioDevice *device = (Lowl::Audio::CoreAudioDevice *) inClientData;
+    return device->property_callback(inObjectID, inNumberAddresses, inAddresses);
+}
+
+OSStatus Lowl::Audio::CoreAudioDevice::audio_callback(
         AudioUnitRenderActionFlags *ioActionFlags,
         const AudioTimeStamp *inTimeStamp,
         UInt32 inBusNumber,
         UInt32 inNumberFrames,
         AudioBufferList *ioData
 ) {
-    OSStatus result = noErr;
-    //  AudioBufferList buffers;
-
     long bytesPerFrame = sizeof(float) * ioData->mBuffers[0].mNumberChannels;
-    //assert( ioData->mNumberBuffers == 1 );
-    //assert( ioData->mBuffers[0].mNumberChannels == stream->userOutChan );
     unsigned long p_frames_per_buffer = static_cast<unsigned long>(ioData->mBuffers[0].mDataByteSize / bytesPerFrame);
-
-  //  uint p_frames_per_buffer = ioData->mBuffers[0].mDataByteSize;
 
     float *dst = static_cast<float *>(ioData->mBuffers[0].mData);
     unsigned long current_frame = 0;
@@ -64,23 +77,29 @@ OSStatus Lowl::Audio::CoreAudioDevice::callback(
         }
     }
 
-
-    // result = AudioUnitRender(
-    //         audio_unit,
-    //         ioActionFlags,
-    //         inTimeStamp,
-    //         CoreAudioUtilities::kInputBus,
-    //         inNumberFrames,
-    //         ioData
-    // );
-    // if (result != noErr) {
-    //     return result;
-    // }
     return noErr;
 }
 
-std::unique_ptr<Lowl::Audio::CoreAudioDevice>
-Lowl::Audio::CoreAudioDevice::construct(const std::string &p_driver_name, AudioObjectID p_device_id, Error &error) {
+void Lowl::Audio::CoreAudioDevice::start_stop_callback(AudioUnit inUnit, AudioUnitPropertyID inID,
+                                                       AudioUnitScope inScope, AudioUnitElement inElement) {
+
+}
+
+OSStatus Lowl::Audio::CoreAudioDevice::property_callback(AudioObjectID inObjectID, UInt32 inNumberAddresses,
+                                                         const AudioObjectPropertyAddress *inAddresses) {
+    AudioDevicePropertyID inPropertyID = inAddresses->mSelector;
+    switch (inPropertyID) {
+        case kAudioDeviceProcessorOverload:
+            break;
+    }
+    return noErr;
+}
+
+std::unique_ptr<Lowl::Audio::CoreAudioDevice> Lowl::Audio::CoreAudioDevice::construct(
+        const std::string &p_driver_name,
+        AudioObjectID p_device_id,
+        Error &error
+) {
     LOWL_LOG_DEBUG_F("Device:%u - creating", p_device_id);
 
     std::string device_name = Lowl::Audio::CoreAudioUtilities::get_device_name(p_device_id, error);
@@ -195,7 +214,6 @@ void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_so
     desc.componentManufacturer = kAudioUnitManufacturer_Apple;
     desc.componentFlags = 0;
     desc.componentFlagsMask = 0;
-
     AudioComponent comp = AudioComponentFindNext(nullptr, &desc);
     if (!comp) {
         error.set_error(ErrorCode::Error);
@@ -209,70 +227,50 @@ void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_so
         return;
     }
 
-    /// TODO err
-    // result = AudioComponentInstanceDispose( *audioUnit );
-    // if (result != noErr) {
-    //     error.set_error(ErrorCode::Error);
-    //     return;
-    // }
-    ///
+    CoreAudioUtilities::add_property_listener(
+            device_id,
+            kAudioDeviceProcessorOverload,
+            kAudioDevicePropertyScopeOutput,
+            osx_property_callback,
+            this,
+            error
+    );
+    if (error.has_error()) {
+        return;
+    }
 
-    /* -- add listener for dropouts -- */
-    // result = PaMacCore_AudioDeviceAddPropertyListener( *audioDevice,
-    //                                                    0,
-    //                                                    outStreamParams ? false : true,
-    //                                                    kAudioDeviceProcessorOverload,
-    //                                                    xrunCallback,
-    //                                                    addToXRunListenerList( (void *)stream ) ) ;
-    // if( result == kAudioHardwareIllegalOperationError ) {
-    //     // -- already registered, we're good
-    // } else {
-    //     // -- not already registered, just check for errors
-    //     ERR_WRAP( result );
-    // }
+    result = AudioUnitAddPropertyListener(
+            audio_unit,
+            kAudioOutputUnitProperty_IsRunning,
+            &osx_start_stop_callback,
+            this
+    );
+    if (result != noErr) {
+        error.set_error(ErrorCode::Error);
+        return;
+    }
 
-    /* -- listen for stream start and stop -- */
-    //  ERR_WRAP( AudioUnitAddPropertyListener( *audioUnit,
-    //                                          kAudioOutputUnitProperty_IsRunning,
-    //                                          startStopCallback,
-    //                                          (void *)stream ) );
-    //
-
-
-    // set preferred frames
     SampleCount frames_per_buffer = set_frames_per_buffer(64, error);
     if (error.has_error()) {
         return;
     }
 
-    // paResult = setBestSampleRateForDevice( *audioDevice, TRUE,
+    SampleRate sample_rate = set_sample_rate(audio_source->get_sample_rate(), error);
+    if (error.has_error()) {
+        return;
+    }
 
-    //  /* -- set the quality of the output converter -- */
-    //  if( outStreamParams ) {
-    //      UInt32 value = kAudioConverterQuality_Max;
-    //      switch( macOutputStreamFlags & 0x0700 ) {
-    //          case 0x0100: /*paMacCore_ConversionQualityMin:*/
-    //              value=kRenderQuality_Min;
-    //              break;
-    //          case 0x0200: /*paMacCore_ConversionQualityLow:*/
-    //              value=kRenderQuality_Low;
-    //              break;
-    //          case 0x0300: /*paMacCore_ConversionQualityMedium:*/
-    //              value=kRenderQuality_Medium;
-    //              break;
-    //          case 0x0400: /*paMacCore_ConversionQualityHigh:*/
-    //              value=kRenderQuality_High;
-    //              break;
-    //      }
-    //      ERR_WRAP( AudioUnitSetProperty( *audioUnit,
-    //                                      kAudioUnitProperty_RenderQuality,
-    //                                      kAudioUnitScope_Global,
-    //                                      OUTPUT_ELEMENT,
-    //                                      &value,
-    //                                      sizeof(value) ) );
-    //  }
+    CoreAudioUtilities::set_render_quality(
+            audio_unit,
+            kAudioUnitScope_Global,
+            CoreAudioUtilities::kOutputBus,
+            kRenderQuality_High,
+            error
+    );
+    if (error.has_error()) {
+        return;
+    }
 
-    // set format
     AudioStreamBasicDescription desiredFormat;
     desiredFormat.mFormatID = kAudioFormatLinearPCM;
     desiredFormat.mFormatFlags = kAudioFormatFlagsNativeFloatPacked;
@@ -295,8 +293,6 @@ void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_so
         return;
     }
 
-
-    // set max frames
     CoreAudioUtilities::set_maximum_frames_per_slice(
             audio_unit,
             kAudioUnitScope_Input,
@@ -307,6 +303,7 @@ void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_so
     if (error.has_error()) {
         return;
     }
+
     SampleCount max_frames_per_buffer = CoreAudioUtilities::get_maximum_frames_per_slice(
             audio_unit,
             kAudioUnitScope_Global,
@@ -317,9 +314,8 @@ void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_so
         return;
     }
 
-    // set audio callback
     AURenderCallbackStruct render_callback;
-    render_callback.inputProc = &audio_callback;
+    render_callback.inputProc = &osx_audio_callback;
     render_callback.inputProcRefCon = this;
     result = AudioUnitSetProperty(
             audio_unit,
@@ -334,20 +330,24 @@ void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_so
         return;
     }
 
-    // initialize
     result = AudioUnitInitialize(audio_unit);
     if (result != noErr) {
         error.set_error(ErrorCode::Error);
         return;
     }
 
-    // start
     result = AudioOutputUnitStart(audio_unit);
     if (result != noErr) {
         error.set_error(ErrorCode::Error);
         return;
     }
+}
 
+void Lowl::Audio::CoreAudioDevice::stop(Lowl::Error &error) {
+    OSStatus result = noErr;
+    result = AudioOutputUnitStop(audio_unit);
+    //result = BlockWhileAudioUnitIsRunning(audio_unit, 0);
+    result = AudioUnitReset(audio_unit, kAudioUnitScope_Global, 0);
 }
 
 Lowl::SampleCount Lowl::Audio::CoreAudioDevice::set_frames_per_buffer(
@@ -394,15 +394,12 @@ Lowl::SampleCount Lowl::Audio::CoreAudioDevice::set_frames_per_buffer(
     return actual_frames_per_buffer;
 }
 
-void Lowl::Audio::CoreAudioDevice::stop(Lowl::Error &error) {
-    OSStatus result = noErr;
-    result = AudioOutputUnitStop(audio_unit);
-    //result = BlockWhileAudioUnitIsRunning(audio_unit, 0);
-    result = AudioUnitReset(audio_unit, kAudioUnitScope_Global, 0);
+Lowl::SampleRate Lowl::Audio::CoreAudioDevice::set_sample_rate(SampleRate p_sample_rate, Lowl::Error &error) {
+    return 0;
 }
 
-bool Lowl::Audio::CoreAudioDevice::is_supported(AudioChannel channel, Lowl::SampleRate sample_rate,
-                                                SampleFormat sample_format, Lowl::Error &error) {
+bool Lowl::Audio::CoreAudioDevice::is_supported(AudioChannel channel, SampleRate sample_rate,
+                                                SampleFormat sample_format, Error &error) {
     return false;
 }
 
@@ -410,7 +407,7 @@ Lowl::SampleRate Lowl::Audio::CoreAudioDevice::get_default_sample_rate() {
     return 0;
 }
 
-void Lowl::Audio::CoreAudioDevice::set_exclusive_mode(bool p_exclusive_mode, Lowl::Error &error) {
+void Lowl::Audio::CoreAudioDevice::set_exclusive_mode(bool p_exclusive_mode, Error &error) {
 
 }
 
@@ -419,7 +416,13 @@ Lowl::Audio::CoreAudioDevice::CoreAudioDevice() : AudioDevice() {
 }
 
 Lowl::Audio::CoreAudioDevice::~CoreAudioDevice() {
-
+    if (audio_unit) {
+        OSStatus result = AudioComponentInstanceDispose(audio_unit);
+        if (result != noErr) {
+            // log?
+        }
+        audio_unit = nullptr;
+    }
 }
 
 

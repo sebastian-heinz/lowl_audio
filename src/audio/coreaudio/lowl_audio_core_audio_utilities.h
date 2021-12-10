@@ -99,7 +99,7 @@ namespace Lowl::Audio {
         );
 
         static void set_maximum_frames_per_slice(
-                AudioUnit p_audio_unit,
+                AudioUnit _Nonnull p_audio_unit,
                 AudioUnitScope p_scope,
                 AudioUnitElement p_element,
                 UInt32 p_maximum_frames_per_slice,
@@ -107,9 +107,26 @@ namespace Lowl::Audio {
         );
 
         static SampleCount get_maximum_frames_per_slice(
-                AudioUnit p_audio_unit,
+                AudioUnit _Nonnull p_audio_unit,
                 AudioUnitScope p_scope,
                 AudioUnitElement p_element,
+                Lowl::Error &error
+        );
+
+        static void set_render_quality(
+                AudioUnit _Nonnull p_audio_unit,
+                AudioUnitScope p_scope,
+                AudioUnitElement p_element,
+                UInt32 p_render_quality,
+                Lowl::Error &error
+        );
+
+        static void add_property_listener(
+                AudioObjectID p_device_id,
+                AudioObjectPropertySelector p_property,
+                AudioObjectPropertyScope p_scope,
+                AudioObjectPropertyListenerProc _Nonnull p_proc,
+                void* _Nullable p_user_data,
                 Lowl::Error &error
         );
     };
