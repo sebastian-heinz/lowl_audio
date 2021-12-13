@@ -128,8 +128,7 @@ std::unique_ptr<Lowl::Audio::CoreAudioDevice> Lowl::Audio::CoreAudioDevice::cons
     }
     LOWL_LOG_DEBUG_F("Device:%u - output_stream_count: %d", p_device_id, output_stream_count);
     if (output_stream_count <= 0) {
-        // has no output
-        error.set_error(ErrorCode::Error);
+        error.set_error(ErrorCode::NoAudioOutput);
         return nullptr;
     }
 
@@ -216,14 +215,15 @@ void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_so
     desc.componentFlagsMask = 0;
     AudioComponent comp = AudioComponentFindNext(nullptr, &desc);
     if (!comp) {
-        error.set_error(ErrorCode::Error);
+        error.set_error(ErrorCode::CoreAudioNoSuitableComponentFound);
         return;
     }
 
     OSStatus result = noErr;
     result = AudioComponentInstanceNew(comp, &audio_unit);
     if (result != noErr) {
-        error.set_error(ErrorCode::Error);
+        LOWL_LOG_ERROR_F("failed to create AudioComponent (device:%u, OSStatus:%u)", device_id, result);
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return;
     }
 
@@ -236,6 +236,7 @@ void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_so
             error
     );
     if (error.has_error()) {
+        LOWL_LOG_ERROR_F("failed to add property listener (device:%u)", device_id);
         return;
     }
 
@@ -246,17 +247,20 @@ void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_so
             this
     );
     if (result != noErr) {
-        error.set_error(ErrorCode::Error);
+        LOWL_LOG_ERROR_F("failed to add isRunning listener (device:%u, OSStatus:%u)", device_id, result);
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return;
     }
 
     SampleCount frames_per_buffer = set_frames_per_buffer(64, error);
     if (error.has_error()) {
+        LOWL_LOG_ERROR_F("failed to set_frames_per_buffer (device:%u)", device_id);
         return;
     }
 
     SampleRate sample_rate = set_sample_rate(audio_source->get_sample_rate(), error);
     if (error.has_error()) {
+        LOWL_LOG_ERROR_F("failed to set_sample_rate (device:%u)", device_id);
         return;
     }
 
@@ -268,6 +272,7 @@ void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_so
             error
     );
     if (error.has_error()) {
+        LOWL_LOG_ERROR_F("failed to set_render_quality (device:%u)", device_id);
         return;
     }
 
@@ -289,7 +294,8 @@ void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_so
             sizeof(AudioStreamBasicDescription)
     );
     if (result != noErr) {
-        error.set_error(ErrorCode::Error);
+        LOWL_LOG_ERROR_F("failed to set AudioStreamBasicDescription (device:%u, OSStatus:%u)", device_id, result);
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return;
     }
 
@@ -301,6 +307,7 @@ void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_so
             error
     );
     if (error.has_error()) {
+        LOWL_LOG_ERROR_F("failed to set_maximum_frames_per_slice (device:%u)", device_id);
         return;
     }
 
@@ -311,6 +318,7 @@ void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_so
             error
     );
     if (error.has_error()) {
+        LOWL_LOG_ERROR_F("failed to get_maximum_frames_per_slice (device:%u)", device_id);
         return;
     }
 
@@ -326,19 +334,22 @@ void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_so
             sizeof(render_callback)
     );
     if (result != noErr) {
-        error.set_error(ErrorCode::Error);
+        LOWL_LOG_ERROR_F("failed to set render callback (device:%u, OSStatus:%u)", device_id, result);
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return;
     }
 
     result = AudioUnitInitialize(audio_unit);
     if (result != noErr) {
-        error.set_error(ErrorCode::Error);
+        LOWL_LOG_ERROR_F("failed at AudioUnitInitialize (device:%u, OSStatus:%u)", device_id, result);
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return;
     }
 
     result = AudioOutputUnitStart(audio_unit);
     if (result != noErr) {
-        error.set_error(ErrorCode::Error);
+        LOWL_LOG_ERROR_F("failed at AudioOutputUnitStart (device:%u, OSStatus:%u)", device_id, result);
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return;
     }
 }

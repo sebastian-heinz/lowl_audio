@@ -2,8 +2,6 @@
 
 #include "lowl_audio_core_audio_utilities.h"
 
-#include "lowl_logger.h"
-
 #include <algorithm>
 
 std::string Lowl::Audio::CoreAudioUtilities::get_device_name(AudioObjectID p_device_id, Lowl::Error &error) {
@@ -23,7 +21,8 @@ std::string Lowl::Audio::CoreAudioUtilities::get_device_name(AudioObjectID p_dev
             &name_cf_ref
     );
     if (result != kAudioHardwareNoError) {
-        // err
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return nullptr;
     }
 
     long device_name_str_size = CFStringGetMaximumSizeForEncoding(
@@ -59,13 +58,14 @@ uint32_t Lowl::Audio::CoreAudioUtilities::get_num_stream(
             kAudioObjectPropertyElementMaster
     };
     uint32_t stream_data_size = 0;
-    OSStatus status = AudioObjectGetPropertyDataSize(p_device_id,
+    OSStatus result = AudioObjectGetPropertyDataSize(p_device_id,
                                                      &stream_property,
                                                      0,
                                                      nullptr,
                                                      &stream_data_size);
-    if (status != kAudioHardwareNoError) {
-        // err
+    if (result != kAudioHardwareNoError) {
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return 0;
     }
     uint32_t stream_count = stream_data_size / sizeof(AudioStreamID);
     return stream_count;
@@ -89,9 +89,9 @@ Lowl::SampleRate Lowl::Audio::CoreAudioUtilities::get_device_default_sample_rate
             &default_sample_rate
     );
     if (result != kAudioHardwareNoError) {
-        LOWL_LOG_WARN("!exclusive_mode_applied");
-        default_sample_rate = 0.0;
-        // err
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return 0.0;
+
     }
     return static_cast<Lowl::SampleRate>(default_sample_rate);
 }
@@ -110,18 +110,19 @@ uint32_t Lowl::Audio::CoreAudioUtilities::get_num_channel(
             kAudioObjectPropertyElementMaster
     };
     uint32_t stream_config_data_size = 0;
-    OSStatus status = AudioObjectGetPropertyDataSize(p_device_id,
+    OSStatus result = AudioObjectGetPropertyDataSize(p_device_id,
                                                      &stream_config_property,
                                                      0,
                                                      nullptr,
                                                      &stream_config_data_size);
-    if (status != kAudioHardwareNoError) {
-        // err
+    if (result != kAudioHardwareNoError) {
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return 0;
     }
 
     AudioBufferList *audio_buffers = new AudioBufferList[stream_config_data_size];
 
-    OSStatus result = AudioObjectGetPropertyData(
+    result = AudioObjectGetPropertyData(
             p_device_id,
             &stream_config_property,
             0,
@@ -130,7 +131,9 @@ uint32_t Lowl::Audio::CoreAudioUtilities::get_num_channel(
             audio_buffers
     );
     if (result != kAudioHardwareNoError) {
-        // err
+        // TODO memory leak ?audio_buffers?
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return 0;
     }
 
     UInt32 num_channel = 0;
@@ -158,8 +161,10 @@ std::vector<AudioObjectID> Lowl::Audio::CoreAudioUtilities::get_device_ids(Lowl:
                                             &device_property_size
     );
     if (result != kAudioHardwareNoError) {
-        // err
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return std::vector<AudioObjectID>();
     }
+
     uint32_t audio_object_size = sizeof(AudioObjectID);
     uint32_t device_count = device_property_size / audio_object_size;
     std::vector<AudioObjectID> device_ids = std::vector<AudioObjectID>(device_count);
@@ -171,7 +176,8 @@ std::vector<AudioObjectID> Lowl::Audio::CoreAudioUtilities::get_device_ids(Lowl:
                                         device_ids.data()
     );
     if (result != kAudioHardwareNoError) {
-        // err
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return std::vector<AudioObjectID>();
     }
 
     return device_ids;
@@ -195,7 +201,8 @@ AudioObjectID Lowl::Audio::CoreAudioUtilities::get_default_device_id(Lowl::Error
                                                  &default_out_device_id
     );
     if (result != kAudioHardwareNoError) {
-        // err
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return 0;
     }
     return default_out_device_id;
 }
@@ -218,7 +225,8 @@ Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::get_device_latency(
             &device_latency
     );
     if (result != kAudioHardwareNoError) {
-        // err
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return 0;
     }
     return device_latency;
 }
@@ -241,7 +249,8 @@ Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::get_safety_offset(
             &safety_offset
     );
     if (result != kAudioHardwareNoError) {
-        // err
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return 0;
     }
     return safety_offset;
 }
@@ -264,7 +273,8 @@ Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::get_stream_latency(
             &stream_latency
     );
     if (result != kAudioHardwareNoError) {
-        // err
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return 0;
     }
     return stream_latency;
 }
@@ -311,7 +321,8 @@ Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::get_buffer_frame_size(
             &buffer_frame_size
     );
     if (result != kAudioHardwareNoError) {
-        // err
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return 0;
     }
     return buffer_frame_size;
 }
@@ -329,15 +340,16 @@ std::vector<AudioObjectID> Lowl::Audio::CoreAudioUtilities::get_stream_ids(
             kAudioObjectPropertyElementMaster
     };
     std::vector<AudioObjectID> streams = std::vector<AudioObjectID>(stream_count);
-    OSStatus status = AudioObjectGetPropertyData(p_device_id,
+    OSStatus result = AudioObjectGetPropertyData(p_device_id,
                                                  &property,
                                                  0,
                                                  nullptr,
                                                  &property_size,
                                                  streams.data()
     );
-    if (status != kAudioHardwareNoError) {
-        // err
+    if (result != kAudioHardwareNoError) {
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return std::vector<AudioObjectID>();
     }
     return streams;
 }
@@ -360,7 +372,8 @@ AudioValueRange Lowl::Audio::CoreAudioUtilities::get_buffer_frame_size_range(
             &audio_range
     );
     if (result != kAudioHardwareNoError) {
-        // err
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return AudioValueRange{};
     }
     return audio_range;
 }
@@ -383,7 +396,7 @@ void Lowl::Audio::CoreAudioUtilities::set_buffer_frame_size(
             &p_frames_per_buffer
     );
     if (result != kAudioHardwareNoError) {
-        error.set_error(ErrorCode::Error);
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return;
     }
 }
@@ -400,7 +413,7 @@ void Lowl::Audio::CoreAudioUtilities::set_maximum_frames_per_slice(
             sizeof(p_maximum_frames_per_slice)
     );
     if (result != noErr) {
-        error.set_error(ErrorCode::Error);
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return;
     }
 }
@@ -418,7 +431,7 @@ Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::get_maximum_frames_per_slice(
             &max_frames_per_buffer_size
     );
     if (result != noErr) {
-        error.set_error(ErrorCode::Error);
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return 0;
     }
     return max_frames_per_buffer;
@@ -439,7 +452,7 @@ void Lowl::Audio::CoreAudioUtilities::add_property_listener(
     if (result == kAudioHardwareIllegalOperationError) {
         // already registered
     } else if (result != noErr) {
-        error.set_error(ErrorCode::Error);
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
     }
 }
 
@@ -455,7 +468,7 @@ void Lowl::Audio::CoreAudioUtilities::set_render_quality(AudioUnit p_audio_unit,
             sizeof(p_render_quality)
     );
     if (result != noErr) {
-        error.set_error(ErrorCode::Error);
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return;
     }
 }

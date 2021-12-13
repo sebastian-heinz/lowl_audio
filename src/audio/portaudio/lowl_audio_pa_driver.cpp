@@ -10,7 +10,7 @@ void Lowl::Audio::AudioDriverPa::create_devices(Error &error) {
 
     PaDeviceIndex default_device_index = get_default_output_device_index();
     if (default_device_index == paNoDevice) {
-        LOWL_LOG_WARN("Lowl::PaDriver::create_devices: default_device_index == paNoDevice");
+        LOWL_LOG_WARN("default_device_index == paNoDevice");
     }
 
     PaHostApiIndex api_count = Pa_GetHostApiCount();
@@ -32,11 +32,11 @@ void Lowl::Audio::AudioDriverPa::create_devices(Error &error) {
 
             if (device_index == default_device_index) {
                 if (default_device) {
-                    LOWL_LOG_WARN("Lowl::PaDriver::create_devices: default_device already assigned");
+                    LOWL_LOG_WARN("default_device already assigned");
                     continue;
                 }
                 default_device = device;
-                LOWL_LOG_DEBUG("Lowl::PaDriver::create_devices: default_device assigned: " + device_name);
+                LOWL_LOG_DEBUG("default_device assigned: " + device_name);
             }
         }
     }
@@ -117,7 +117,7 @@ PaHostApiIndex Lowl::Audio::AudioDriverPa::get_default_host_api_index() {
                     break;
             }
             if (default_driver == current_driver) {
-                LOWL_LOG_DEBUG("Lowl::PaDriver::get_default_host_api_index: default host device: " + current_driver);
+                LOWL_LOG_DEBUG("default host device: " + current_driver);
                 return api_index;
             }
         }
@@ -129,16 +129,16 @@ PaHostApiIndex Lowl::Audio::AudioDriverPa::get_default_host_api_index() {
 PaDeviceIndex Lowl::Audio::AudioDriverPa::get_default_output_device_index() {
     PaHostApiIndex default_host_api = get_default_host_api_index();
     if (default_host_api < 0) {
-        LOWL_LOG_WARN("Lowl::PaDriver::get_default_output_device_index: default_host_api < 0");
+        LOWL_LOG_WARN("default_host_api < 0");
         return paNoDevice;
     }
     const PaHostApiInfo *api_info = Pa_GetHostApiInfo(default_host_api);
     if (!api_info) {
-        LOWL_LOG_WARN("Lowl::PaDriver::get_default_output_device_index: !api_info");
+        LOWL_LOG_WARN("!api_info");
         return paNoDevice;
     }
     if (api_info->defaultOutputDevice == paNoDevice) {
-        LOWL_LOG_WARN("Lowl::PaDriver::get_default_output_device_index: api_info->defaultOutputDevice == paNoDevice");
+        LOWL_LOG_WARN("api_info->defaultOutputDevice == paNoDevice");
         return paNoDevice;
     }
     return api_info->defaultOutputDevice;

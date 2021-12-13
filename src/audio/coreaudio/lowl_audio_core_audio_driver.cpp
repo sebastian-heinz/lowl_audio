@@ -14,7 +14,14 @@ void Lowl::Audio::CoreAudioDriver::create_devices(Error &error) {
     devices.clear();
 
     std::vector<AudioObjectID> device_ids = Lowl::Audio::CoreAudioUtilities::get_device_ids(error);
+    if (error.has_error()) {
+        return;
+    }
+
     AudioObjectID default_out_device_id = Lowl::Audio::CoreAudioUtilities::get_default_device_id(error);
+    if (error.has_error()) {
+        return;
+    }
 
     for (AudioObjectID device_id : device_ids) {
         std::shared_ptr<Lowl::Audio::CoreAudioDevice> device = Lowl::Audio::CoreAudioDevice::construct(
@@ -23,7 +30,7 @@ void Lowl::Audio::CoreAudioDriver::create_devices(Error &error) {
                 error
         );
         if (error.has_error()) {
-            LOWL_LOG_L_ERROR_F(error, "Device:%u - error", device_id);
+            LOWL_LOG_L_ERROR_F(error, "Device:%u", device_id);
             error.clear();
             continue;
         }
