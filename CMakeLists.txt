@@ -12,7 +12,13 @@ message([LOWL] BuildType: ${CMAKE_BUILD_TYPE})
 message([LOWL] CMAKE_CXX_COMPILER_ID: ${CMAKE_CXX_COMPILER_ID})
 message([LOWL] CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME})
 
+# config - start
+set(LOWL_DEBUG TRUE)
+set(LOWL_DRIVER_DUMMY TRUE)
+set(LOWL_DRIVER_CORE_AUDIO TRUE)
+set(LOWL_DRIVER_PORTAUDIO TRUE)
 set(LOWL_PA_DEFAULT_DRIVER_PRIORITY "ALSA,OSS,JACK,COREAUDIO,WASAPI,WDMKS,DSOUND,WMME,ASIO,ASIHPI")
+# config - end
 
 set(LOWL_SOURCES
         src/lowl.cpp
@@ -53,9 +59,14 @@ add_library(${LOWL_LIB_MAIN} ${LOWL_SOURCES})
 set_target_properties(${LOWL_LIB_MAIN} PROPERTIES PREFIX "")
 target_include_directories(${LOWL_LIB_MAIN} PUBLIC src/)
 
+IF (LOWL_DRIVER_DUMMY)
 target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_DUMMY)
-target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_PORTAUDIO)
-target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE "LOWL_PA_DEFAULT_DRIVER_PRIORITY=\"${LOWL_PA_DEFAULT_DRIVER_PRIORITY}\"")
+ENDIF ()
+
+IF (LOWL_DRIVER_PORTAUDIO)
+    target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_PORTAUDIO)
+    target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE "LOWL_PA_DEFAULT_DRIVER_PRIORITY=\"${LOWL_PA_DEFAULT_DRIVER_PRIORITY}\"")
+ENDIF ()
 
 if (WIN32)
     message([LOWL] WIN32)
@@ -77,11 +88,16 @@ if (MINGW)
     message([LOWL] MINGW)
 endif ()
 IF (CMAKE_BUILD_TYPE MATCHES Debug)
-    message([LOWL] Debug)
     set(LOWL_DEBUG TRUE)
-    target_compile_definitions(${LOWL_LIB_MAIN} PUBLIC LOWL_DEBUG)
-ENDIF()
+ENDIF ()
 
+
+IF (LOWL_DEBUG)
+    message([LOWL] Debug)
+    target_compile_definitions(${LOWL_LIB_MAIN} PUBLIC LOWL_DEBUG)
+ELSE ()
+    message([LOWL] Release)
+ENDIF ()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message([LOWL] Clang)
@@ -91,7 +107,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
                 -O0
                 -Werror
                 )
-    ELSE()
+    ELSE ()
         message([LOWL] Setting Release Flags)
         target_compile_options(${LOWL_LIB_MAIN} PRIVATE
                 -O2
