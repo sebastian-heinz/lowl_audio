@@ -5,7 +5,7 @@ std::string Lowl::File::get_path() {
     return path;
 }
 
-void Lowl::File::open(const std::string &p_path, Lowl::Error &error) {
+void Lowl::File::open(const std::string &p_path, Error &error) {
     close();
     file_stream = std::make_unique<std::ifstream>(p_path.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
     if (!file_stream->is_open() || !file_stream->good()) {

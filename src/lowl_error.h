@@ -1,56 +1,46 @@
-#ifndef LOWL_ERROR
-#define LOWL_ERROR
+#ifndef LOWL_ERROR_H
+#define LOWL_ERROR_H
 
 #include <string>
 
 namespace Lowl {
 
+
     enum class ErrorCode {
         NoError = 0,
         Error = -1,
 
-        WavReaderUnsupportedAudioFormat = -100,
+        InvalidParameter = -10,
+        AlreadyInitialized = -11,
+        InvalidOperationWhileActive = -12,
 
-        AudioStreamAlreadyInitialized = -200,
+        // Lowl Audio
+        NoAudioOutput = -100,
+        UnsupportedAudioFormat = -101,
 
-        Pa_GetDeviceInfo = -11000,
-        PaUnknownSampleFormat = -19999,
+        // Vendor Error
+        PortAudioVendorError = -1000,
+        PortAudioNoDeviceInfo = -1001,
+        PortAudioNoHostApiInfo = -1002,
+        PortAudioUnknownSampleFormat = -1004,
 
-        paNotInitialized = -10000,
-        paUnanticipatedHostError = -9999,
-        paInvalidChannelCount,
-        paInvalidSampleRate,
-        paInvalidDevice,
-        paInvalidFlag,
-        paSampleFormatNotSupported,
-        paBadIODeviceCombination,
-        paInsufficientMemory,
-        paBufferTooBig,
-        paBufferTooSmall,
-        paNullCallback,
-        paBadStreamPtr,
-        paTimedOut,
-        paInternalError,
-        paDeviceUnavailable,
-        paIncompatibleHostApiSpecificStreamInfo,
-        paStreamIsStopped,
-        paStreamIsNotStopped,
-        paInputOverflowed,
-        paOutputUnderflowed,
-        paHostApiNotFound,
-        paInvalidHostApi,
-        paCanNotReadFromACallbackStream,
-        paCanNotWriteToACallbackStream,
-        paCanNotReadFromAnOutputOnlyStream,
-        paCanNotWriteToAnInputOnlyStream,
-        paIncompatibleStreamHostApi,
-        paBadBufferPtr,
+        CoreAudioVendorError = -2000,
+        CoreAudioNoSuitableComponentFound = -2001,
     };
 
     class Error {
 
+    public:
+        enum class VendorError {
+            PortAudioVendorError = static_cast<int>(ErrorCode::PortAudioVendorError),
+            CoreAudioVendorError = static_cast<int>(ErrorCode::CoreAudioVendorError),
+        };
+
     private:
+        static constexpr long NoVendorError = 0;
+
         ErrorCode error;
+        long vendor_error_code;
 
     public:
         static int to_error_code(ErrorCode p_error);
@@ -59,19 +49,24 @@ namespace Lowl {
 
         void set_error(ErrorCode p_error);
 
+        void set_vendor_error(long p_vendor_error_code, VendorError p_vendor_error);
+
+        long get_vendor_error() const;
+
         void clear();
 
-        ErrorCode get_error();
+        ErrorCode get_error() const;
 
-        int get_error_code();
+        int get_error_code() const;
 
-        std::string get_error_text();
+        std::string get_error_text() const;
 
         bool has_error();
+
+        bool has_vendor_error();
 
         Error();
     };
 }
-
 
 #endif

@@ -26,6 +26,7 @@ namespace Lowl {
     typedef uint16_l SpaceId;
     typedef double_l TimeSeconds;
     typedef double_l Sample;
+    typedef uint32_l SampleCount;
 
     typedef double_l SampleRate;
     static constexpr SampleRate NO_SAMPLE_RATE = 0;

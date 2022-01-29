@@ -13,14 +13,14 @@ TEST_CASE("Driver") {
             "Driver initialized"
     );
 
-    std::vector<std::shared_ptr<Lowl::AudioDriver>> drivers = Lowl::Lib::get_drivers(error);
+    std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>> drivers = Lowl::Lib::get_drivers(error);
     REQUIRE_FALSE_MESSAGE(
             error.has_error(),
             "List of driver retrieved"
     );
 
-    std::vector<std::shared_ptr<Lowl::AudioDevice>> all_devices = std::vector<std::shared_ptr<Lowl::AudioDevice>>();
-    for (std::shared_ptr<Lowl::AudioDriver> driver : drivers) {
+    std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>> all_devices = std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>>();
+    for (std::shared_ptr<Lowl::Audio::AudioDriver> driver : drivers) {
         driver->initialize(error);
         std::string message = "Driver Initialized: " + driver->get_name();
         REQUIRE_FALSE_MESSAGE(
