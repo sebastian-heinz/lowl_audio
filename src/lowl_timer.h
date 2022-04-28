@@ -47,13 +47,17 @@ namespace Lowl {
         }
 
         void stop() {
-            if (thread != nullptr) {
-                running.clear();
-                thread->join();
-                delete thread;
-                thread = nullptr;
-                thread_function = nullptr;
+            running.clear();
+            if (thread == nullptr) {
+                return;
             }
+            if (thread->get_id() == std::this_thread::get_id()) {
+                return;
+            }
+            thread->join();
+            delete thread;
+            thread = nullptr;
+            thread_function = nullptr;
         }
 
         Timer() {
