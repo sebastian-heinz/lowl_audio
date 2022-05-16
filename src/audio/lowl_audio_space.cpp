@@ -7,17 +7,25 @@
 #include "audio/convert/lowl_audio_re_sampler.h"
 #include "audio/convert/lowl_audio_channel_converter.h"
 
-#include <map>
-
-Lowl::Audio::AudioSpace::AudioSpace(SampleRate p_sample_rate, AudioChannel p_channel) : AudioSource(p_sample_rate, p_channel) {
-    current_id = 1;
-    audio_data_lookup = std::vector<std::shared_ptr<AudioData>>();
-    audio_data_lookup.push_back(std::shared_ptr<AudioData>());
+Lowl::Audio::AudioSpace::AudioSpace(SampleRate p_sample_rate, AudioChannel p_channel) : AudioSource(p_sample_rate,
+                                                                                                    p_channel) {
     mixer = std::make_unique<AudioMixer>(sample_rate, channel);
+    current_id = 0;
+    audio_data_lookup = std::vector<std::shared_ptr<AudioData>>();
+    insert_audio_data(std::shared_ptr<AudioData>());
 }
 
 Lowl::Audio::AudioSpace::~AudioSpace() {
-    int i = 1;
+}
+
+Lowl::SpaceId Lowl::Audio::AudioSpace::insert_audio_data(std::shared_ptr<AudioData> p_audio_data) {
+    Lowl::SpaceId id = current_id;
+    if (audio_data_lookup.size() < id + 1) {
+        audio_data_lookup.resize(id + LookupGrowth);
+    }
+    audio_data_lookup[id] = p_audio_data;
+    current_id++;
+    return id;
 }
 
 Lowl::SpaceId Lowl::Audio::AudioSpace::add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error) {
@@ -47,9 +55,8 @@ Lowl::SpaceId Lowl::Audio::AudioSpace::add_audio(std::unique_ptr<AudioData> p_au
         audio = std::move(converted);
     }
 
-    audio_data_lookup.push_back(audio);
-    SpaceId audio_data_id = current_id;
-    current_id++;
+    SpaceId audio_data_id = insert_audio_data(audio);
+
     return audio_data_id;
 }
 
@@ -59,6 +66,19 @@ Lowl::SpaceId Lowl::Audio::AudioSpace::add_audio(const std::string &p_path, Erro
         return InvalidSpaceId;
     }
     return add_audio(std::move(audio_data), error);
+}
+
+void Lowl::Audio::AudioSpace::clear_all_audio() {
+    stop_all_audio();
+    audio_data_lookup.clear();
+    current_id = 0;
+    insert_audio_data(std::shared_ptr<AudioData>());
+}
+
+void Lowl::Audio::AudioSpace::stop_all_audio() {
+    for (Lowl::SpaceId id = 1; id < current_id; id++) {
+        stop(id);
+    }
 }
 
 void Lowl::Audio::AudioSpace::play(SpaceId p_id, Volume p_volume, Panning p_panning) const {
@@ -179,4 +199,3 @@ Lowl::size_l Lowl::Audio::AudioSpace::get_frame_position() const {
 Lowl::size_l Lowl::Audio::AudioSpace::get_frame_count() const {
     return 0;
 }
-

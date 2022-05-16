@@ -31,9 +31,13 @@ namespace Lowl::Audio {
         static const SpaceId InvalidSpaceId = 0;
 
     private:
+        static const int LookupGrowth = 100;
+
         std::vector<std::shared_ptr<AudioData>> audio_data_lookup;
         std::unique_ptr<AudioMixer> mixer;
         SpaceId current_id;
+
+        Lowl::SpaceId insert_audio_data(std::shared_ptr<AudioData> p_audio_data);
 
     public:
         virtual size_l get_frames_remaining() const override;
@@ -53,6 +57,10 @@ namespace Lowl::Audio {
         SpaceId add_audio(const std::string &p_path, Error &error);
 
         SpaceId add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error);
+
+        void clear_all_audio();
+
+        void stop_all_audio();
 
         virtual size_l get_frames_remaining(SpaceId p_id) const;
 
