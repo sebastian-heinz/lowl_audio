@@ -238,6 +238,7 @@ void Lowl::Audio::AudioDevicePa::set_device_index(PaDeviceIndex p_device_index) 
 Lowl::Audio::AudioDevicePa::AudioDevicePa() {
     active = false;
     stream = nullptr;
+    device_index = paNoDevice;
 }
 
 Lowl::Audio::AudioDevicePa::~AudioDevicePa() {
