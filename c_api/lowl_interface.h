@@ -40,3 +40,4 @@ public:
 extern "C" DllExport LowlInterface *APIENTRY GetLowlInterface();
 
 #endif
+#endif

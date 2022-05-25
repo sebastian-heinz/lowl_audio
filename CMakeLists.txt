@@ -17,6 +17,7 @@ set(LOWL_DEBUG TRUE)
 set(LOWL_DRIVER_DUMMY TRUE)
 set(LOWL_DRIVER_CORE_AUDIO TRUE)
 set(LOWL_DRIVER_PORTAUDIO TRUE)
+set(LOWL_DRIVER_WASAPI TRUE)
 set(LOWL_PA_DEFAULT_DRIVER_PRIORITY "ALSA,OSS,JACK,COREAUDIO,WASAPI,WDMKS,DSOUND,WMME,ASIO,ASIHPI")
 # config - end
 
@@ -49,6 +50,10 @@ set(LOWL_SOURCES
         src/audio/portaudio/lowl_audio_pa_driver.cpp
         src/audio/portaudio/lowl_audio_pa_device.cpp
 
+        src/audio/wasapi/lowl_audio_wasapi_driver.cpp
+        src/audio/wasapi/lowl_audio_wasapi_device.cpp
+        src/audio/wasapi/lowl_audio_wasapi_com.cpp
+
         src/audio/reader/lowl_audio_reader.cpp
         src/audio/reader/lowl_audio_reader_flac.cpp
         src/audio/reader/lowl_audio_reader_mp3.cpp
@@ -60,20 +65,28 @@ set_target_properties(${LOWL_LIB_MAIN} PROPERTIES PREFIX "")
 target_include_directories(${LOWL_LIB_MAIN} PUBLIC src/)
 
 IF (LOWL_DRIVER_DUMMY)
-target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_DUMMY)
+    target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_DUMMY)
 ENDIF ()
+
+
 
 IF (LOWL_DRIVER_PORTAUDIO)
     target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_PORTAUDIO)
     target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE "LOWL_PA_DEFAULT_DRIVER_PRIORITY=\"${LOWL_PA_DEFAULT_DRIVER_PRIORITY}\"")
 ENDIF ()
 
+
 if (WIN32)
     message([LOWL] WIN32)
+    IF (LOWL_DRIVER_WASAPI)
+        target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_WASAPI)
+    ENDIF ()
 endif ()
 if (APPLE)
     message([LOWL] APPLE)
-    target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_CORE_AUDIO)
+    IF (LOWL_DRIVER_CORE_AUDIO)
+        target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_CORE_AUDIO)
+    ENDIF ()
 endif ()
 if (UNIX)
     message([LOWL] UNIX)
@@ -87,6 +100,7 @@ endif ()
 if (MINGW)
     message([LOWL] MINGW)
 endif ()
+
 IF (CMAKE_BUILD_TYPE MATCHES Debug)
     set(LOWL_DEBUG TRUE)
 ENDIF ()

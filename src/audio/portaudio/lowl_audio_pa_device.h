@@ -1,5 +1,5 @@
-#ifndef LOWL_AUDIO_DEVICE_PA_H
-#define LOWL_AUDIO_DEVICE_PA_H
+#ifndef LOWL_AUDIO_PA_DEVICE_H
+#define LOWL_AUDIO_PA_DEVICE_H
 
 #ifdef LOWL_DRIVER_PORTAUDIO
 
@@ -61,4 +61,4 @@ namespace Lowl::Audio {
 }
 
 #endif /* LOWL_DRIVER_PORTAUDIO */
-#endif /* LOWL_PA_DEVICE_H */
+#endif /* LOWL_AUDIO_PA_DEVICE_H */

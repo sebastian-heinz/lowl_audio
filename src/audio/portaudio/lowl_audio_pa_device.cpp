@@ -8,6 +8,7 @@
 
 #ifdef PA_USE_WASAPI
 #include <pa_win_wasapi.h>
+#include <core/os/memory.h>
 #endif
 
 static int audio_callback(const void *p_input_buffer, void *p_output_buffer,
@@ -314,8 +315,8 @@ void Lowl::Audio::AudioDevicePa::set_exclusive_mode(bool p_exclusive_mode, Lowl:
     }
 }
 
-void Lowl::Audio::AudioDevicePa::enable_exclusive_mode(PaStreamParameters &stream_parameters, Lowl::Error &error) {
-    if (stream_parameters.device != device_index) {
+void Lowl::Audio::AudioDevicePa::enable_exclusive_mode(PaStreamParameters &p_stream_parameter, Lowl::Error &error) {
+	if (p_stream_parameter.device != device_index) {
         // parameter mismatch this device
         error.set_error(ErrorCode::InvalidParameter);
         return;
@@ -333,18 +334,18 @@ void Lowl::Audio::AudioDevicePa::enable_exclusive_mode(PaStreamParameters &strea
         return;
     }
     bool exclusive_mode_applied = false;
-#ifdef PA_USE_WASAPI
-    if (pa_api_info->type == paWASAPI) {
-        PaWasapiStreamInfo *wasapiInfo = (PaWasapiStreamInfo *) memalloc(sizeof(PaWasapiStreamInfo));
-        wasapiInfo->size = sizeof(PaWasapiStreamInfo);
-        wasapiInfo->hostApiType = paWASAPI;
-        wasapiInfo->version = 1;
-        wasapiInfo->flags = (paWinWasapiExclusive | paWinWasapiThreadPriority);
-        wasapiInfo->threadPriority = eThreadPriorityProAudio;
-        p_stream_parameter->set_host_api_specific_stream_info(wasapiInfo);
-        exclusive_mode_applied = true;
-    }
-#endif
+	#ifdef PA_USE_WASAPI
+	if (pa_api_info->type == paWASAPI) {
+		 PaWasapiStreamInfo *wasapiInfo = (PaWasapiStreamInfo *)memalloc(sizeof(PaWasapiStreamInfo));
+		 wasapiInfo->size = sizeof(PaWasapiStreamInfo);
+		 wasapiInfo->hostApiType = paWASAPI;
+		 wasapiInfo->version = 1;
+		 wasapiInfo->flags = (paWinWasapiExclusive | paWinWasapiThreadPriority);
+		 wasapiInfo->threadPriority = eThreadPriorityProAudio;
+		 p_stream_parameter.hostApiSpecificStreamInfo = wasapiInfo;
+		 exclusive_mode_applied = true;
+	}
+	#endif
     if (!exclusive_mode_applied) {
         LOWL_LOG_WARN("!exclusive_mode_applied");
     }

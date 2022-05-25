@@ -10,8 +10,6 @@ Low Latency Audio - Audio Framework / Audio Engine
 3) `git submodule update --init --recursive`
 
 #### Flags
-- LOWL_WIN - build for windows
-- LOWL_UNIX - build for unix
 - LOWL_DRIVER_DUMMY - enable dummy driver
 - LOWL_DRIVER_PORTAUDIO - enable port audio driver
 

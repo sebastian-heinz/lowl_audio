@@ -36,6 +36,10 @@ std::string Lowl::Error::get_error_text() const {
     return to_error_text(error);
 }
 
+bool Lowl::Error::ok() {
+    return error == ErrorCode::NoError;
+}
+
 bool Lowl::Error::has_error() {
     return error != ErrorCode::NoError;
 }

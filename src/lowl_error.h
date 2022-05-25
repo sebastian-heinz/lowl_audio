@@ -26,6 +26,8 @@ namespace Lowl {
 
         CoreAudioVendorError = -2000,
         CoreAudioNoSuitableComponentFound = -2001,
+
+        WasapiVendorError = -3000,
     };
 
     class Error {
@@ -34,6 +36,7 @@ namespace Lowl {
         enum class VendorError {
             PortAudioVendorError = static_cast<int>(ErrorCode::PortAudioVendorError),
             CoreAudioVendorError = static_cast<int>(ErrorCode::CoreAudioVendorError),
+            WasapiVendorError = static_cast<int>(ErrorCode::WasapiVendorError),
         };
 
     private:
@@ -62,6 +65,8 @@ namespace Lowl {
         std::string get_error_text() const;
 
         bool has_error();
+
+        bool ok();
 
         bool has_vendor_error();
 

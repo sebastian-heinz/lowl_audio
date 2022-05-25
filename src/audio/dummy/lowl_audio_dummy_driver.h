@@ -1,5 +1,5 @@
-#ifndef LOWL_AUDIO_DRIVER_DUMMY_H
-#define LOWL_AUDIO_DRIVER_DUMMY_H
+#ifndef LOWL_AUDIO_DUMMY_DRIVER_H
+#define LOWL_AUDIO_DUMMY_DRIVER_H
 
 #ifdef LOWL_DRIVER_DUMMY
 
@@ -19,4 +19,4 @@ namespace Lowl::Audio {
 }
 
 #endif /* LOWL_DRIVER_DUMMY */
-#endif /* LOWL_DUMMY_DRIVER_H */
+#endif /* LOWL_AUDIO_DUMMY_DRIVER_H */
