@@ -23,7 +23,7 @@ namespace Lowl::Audio {
 
         virtual void stop(Error &error) = 0;
 
-        virtual bool is_supported(AudioChannel channel, SampleRate sample_rate, SampleFormat sample_format, Error &error) = 0;
+        virtual bool is_supported(AudioChannel p_channel, SampleRate p_sample_rate, SampleFormat p_sample_format, Error &error) = 0;
 
         virtual SampleRate get_default_sample_rate() = 0;
 

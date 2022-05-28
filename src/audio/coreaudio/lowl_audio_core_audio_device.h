@@ -57,9 +57,9 @@ namespace Lowl::Audio {
 
         void stop(Error &error) override;
 
-        bool is_supported(Lowl::Audio::AudioChannel channel,
-                          Lowl::SampleRate sample_rate,
-                          SampleFormat sample_format,
+        bool is_supported(Lowl::Audio::AudioChannel p_channel,
+                          Lowl::SampleRate p_sample_rate,
+                          SampleFormat p_sample_format,
                           Error &error
         ) override;
 

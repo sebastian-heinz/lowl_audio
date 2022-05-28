@@ -11,10 +11,9 @@ namespace Lowl::Audio {
 
     private:
         void create_devices(Error &error);
-        std::unique_ptr<AudioDevice> create_device(void* wasapi_device);
 
     public:
-		void initialize(Error &error) override;
+        void initialize(Error &error) override;
 
         WasapiDriver();
 

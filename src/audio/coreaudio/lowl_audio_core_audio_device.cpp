@@ -409,8 +409,8 @@ Lowl::SampleRate Lowl::Audio::CoreAudioDevice::set_sample_rate(SampleRate p_samp
     return 0;
 }
 
-bool Lowl::Audio::CoreAudioDevice::is_supported(AudioChannel channel, SampleRate sample_rate,
-                                                SampleFormat sample_format, Error &error) {
+bool Lowl::Audio::CoreAudioDevice::is_supported(AudioChannel p_channel, SampleRate p_sample_rate,
+                                                SampleFormat p_sample_format, Error &error) {
     return false;
 }
 

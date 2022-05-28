@@ -38,7 +38,7 @@ namespace Lowl::Audio {
 
         virtual void stop(Error &error) override;
 
-        virtual bool is_supported(Lowl::Audio::AudioChannel channel, Lowl::SampleRate sample_rate, Lowl::Audio::SampleFormat sample_format,
+        virtual bool is_supported(Lowl::Audio::AudioChannel p_channel, Lowl::SampleRate p_sample_rate, Lowl::Audio::SampleFormat p_sample_format,
                                   Error &error) override;
 
         virtual Lowl::SampleRate get_default_sample_rate() override;

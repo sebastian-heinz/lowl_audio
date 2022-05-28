@@ -9,7 +9,7 @@
 // https://github.com/mozilla/cubeb/issues/534
 
 
-std::unique_ptr<Lowl::Audio::WasapiCom> Lowl::Audio::WasapiCom::wasapi_com = std::unique_ptr<Lowl::Audio::WasapiCom>();
+std::unique_ptr<Lowl::Audio::WasapiCom> Lowl::Audio::WasapiCom::wasapi_com = std::make_unique<Lowl::Audio::WasapiCom>();
 
 void Lowl::Audio::WasapiCom::initialize(Lowl::Error &error) {
 

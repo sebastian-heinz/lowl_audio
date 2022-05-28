@@ -84,6 +84,9 @@ std::string Lowl::Error::to_error_text(ErrorCode p_error) {
             return "PortAudioNoHostApiInfo";
         case ErrorCode::PortAudioUnknownSampleFormat:
             return "PortAudioUnknownSampleFormat";
+
+        case ErrorCode::WasapiVendorError:
+            return "WasapiVendorError";
     }
     return "NOT DECLARED";
 }
