@@ -68,6 +68,7 @@ void space(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
 
     space->add_audio("/Users/railgun/Downloads/audio/CantinaBand60.wav", error);
     space->add_audio("/Users/railgun/Downloads/audio/StarWars60.wav", error);
+    space->add_audio("/Users/railgun/Downloads/audio/OverThePeriod.ogg", error);
     if (error.has_error()) {
         std::cout << "Err: space->add_audio\n";
         return;

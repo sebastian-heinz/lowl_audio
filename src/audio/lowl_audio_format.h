@@ -12,6 +12,7 @@ namespace Lowl::Audio {
         WAVE_FORMAT_DVI_ADPCM = 6,
         MP3 = 7,
         FLAC = 8,
+        OGG = 9,
     };
 }
 
