@@ -51,13 +51,9 @@ add_subdirectory(opusfile)
 target_link_libraries(${LOWL_THIRD_PARTY} PUBLIC opusfile)
 
 #vorbis
-#add_subdirectory(vorbis)
-#target_link_libraries(${LOWL_THIRD_PARTY} PUBLIC vorbis)
-
-add_subdirectory(vorbis/lib)
-target_link_libraries(${LOWL_THIRD_PARTY} PUBLIC vorbis/lib)
-
-
+add_subdirectory(vorbis)
+target_link_libraries(${LOWL_THIRD_PARTY} PUBLIC vorbis)
+target_link_libraries(${LOWL_THIRD_PARTY} PUBLIC vorbisfile)
 
 # r8brain-free-src
 set(LOWL_LIB_R8BRAIN lowl_r8brain_lib)

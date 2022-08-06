@@ -4,12 +4,67 @@
 
 #include <vorbis/vorbisfile.h>
 
+struct OggData {
+    uint8_t *data;
+    size_t length;
+    size_t index;
+};
+
+static size_t ogg_memory_read(void *buffer, size_t element_size, size_t element_count, void *source) {
+    assert(element_size == 1);
+    OggData *src = static_cast<OggData *>(source);
+    uint8_t *dst = static_cast<uint8_t *>(buffer);
+    size_t count = 0;
+    size_t read = src->length - src->index;
+    if (read > element_count) {
+        read = element_count;
+    }
+    for (; count < read; count++) {
+        dst[count] = src->data[src->index + count];
+    }
+    src->index += count;
+    return count;
+}
+
+static int ogg_memory_seek(void *source, ogg_int64_t offset, int origin) {
+    OggData *src = static_cast<OggData *>(source);
+    if (origin == SEEK_SET) {
+        /* set file offset to offset */
+        src->index = (size_t) offset;
+    } else if (origin == SEEK_CUR) {
+        /* set file offset to current plus offset */
+        src->index += (size_t) offset;
+    } else if (origin == SEEK_END) {
+        /* set file offset to EOF plus offset */
+        src->index += src->length + (size_t) offset;
+    }
+
+    return 0;
+}
+
+static long ogg_memory_tell(void *source) {
+    OggData *src = static_cast<OggData *>(source);
+    return (long) src->index;
+}
+
+
 std::unique_ptr<Lowl::Audio::AudioData>
 Lowl::Audio::AudioReaderOgg::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Error &error) {
 
     OggVorbis_File vf;
-
-    if (ov_open_callbacks(stdin, &vf, nullptr, 0, OV_CALLBACKS_NOCLOSE) < 0) {
+    const ov_callbacks callbacks{
+            &ogg_memory_read,
+            &ogg_memory_seek,
+            nullptr,
+            &ogg_memory_tell
+    };
+    OggData ogg_data{
+            p_buffer.get(),
+            p_size,
+            0
+    };
+    int ret = ov_open_callbacks(&ogg_data, &vf, nullptr, 0, callbacks);
+    if (ret < 0) {
         fprintf(stderr, "Input does not appear to be an Ogg bitstream.\n");
         exit(1);
     }
