@@ -43,6 +43,10 @@ option(OP_ENABLE_ASSERTIONS "Enable assertions in code" OFF)
 option(OP_DISABLE_EXAMPLES "Do not build example applications" OFF)
 option(OP_DISABLE_DOCS "Do not build API documentation" OFF)
 
+
+set(OPUS_PACKAGE_VERSION 1.3.1-156-gab04fbb1)
+set(OPUS_PROJECT_VERSION 1.3.1)
+
 set(OP_DISABLE_HTTP ON)
 set(OP_DISABLE_EXAMPLES ON)
 set(OP_DISABLE_DOCS ON)
