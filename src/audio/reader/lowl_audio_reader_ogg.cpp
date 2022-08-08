@@ -87,9 +87,8 @@ Lowl::Audio::AudioReaderOgg::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
     for (long readTotal = 0; readTotal < sample_count;) {
         float **pcm{};
         auto samples_read = ov_read_float(&vf, &pcm, (int) sample_count, &bitstream);
-
-        for (int c = 0; c < channel_count; c++) {
-            for (int s = 0; s < samples_read; s++) {
+        for (int s = 0; s < samples_read; s++) {
+            for (int c = 0; c < channel_count; c++) {
                 samples.push_back(pcm[c][s]);
             }
         }
