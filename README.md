@@ -296,7 +296,24 @@ created with [draw.io](https://draw.io/)
 - [doctest](https://github.com/onqtam/doctest)
   - License: [MIT](https://github.com/onqtam/doctest/blob/master/LICENSE.txt)
   - C++ testing framework
-  
+- [ogg](https://github.com/xiph/ogg)
+  - License: [MIT](https://github.com/onqtam/doctest/blob/master/LICENSE.txt)
+  - C++ testing framework
+- [ogg](https://github.com/xiph/ogg)
+  - License: [BSD-3-Clause license](https://github.com/xiph/ogg/blob/master/COPYING)
+  - Ogg project codecs use the Ogg bitstream format to arrange the raw, compressed bitstream into a more robust, useful form
+- [vorbis](https://github.com/xiph/vorbis)
+  - License: [BSD-3-Clause license](https://github.com/xiph/vorbis/blob/master/COPYING)
+  - General purpose audio and music encoding format
+- [opus](https://github.com/xiph/opus)
+  - License: [BSD-3-Clause license](https://github.com/xiph/opus/blob/master/COPYING)
+  - Opus is a codec for interactive speech and audio transmission over the Internet
+- [opusfile](https://github.com/xiph/opusfile)
+  - License: [BSD-3-Clause license](https://github.com/xiph/opusfile/blob/master/COPYING)
+  - The opusfile and opusurl libraries provide a high-level API for decoding and seeking within .opus files on disk or over http(s).
+
+
+
 ---
 
 ## License
