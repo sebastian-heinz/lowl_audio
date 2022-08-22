@@ -1,8 +1,8 @@
 LowL Audio
 ===
-Low Latency Audio - Audio Framework / Audio Engine
+**Low**L**atency **A**udio - Audio Framework / Audio Engine
 
-![example workflow](https://github.com/sebastian-heinz/lowl_audio/actions/workflows/main.yaml/badge.svg?branch=master)
+![workflow](https://github.com/sebastian-heinz/lowl_audio/actions/workflows/main.yaml/badge.svg?branch=master)
 
 ## Setup
 1) `git clone https://github.com/sebastian-heinz/lowl_audio.git`
@@ -18,12 +18,18 @@ Low Latency Audio - Audio Framework / Audio Engine
 - Windows
 - macOS
 
+## Audio Formats
+- .wav
+- .mp3
+- .ogg
+- .flac
+- .opus
+
 ## Features
-- .wav / .mp3 / .flac parsing to AudioFrames
-- audio playback
-- sample rate conversion
-- mixer that combines multiple input sources
-- sample bit depth converter
+- Audio Playback
+- Audio Mixer
+- SampleRate converter
+- Sample BitDepth converter
 
 ---
 
@@ -337,13 +343,3 @@ a list of related information to audio programming
 - [Audio recording bitdepth](https://lists.apple.com/archives/coreaudio-api/2009/Dec/msg00046.html)
 - [CppCon 2015: Timur Doumler “C++ in the Audio Industry”](https://www.youtube.com/watch?v=boPEO2auJj4)
 ---
-
-## TODO
-- .ogg format
-- c-api wrapper / - LOWL_LIBRARY - build as library flag
-- potentially isolate 3rd party in wrapper.
-  - ex. LowlQueue -> wraps queue, etc. and provide a way to provide different implementation
-  - similar to driver / audio reader abstraction
-- speed up code, but prefer simplicity
-- feedback on API surface / user friendly / self explaining
-- finding / fixing bugs - make it more robust
