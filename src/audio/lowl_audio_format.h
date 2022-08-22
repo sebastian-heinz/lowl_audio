@@ -13,6 +13,7 @@ namespace Lowl::Audio {
         MP3 = 7,
         FLAC = 8,
         OGG = 9,
+        OPUS = 10,
     };
 }
 

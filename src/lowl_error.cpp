@@ -71,11 +71,6 @@ std::string Lowl::Error::to_error_text(ErrorCode p_error) {
         case ErrorCode::UnsupportedAudioFormat:
             return "UnsupportedAudioFormat";
 
-        case ErrorCode::CoreAudioVendorError:
-            return "CoreAudioVendorError";
-        case ErrorCode::CoreAudioNoSuitableComponentFound:
-            return "CoreAudioNoSuitableComponentFound";
-
         case ErrorCode::PortAudioVendorError:
             return "PortAudioVendorError";
         case ErrorCode::PortAudioNoDeviceInfo:
@@ -85,8 +80,26 @@ std::string Lowl::Error::to_error_text(ErrorCode p_error) {
         case ErrorCode::PortAudioUnknownSampleFormat:
             return "PortAudioUnknownSampleFormat";
 
+        case ErrorCode::CoreAudioVendorError:
+            return "CoreAudioVendorError";
+        case ErrorCode::CoreAudioNoSuitableComponentFound:
+            return "CoreAudioNoSuitableComponentFound";
+
         case ErrorCode::WasapiVendorError:
             return "WasapiVendorError";
+
+        case ErrorCode::VorbisFileVendorError:
+            return "VorbisFileVendorError";
+        case ErrorCode::VorbisFileInvalidOggFile:
+            return "VorbisFileInvalidOggFile";
+        case ErrorCode::VorbisFileCanNotParseOggFile:
+            return "VorbisFileCanNotParseOggFile";
+
+        case ErrorCode::OpusFileVendorError:
+            return "OpusFileVendorError";
+        case ErrorCode::OpusFileCanNotParseOpusFile:
+            return "OpusFileCanNotParseOpusFile";
+
     }
     return "NOT DECLARED";
 }

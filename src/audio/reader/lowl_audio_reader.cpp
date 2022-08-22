@@ -193,6 +193,8 @@ Lowl::FileFormat Lowl::Audio::AudioReader::detect_format(const std::string &p_pa
             return Lowl::FileFormat::FLAC;
         } else if (extension == "ogg") {
             return Lowl::FileFormat::OGG;
+        } else if (extension == "opus") {
+            return Lowl::FileFormat::OPUS;
         }
     }
     error.set_error(Lowl::ErrorCode::Error);

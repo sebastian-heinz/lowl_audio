@@ -39,8 +39,9 @@ void mix(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
         return;
     }
 
-    std::shared_ptr<Lowl::Audio::AudioMixer> mixer = std::make_unique<Lowl::Audio::AudioMixer>(data_1->get_sample_rate(),
-                                                                                 data_1->get_channel());
+    std::shared_ptr<Lowl::Audio::AudioMixer> mixer = std::make_unique<Lowl::Audio::AudioMixer>(
+            data_1->get_sample_rate(),
+            data_1->get_channel());
 
     mixer->mix(data_1);
     mixer->mix(data_2);
@@ -63,12 +64,14 @@ void mix(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
  * example on how to use space
  */
 void space(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
-    std::shared_ptr<Lowl::Audio::AudioSpace> space = std::make_shared<Lowl::Audio::AudioSpace>(44100.0, Lowl::Audio::AudioChannel::Stereo);
+    std::shared_ptr<Lowl::Audio::AudioSpace> space = std::make_shared<Lowl::Audio::AudioSpace>(44100.0,
+                                                                                               Lowl::Audio::AudioChannel::Stereo);
     Lowl::Error error;
 
-    space->add_audio("/Users/railgun/Downloads/audio/CantinaBand60.wav", error);
-    space->add_audio("/Users/railgun/Downloads/audio/StarWars60.wav", error);
-    space->add_audio("/Users/railgun/Downloads/audio/OverThePeriod.ogg", error);
+    Lowl::SpaceId opus = space->add_audio("/Users/railgun/Downloads/sample1.opus", error);
+    Lowl::SpaceId wav = space->add_audio("/Users/railgun/Downloads/audio/CantinaBand60.wav", error);
+    Lowl::SpaceId wav2 = space->add_audio("/Users/railgun/Downloads/audio/StarWars60.wav", error);
+    Lowl::SpaceId ogg = space->add_audio("/Users/railgun/Downloads/audio/OverThePeriod.ogg", error);
     if (error.has_error()) {
         std::cout << "Err: space->add_audio\n";
         return;
@@ -80,6 +83,7 @@ void space(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
         return;
     }
 
+    std::vector<bool> status;
     while (true) {
 
         Lowl::SpaceId selected_id = Lowl::Audio::AudioSpace::InvalidSpaceId;
@@ -95,10 +99,17 @@ void space(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
         if (selected_id <= Lowl::Audio::AudioSpace::InvalidSpaceId) {
             std::cout << "Stop Selecting SpaceId\n";
             break;
-        } else if (selected_id == 3) {
-            space->stop(1);
         } else {
-            space->play(selected_id);
+            if (status.size() <= selected_id) {
+                status.resize(selected_id + 1);
+            }
+            bool playing = status[selected_id];
+            if (!playing) {
+                space->play(selected_id);
+            } else {
+                space->stop(selected_id);
+            }
+            status[selected_id] = !playing;
         }
 
         std::cout << "frames remaining: \n" + std::to_string(space->get_frames_remaining()) + "\n";

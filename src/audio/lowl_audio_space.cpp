@@ -10,9 +10,8 @@
 Lowl::Audio::AudioSpace::AudioSpace(SampleRate p_sample_rate, AudioChannel p_channel) : AudioSource(p_sample_rate,
                                                                                                     p_channel) {
     mixer = std::make_unique<AudioMixer>(sample_rate, channel);
-    current_id = 1;
+    current_id = FirstSpaceId;
     audio_data_lookup = std::vector<std::shared_ptr<AudioData>>();
-    insert_audio_data(std::shared_ptr<AudioData>());
 }
 
 Lowl::Audio::AudioSpace::~AudioSpace() {
@@ -71,12 +70,12 @@ Lowl::SpaceId Lowl::Audio::AudioSpace::add_audio(const std::string &p_path, Erro
 void Lowl::Audio::AudioSpace::clear_all_audio() {
     stop_all_audio();
     audio_data_lookup.clear();
-    current_id = 1;
+    current_id = FirstSpaceId;
     insert_audio_data(std::shared_ptr<AudioData>());
 }
 
 void Lowl::Audio::AudioSpace::stop_all_audio() {
-    for (Lowl::SpaceId id = 1; id < current_id; id++) {
+    for (Lowl::SpaceId id = FirstSpaceId; id < current_id; id++) {
         stop(id);
     }
 }

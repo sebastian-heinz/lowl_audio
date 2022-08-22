@@ -35,6 +35,10 @@ namespace Lowl::Audio {
                 return 0;
         }
     }
+
+    inline size_t samples_to_bytes(size_t samples, SampleFormat sample_format) {
+        return samples * get_sample_size(sample_format);
+    }
 }
 
 #endif

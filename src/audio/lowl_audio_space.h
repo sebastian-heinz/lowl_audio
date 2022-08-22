@@ -31,6 +31,7 @@ namespace Lowl::Audio {
         static const SpaceId InvalidSpaceId = 0;
 
     private:
+        static const SpaceId FirstSpaceId = 1;
         static const int LookupGrowth = 100;
 
         std::vector<std::shared_ptr<AudioData>> audio_data_lookup;

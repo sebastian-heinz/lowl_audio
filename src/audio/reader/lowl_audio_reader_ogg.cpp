@@ -65,8 +65,9 @@ Lowl::Audio::AudioReaderOgg::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
     };
     int ret = ov_open_callbacks(&ogg_data, &vf, nullptr, 0, callbacks);
     if (ret < 0) {
-        fprintf(stderr, "Input does not appear to be an Ogg bitstream.\n");
-        exit(1);
+        ov_clear(&vf);
+        error.set_error(ErrorCode::VorbisFileInvalidOggFile);
+        return nullptr;
     }
 
     vorbis_info *vi = ov_info(&vf, -1);
@@ -83,10 +84,14 @@ Lowl::Audio::AudioReaderOgg::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
 
     int bitstream = 0;
     std::vector<float> samples = std::vector<float>();
-
     for (long readTotal = 0; readTotal < sample_count;) {
         float **pcm{};
         auto samples_read = ov_read_float(&vf, &pcm, (int) sample_count, &bitstream);
+        if (samples_read < 0) {
+            ov_clear(&vf);
+            error.set_error(ErrorCode::VorbisFileCanNotParseOggFile);
+            return nullptr;
+        }
         for (int s = 0; s < samples_read; s++) {
             for (int c = 0; c < channel_count; c++) {
                 samples.push_back(pcm[c][s]);
@@ -94,10 +99,13 @@ Lowl::Audio::AudioReaderOgg::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
         }
         readTotal += samples_read;
     }
-
     ov_clear(&vf);
 
     std::vector<AudioFrame> audio_frames = read_frames(channel, samples, error);
+    if (error.has_error()) {
+        return nullptr;
+    }
+
     std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(audio_frames, sample_rate, channel);
     return audio_data;
 }
