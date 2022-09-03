@@ -10,9 +10,8 @@
 Lowl::Audio::AudioSpace::AudioSpace(SampleRate p_sample_rate, AudioChannel p_channel) : AudioSource(p_sample_rate,
                                                                                                     p_channel) {
     mixer = std::make_unique<AudioMixer>(sample_rate, channel);
-    current_id = 1;
+    current_id = FirstSpaceId;
     audio_data_lookup = std::vector<std::shared_ptr<AudioData>>();
-    insert_audio_data(std::shared_ptr<AudioData>());
 }
 
 Lowl::Audio::AudioSpace::~AudioSpace() {
@@ -71,12 +70,12 @@ Lowl::SpaceId Lowl::Audio::AudioSpace::add_audio(const std::string &p_path, Erro
 void Lowl::Audio::AudioSpace::clear_all_audio() {
     stop_all_audio();
     audio_data_lookup.clear();
-    current_id = 1;
+    current_id = FirstSpaceId;
     insert_audio_data(std::shared_ptr<AudioData>());
 }
 
 void Lowl::Audio::AudioSpace::stop_all_audio() {
-    for (Lowl::SpaceId id = 1; id < current_id; id++) {
+    for (Lowl::SpaceId id = FirstSpaceId; id < current_id; id++) {
         stop(id);
     }
 }
@@ -198,4 +197,16 @@ Lowl::size_l Lowl::Audio::AudioSpace::get_frame_position() const {
 
 Lowl::size_l Lowl::Audio::AudioSpace::get_frame_count() const {
     return 0;
+}
+
+std::map<Lowl::SpaceId, std::string> Lowl::Audio::AudioSpace::get_name_mapping() const {
+    std::map<SpaceId, std::string> map = std::map<SpaceId, std::string>();
+    for (SpaceId space_id = 0; space_id < audio_data_lookup.size(); space_id++) {
+        std::shared_ptr<AudioData> audio_data = audio_data_lookup[space_id];
+        if (!audio_data) {
+            continue;
+        }
+        map.insert_or_assign(space_id, audio_data->get_name());
+    }
+    return map;
 }

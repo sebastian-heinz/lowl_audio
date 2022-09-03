@@ -57,6 +57,8 @@ set(LOWL_SOURCES
         src/audio/reader/lowl_audio_reader.cpp
         src/audio/reader/lowl_audio_reader_flac.cpp
         src/audio/reader/lowl_audio_reader_mp3.cpp
+        src/audio/reader/lowl_audio_reader_ogg.cpp
+        src/audio/reader/lowl_audio_reader_opus.cpp
         src/audio/reader/lowl_audio_reader_wav.cpp
         )
 

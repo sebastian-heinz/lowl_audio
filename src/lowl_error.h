@@ -28,6 +28,13 @@ namespace Lowl {
         CoreAudioNoSuitableComponentFound = -2001,
 
         WasapiVendorError = -3000,
+
+        VorbisFileVendorError = -4000,
+        VorbisFileInvalidOggFile = -4001,
+        VorbisFileCanNotParseOggFile = -4002,
+
+        OpusFileVendorError = -5000,
+        OpusFileCanNotParseOpusFile = -5001,
     };
 
     class Error {
@@ -37,6 +44,8 @@ namespace Lowl {
             PortAudioVendorError = static_cast<int>(ErrorCode::PortAudioVendorError),
             CoreAudioVendorError = static_cast<int>(ErrorCode::CoreAudioVendorError),
             WasapiVendorError = static_cast<int>(ErrorCode::WasapiVendorError),
+            VorbisFileVendorError = static_cast<int>(ErrorCode::VorbisFileVendorError),
+            OpusFileVendorError = static_cast<int>(ErrorCode::OpusFileVendorError),
         };
 
     private:

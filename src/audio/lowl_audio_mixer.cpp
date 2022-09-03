@@ -4,7 +4,8 @@
 
 #include <string>
 
-Lowl::Audio::AudioMixer::AudioMixer(SampleRate p_sample_rate, AudioChannel p_channel) : AudioSource(p_sample_rate, p_channel) {
+Lowl::Audio::AudioMixer::AudioMixer(SampleRate p_sample_rate, AudioChannel p_channel) : AudioSource(p_sample_rate,
+                                                                                                    p_channel) {
     sources = std::vector<std::shared_ptr<AudioSource>>();
     events = std::make_unique<moodycamel::ConcurrentQueue<AudioMixerEvent>>();
     read_frame = {};
@@ -71,6 +72,9 @@ Lowl::Audio::AudioSource::ReadResult Lowl::Audio::AudioMixer::read(Audio::AudioF
 }
 
 void Lowl::Audio::AudioMixer::mix(std::shared_ptr<AudioSource> p_audio_source) {
+    if (p_audio_source == nullptr) {
+        return;
+    }
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wfloat-equal"
     if (p_audio_source->get_sample_rate() != sample_rate) {
@@ -85,6 +89,9 @@ void Lowl::Audio::AudioMixer::mix(std::shared_ptr<AudioSource> p_audio_source) {
 }
 
 void Lowl::Audio::AudioMixer::remove(std::shared_ptr<AudioSource> p_audio_source) {
+    if (p_audio_source == nullptr) {
+        return;
+    }
     AudioMixerEvent event = {};
     event.type = AudioMixerEvent::Remove;
     event.audio_source = p_audio_source;

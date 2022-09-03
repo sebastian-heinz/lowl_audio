@@ -9,6 +9,7 @@ Lowl::Audio::AudioSource::AudioSource(SampleRate p_sample_rate, AudioChannel p_c
     volume.store(DEFAULT_VOLUME);
     panning.store(DEFAULT_PANNING);
     is_playing = true;
+    name = std::string();
 }
 
 Lowl::SampleRate Lowl::Audio::AudioSource::get_sample_rate() const {
@@ -81,4 +82,12 @@ void Lowl::Audio::AudioSource::play() {
 
 bool Lowl::Audio::AudioSource::is_play() {
     return is_playing;
+}
+
+std::string Lowl::Audio::AudioSource::get_name() const {
+    return name;
+}
+
+void Lowl::Audio::AudioSource::set_name(const std::string &p_name) {
+    name = p_name;
 }

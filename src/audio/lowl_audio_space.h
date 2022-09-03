@@ -8,6 +8,7 @@
 #include "audio/lowl_audio_device.h"
 
 #include <string>
+#include <map>
 
 namespace Lowl::Audio {
 
@@ -31,6 +32,7 @@ namespace Lowl::Audio {
         static const SpaceId InvalidSpaceId = 0;
 
     private:
+        static const SpaceId FirstSpaceId = 1;
         static const int LookupGrowth = 100;
 
         std::vector<std::shared_ptr<AudioData>> audio_data_lookup;
@@ -57,6 +59,8 @@ namespace Lowl::Audio {
         SpaceId add_audio(const std::string &p_path, Error &error);
 
         SpaceId add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error);
+
+        std::map<SpaceId, std::string> get_name_mapping() const;
 
         void clear_all_audio();
 

@@ -8,6 +8,7 @@
 #include "audio/lowl_audio_sample_format.h"
 
 #include <atomic>
+#include <string>
 
 namespace Lowl::Audio {
 
@@ -24,6 +25,7 @@ namespace Lowl::Audio {
     private:
         std::atomic<Volume> volume;
         std::atomic<Volume> panning;
+        std::string name;
 
     protected:
         SampleRate sample_rate;
@@ -46,6 +48,10 @@ namespace Lowl::Audio {
         virtual size_l get_frame_position() const = 0;
 
         virtual size_l get_frame_count() const = 0;
+
+        std::string get_name() const;
+
+        void set_name(const std::string &p_name);
 
         SampleRate get_sample_rate() const;
 

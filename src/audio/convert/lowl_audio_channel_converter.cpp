@@ -54,5 +54,6 @@ Lowl::Audio::AudioChannelConverter::convert(AudioChannel p_to, std::shared_ptr<A
             p_audio_data->get_sample_rate(),
             p_to
     );
+    audio_data->set_name(p_audio_data->get_name());
     return audio_data;
 }

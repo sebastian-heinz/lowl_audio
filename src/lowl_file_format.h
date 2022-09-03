@@ -7,6 +7,8 @@ namespace Lowl {
         WAV = 1,
         MP3 = 2,
         FLAC = 3,
+        OGG = 4,
+        OPUS = 5,
     };
 }
 

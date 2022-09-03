@@ -45,6 +45,8 @@ namespace Lowl::Audio {
         read_frames(AudioFormat p_audio_format, SampleFormat p_sample_format, AudioChannel p_channel,
                     const std::unique_ptr<uint8_t[]> &p_buffer, size_t p_size, Error &error);
 
+        virtual std::vector<AudioFrame>
+        read_frames(AudioChannel p_channel, std::vector<float> samples, Lowl::Error &error);
 
     public:
         AudioReader();

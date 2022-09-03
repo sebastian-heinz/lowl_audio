@@ -2,80 +2,35 @@
 
 #include <iostream>
 #include <thread>
-#include <chrono>
-
-void play(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
-    Lowl::Error error;
-    std::shared_ptr<Lowl::Audio::AudioData> data = Lowl::Lib::create_data("audio_path", error);
-    if (error.has_error()) {
-        std::cout << "Err:  Lowl::create_stream\n";
-        return;
-    }
-
-    device->start(data, error);
-    if (error.has_error()) {
-        std::cout << "Err: device->start\n";
-        return;
-    }
-
-    while (data->get_frames_remaining() > 0) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        std::cout << "==PLAYING==\n";
-        std::cout << "frames remaining: \n" + std::to_string(data->get_frames_remaining()) + "\n";
-    }
-}
-
-void mix(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
-    Lowl::Error error;
-    std::shared_ptr<Lowl::Audio::AudioData> data_1 = Lowl::Lib::create_data("audio_path_1", error);
-    if (error.has_error()) {
-        std::cout << "Err: mix:audio_path_1 -> Lowl::create_stream\n";
-        return;
-    }
-
-    std::shared_ptr<Lowl::Audio::AudioData> data_2 = Lowl::Lib::create_data("audio_path_2", error);
-    if (error.has_error()) {
-        std::cout << "Err: mix:audio_path_2 -> Lowl::create_stream\n";
-        return;
-    }
-
-    std::shared_ptr<Lowl::Audio::AudioMixer> mixer = std::make_unique<Lowl::Audio::AudioMixer>(data_1->get_sample_rate(),
-                                                                                 data_1->get_channel());
-
-    mixer->mix(data_1);
-    mixer->mix(data_2);
+#include <vector>
+#include <string>
 
 
-    device->start(mixer, error);
-    if (error.has_error()) {
-        std::cout << "Err: device->start\n";
-        return;
-    }
-
-    while (mixer->get_frames_remaining() > 0) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        std::cout << "==PLAYING==\n";
-        std::cout << "frames remaining: \n" + std::to_string(mixer->get_frames_remaining()) + "\n";
-    }
-}
+std::vector<std::string> music_paths = std::vector<std::string>();
+Lowl::SampleRate sample_rate = 44100.0;
+Lowl::Audio::AudioChannel channel = Lowl::Audio::AudioChannel::Stereo;
+int device_index = -1;
 
 /**
  * example on how to use space
  */
 void space(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
-    //std::shared_ptr<Lowl::Audio::AudioSpace> space = std::make_shared<Lowl::Audio::AudioSpace>(44100.0, Lowl::Audio::AudioChannel::Stereo);
-    std::shared_ptr<Lowl::Audio::AudioSpace> space = std::make_shared<Lowl::Audio::AudioSpace>(48000.0, Lowl::Audio::AudioChannel::Stereo);
+    std::shared_ptr<Lowl::Audio::AudioSpace> space = std::make_shared<Lowl::Audio::AudioSpace>(sample_rate, channel);
     Lowl::Error error;
 
-   // space->add_audio("/Users/railgun/Downloads/audio/CantinaBand60.wav", error);
-   // space->add_audio("/Users/railgun/Downloads/audio/StarWars60.wav", error);
+    for (std::string music_path: music_paths) {
+        space->add_audio(music_path, error);
+        if (error.has_error()) {
+            std::cout << "Err: space->add_audio (" << music_path << ")\n";
+            continue;
+        }
+    }
 
-    space->add_audio("C:\\Users\\railgun\\Downloads\\CantinaBand60.wav", error);
-    space->add_audio("C:\\Users\\railgun\\Downloads\\StarWars60.wav", error);
-
-    if (error.has_error()) {
-        std::cout << "Err: space->add_audio\n";
-        return;
+    std::map<Lowl::SpaceId, std::string> mapping = space->get_name_mapping();
+    for (std::map<Lowl::SpaceId, std::string>::iterator it = mapping.begin(); it != mapping.end(); ++it) {
+        Lowl::SpaceId space_id = it->first;
+        std::string audio_name = it->second;
+        std::cout << "Space Entry: " << space_id << "->" << audio_name << "\n";
     }
 
     device->start(space, error);
@@ -84,6 +39,7 @@ void space(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
         return;
     }
 
+    std::vector<bool> status;
     while (true) {
 
         Lowl::SpaceId selected_id = Lowl::Audio::AudioSpace::InvalidSpaceId;
@@ -99,10 +55,17 @@ void space(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
         if (selected_id <= Lowl::Audio::AudioSpace::InvalidSpaceId) {
             std::cout << "Stop Selecting SpaceId\n";
             break;
-        } else if (selected_id == 3) {
-            space->stop(1);
         } else {
-            space->play(selected_id);
+            if (status.size() <= selected_id) {
+                status.resize(selected_id + 1);
+            }
+            bool playing = status[selected_id];
+            if (!playing) {
+                space->play(selected_id);
+            } else {
+                space->stop(selected_id);
+            }
+            status[selected_id] = !playing;
         }
 
         std::cout << "frames remaining: \n" + std::to_string(space->get_frames_remaining()) + "\n";
@@ -134,7 +97,7 @@ int run() {
 
     std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>> all_devices = std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>>();
     int current_device_index = 0;
-    for (std::shared_ptr<Lowl::Audio::AudioDriver> driver : drivers) {
+    for (std::shared_ptr<Lowl::Audio::AudioDriver> driver: drivers) {
         std::cout << "Driver: " + driver->get_name() + "\n";
         driver->initialize(error);
         if (error.has_error()) {
@@ -143,22 +106,27 @@ int run() {
         }
 
         std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>> devices = driver->get_devices();
-        for (std::shared_ptr<Lowl::Audio::AudioDevice> device : devices) {
+        for (std::shared_ptr<Lowl::Audio::AudioDevice> device: devices) {
             std::cout << "Device[" + std::to_string(current_device_index++) + "]: " + device->get_name() + "\n";
             all_devices.push_back(device);
         }
     }
 
-    int selected_index = 1;
-    if (false) {
+    if (device_index <= -1) {
         std::cout << "Select Device:\n";
         std::string user_input;
         std::getline(std::cin, user_input);
-        selected_index = std::stoi(user_input);
+        device_index = std::stoi(user_input);
+    }
+    if (device_index >= all_devices.size()) {
+        std::cout << "selected index out of range\n";
+        return -1;
+    } else if (device_index < 0) {
+        std::cout << "selected index out of range\n";
+        return -1;
     }
 
-    std::shared_ptr<Lowl::Audio::AudioDevice> device = all_devices[selected_index];
-
+    std::shared_ptr<Lowl::Audio::AudioDevice> device = all_devices[device_index];
     space(device);
 
     device->stop(error);
@@ -172,7 +140,37 @@ int run() {
 /**
  * example how to select a device
  */
-int main() {
+int main(int argc, char **argv) {
+
+    std::string music_prefix = "-m";
+    std::string sample_rate_prefix = "-sr";
+    std::string channel_prefix = "-ch";
+    std::string device_index_prefix = "-dev";
+
+    for (int i = 0; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg.rfind(music_prefix, 0) == 0) {
+            std::string val = arg.substr(music_prefix.length());
+            music_paths.push_back(val);
+        }
+        if (arg.rfind(sample_rate_prefix, 0) == 0) {
+            std::string val = arg.substr(sample_rate_prefix.length());
+            sample_rate = std::stod(val);
+        }
+        if (arg.rfind(channel_prefix, 0) == 0) {
+            std::string val = arg.substr(channel_prefix.length());
+            channel = Lowl::Audio::get_channel(std::stoi(val));
+        }
+        if (arg.rfind(device_index_prefix, 0) == 0) {
+            std::string val = arg.substr(device_index_prefix.length());
+            device_index = std::stoi(val);
+        }
+    }
+
+    std::cout << "device_index:" << device_index << "\n";
+    std::cout << "sample_rate:" << sample_rate << "\n";
+    std::cout << "channel:" << Lowl::Audio::get_channel_num(channel) << "\n";
+
     Lowl::Logger::set_log_level(Lowl::Logger::Level::Debug);
     Lowl::Logger::register_std_out_log_receiver();
 
