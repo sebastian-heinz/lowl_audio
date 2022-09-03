@@ -6,6 +6,7 @@ namespace Lowl::Audio {
         None = 0,
         Mono = 1,
         Stereo = 2,
+        Quadraphonic  = 4,
     };
 
     inline size_t get_channel_num(AudioChannel channel) {
@@ -16,6 +17,8 @@ namespace Lowl::Audio {
                 return 1;
             case AudioChannel::Stereo:
                 return 2;
+            case AudioChannel::Quadraphonic:
+                return 4;
             default:
                 return 0;
         }
@@ -27,6 +30,8 @@ namespace Lowl::Audio {
                 return AudioChannel::Mono;
             case 2:
                 return AudioChannel::Stereo;
+            case 4:
+                return AudioChannel::Quadraphonic;
             default:
                 return AudioChannel::None;
         }

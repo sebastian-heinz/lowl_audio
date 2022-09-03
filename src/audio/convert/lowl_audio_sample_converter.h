@@ -5,6 +5,7 @@
 
 namespace Lowl::Audio {
     class SampleConverter {
+
     public:
         virtual float to_float(int32_t p_sample) const;
 
@@ -13,6 +14,8 @@ namespace Lowl::Audio {
         virtual float to_float(int8_t p_sample) const;
 
         virtual float to_float(uint8_t p_sample) const;
+
+        virtual float to_int24(float p_sample) const;
 
         virtual ~SampleConverter() = default;
     };

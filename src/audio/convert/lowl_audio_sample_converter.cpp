@@ -1,5 +1,9 @@
 #include "lowl_audio_sample_converter.h"
 
+#include "audio/lowl_audio_sample_format.h"
+
+#include <math.h>
+
 float Lowl::Audio::SampleConverter::to_float(uint8_t p_sample) const {
     return 0;
 }
@@ -27,3 +31,8 @@ float Lowl::Audio::SampleConverter::to_float(int32_t p_sample) const {
         return static_cast<float>(p_sample) / 0x80000000;
     }
 }
+
+float Lowl::Audio::SampleConverter::to_int24(float p_sample) const {
+    return lround(p_sample * 0x7FFFFF) & 0xFFFFFF;
+}
+

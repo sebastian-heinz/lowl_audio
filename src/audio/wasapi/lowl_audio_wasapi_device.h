@@ -5,13 +5,24 @@
 
 #include "audio/lowl_audio_device.h"
 
+#include <mmdeviceapi.h>
+#include <audioclient.h>
+
 namespace Lowl::Audio {
 
     class WasapiDevice : public AudioDevice {
 
     private:
         static char *wc_to_utf8(const wchar_t *p_wc);
-        void *wasapi_device;
+        static Lowl::Audio::SampleFormat get_sample_format(const WAVEFORMATEX* p_wave_format_ex);
+        static GUID get_wave_sub_format(const Lowl::Audio::SampleFormat p_sample_format);
+
+        IMMDevice *wasapi_device;
+        IAudioClient *audio_client;
+        IAudioRenderClient *audio_render_client;
+        HANDLE wasapi_audio_thread_handle;
+        HANDLE wasapi_audio_event_handle;
+
         Lowl::SampleRate default_sample_rate;
         Lowl::Audio::AudioChannel output_channel;
         Lowl::Audio::SampleFormat sample_format;

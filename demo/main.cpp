@@ -63,11 +63,16 @@ void mix(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
  * example on how to use space
  */
 void space(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
-    std::shared_ptr<Lowl::Audio::AudioSpace> space = std::make_shared<Lowl::Audio::AudioSpace>(44100.0, Lowl::Audio::AudioChannel::Stereo);
+    //std::shared_ptr<Lowl::Audio::AudioSpace> space = std::make_shared<Lowl::Audio::AudioSpace>(44100.0, Lowl::Audio::AudioChannel::Stereo);
+    std::shared_ptr<Lowl::Audio::AudioSpace> space = std::make_shared<Lowl::Audio::AudioSpace>(48000.0, Lowl::Audio::AudioChannel::Stereo);
     Lowl::Error error;
 
-    space->add_audio("/Users/railgun/Downloads/audio/CantinaBand60.wav", error);
-    space->add_audio("/Users/railgun/Downloads/audio/StarWars60.wav", error);
+   // space->add_audio("/Users/railgun/Downloads/audio/CantinaBand60.wav", error);
+   // space->add_audio("/Users/railgun/Downloads/audio/StarWars60.wav", error);
+
+    space->add_audio("C:\\Users\\railgun\\Downloads\\CantinaBand60.wav", error);
+    space->add_audio("C:\\Users\\railgun\\Downloads\\StarWars60.wav", error);
+
     if (error.has_error()) {
         std::cout << "Err: space->add_audio\n";
         return;
@@ -144,7 +149,7 @@ int run() {
         }
     }
 
-    int selected_index = 0;
+    int selected_index = 1;
     if (false) {
         std::cout << "Select Device:\n";
         std::string user_input;

@@ -35,6 +35,28 @@ namespace Lowl::Audio {
                 return 0;
         }
     }
+
+    inline size_t get_sample_bits(SampleFormat format) {
+        switch (format) {
+            case SampleFormat::FLOAT_64:
+                return 8 * 8;
+            case SampleFormat::FLOAT_32:
+            case SampleFormat::INT_32:
+                return 4 * 8;
+            case SampleFormat::INT_24:
+                return 3 * 8;
+            case SampleFormat::INT_16:
+                return 2 * 8;
+            case SampleFormat::INT_8:
+            case SampleFormat::U_INT_8:
+                return 1 * 8;
+            case SampleFormat::Unknown:
+                return 0;
+            default:
+                return 0;
+        }
+    }
+
 }
 
 #endif
