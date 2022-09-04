@@ -1,6 +1,8 @@
 #ifndef LOWL_SAMPLE_CONVERTER_H
 #define LOWL_SAMPLE_CONVERTER_H
 
+#include "lowl_typedef.h"
+
 #include <cstdint>
 
 namespace Lowl::Audio {
@@ -15,7 +17,9 @@ namespace Lowl::Audio {
 
         virtual float to_float(uint8_t p_sample) const;
 
-        virtual float to_int24(float p_sample) const;
+        virtual int32_t to_int24(Lowl::Sample p_sample) const;
+
+        virtual int32_t to_int32(Lowl::Sample p_sample) const;
 
         virtual ~SampleConverter() = default;
     };

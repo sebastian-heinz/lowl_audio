@@ -32,7 +32,12 @@ float Lowl::Audio::SampleConverter::to_float(int32_t p_sample) const {
     }
 }
 
-float Lowl::Audio::SampleConverter::to_int24(float p_sample) const {
+int32_t Lowl::Audio::SampleConverter::to_int24(Lowl::Sample p_sample) const {
     return lround(p_sample * 0x7FFFFF) & 0xFFFFFF;
 }
+
+int32_t Lowl::Audio::SampleConverter::to_int32(Lowl::Sample p_sample) const {
+    return lround(p_sample * 0x80000000) & 0x7FFFFFFF;
+}
+
 

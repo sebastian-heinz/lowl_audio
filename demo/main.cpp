@@ -125,8 +125,8 @@ int run() {
         std::cout << "selected index out of range\n";
         return -1;
     }
-
     std::shared_ptr<Lowl::Audio::AudioDevice> device = all_devices[device_index];
+    std::cout << "Selected Device:" << device_index << " Name:" << device->get_name() << "\n";
     space(device);
 
     device->stop(error);

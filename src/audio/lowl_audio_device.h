@@ -23,15 +23,7 @@ namespace Lowl::Audio {
 
         virtual void stop(Error &error) = 0;
 
-        virtual bool is_supported(AudioChannel p_channel, SampleRate p_sample_rate, SampleFormat p_sample_format, Error &error) = 0;
-
         virtual SampleRate get_default_sample_rate() = 0;
-
-        virtual void set_exclusive_mode(bool p_exclusive_mode, Error &error) = 0;
-
-        bool is_exclusive_mode() const;
-
-        bool is_supported(std::shared_ptr<AudioSource> p_audio_source, Error &error);
 
         std::string get_name() const;
 

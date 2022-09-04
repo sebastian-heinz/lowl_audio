@@ -31,19 +31,12 @@ namespace Lowl::Audio {
 
         PaSampleFormat get_pa_sample_format(SampleFormat sample_format, Error &error);
 
-        void enable_exclusive_mode(PaStreamParameters &stream_parameters, Error &error);
-
     public:
         virtual void start(std::shared_ptr<AudioSource> p_audio_source, Error &error) override;
 
         virtual void stop(Error &error) override;
 
-        virtual bool is_supported(Lowl::Audio::AudioChannel p_channel, Lowl::SampleRate p_sample_rate, Lowl::Audio::SampleFormat p_sample_format,
-                                  Error &error) override;
-
         virtual Lowl::SampleRate get_default_sample_rate() override;
-
-        virtual void set_exclusive_mode(bool p_exclusive_mode, Error &error) override;
 
         PaStreamCallbackResult callback(const void *p_input_buffer,
                                         void *p_output_buffer,

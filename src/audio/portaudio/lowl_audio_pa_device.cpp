@@ -164,21 +164,6 @@ void Lowl::Audio::AudioDevicePa::close_stream(Error &error) {
     }
 }
 
-bool Lowl::Audio::AudioDevicePa::is_supported(Lowl::Audio::AudioChannel p_channel, Lowl::SampleRate p_sample_rate,
-                                              Lowl::Audio::SampleFormat p_sample_format, Error &error) {
-    const PaStreamParameters output_parameter = create_output_parameters(p_channel, p_sample_format, error);
-    if (error.has_error()) {
-        return false;
-    }
-
-    PaError pa_error = Pa_IsFormatSupported(nullptr, &output_parameter, p_sample_rate);
-    if (pa_error != PaErrorCode::paNoError) {
-        error.set_vendor_error(pa_error, Error::VendorError::PortAudioVendorError);
-        return false;
-    }
-    return true;
-}
-
 PaStreamParameters
 Lowl::Audio::AudioDevicePa::create_output_parameters(Lowl::Audio::AudioChannel p_channel, Lowl::Audio::SampleFormat p_sample_format,
                                               Error &error) {
@@ -301,54 +286,5 @@ Lowl::SampleRate Lowl::Audio::AudioDevicePa::get_default_sample_rate() {
     return sample_rate;
 }
 
-void Lowl::Audio::AudioDevicePa::set_exclusive_mode(bool p_exclusive_mode, Lowl::Error &error) {
-    if (p_exclusive_mode) {
-        if (active) {
-            // stream already running
-            error.set_error(ErrorCode::InvalidOperationWhileActive);
-            return;
-        }
-        exclusive_mode = true;
-        return;
-    } else {
-        exclusive_mode = false;
-    }
-}
-
-void Lowl::Audio::AudioDevicePa::enable_exclusive_mode(PaStreamParameters &p_stream_parameter, Lowl::Error &error) {
-	if (p_stream_parameter.device != device_index) {
-        // parameter mismatch this device
-        error.set_error(ErrorCode::InvalidParameter);
-        return;
-    }
-    const PaDeviceInfo *pa_device_info = Pa_GetDeviceInfo(device_index);
-    if (pa_device_info == nullptr) {
-        // unknown device
-        error.set_error(ErrorCode::PortAudioNoDeviceInfo);
-        return;
-    }
-    const PaHostApiInfo *pa_api_info = Pa_GetHostApiInfo(pa_device_info->hostApi);
-    if (pa_api_info == nullptr) {
-        // unknown host api
-        error.set_error(ErrorCode::PortAudioNoHostApiInfo);
-        return;
-    }
-    bool exclusive_mode_applied = false;
-	#ifdef PA_USE_WASAPI
-	if (pa_api_info->type == paWASAPI) {
-		 PaWasapiStreamInfo *wasapiInfo = (PaWasapiStreamInfo *)memalloc(sizeof(PaWasapiStreamInfo));
-		 wasapiInfo->size = sizeof(PaWasapiStreamInfo);
-		 wasapiInfo->hostApiType = paWASAPI;
-		 wasapiInfo->version = 1;
-		 wasapiInfo->flags = (paWinWasapiExclusive | paWinWasapiThreadPriority);
-		 wasapiInfo->threadPriority = eThreadPriorityProAudio;
-		 p_stream_parameter.hostApiSpecificStreamInfo = wasapiInfo;
-		 exclusive_mode_applied = true;
-	}
-	#endif
-    if (!exclusive_mode_applied) {
-        LOWL_LOG_WARN("!exclusive_mode_applied");
-    }
-}
 
 #endif

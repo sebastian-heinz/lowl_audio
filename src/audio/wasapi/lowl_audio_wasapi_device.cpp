@@ -1,9 +1,9 @@
 #ifdef LOWL_DRIVER_WASAPI
 
 #include "lowl_audio_wasapi_device.h"
+#include "audio/convert/lowl_audio_sample_converter.h"
 
 #include <functional>
-#include <math.h>
 
 #define SAFE_CLOSE(h) if ((h) != NULL) { CloseHandle((h)); (h) = NULL; }
 #define SAFE_RELEASE(punk) if ((punk) != NULL) { (punk)->Release(); (punk) = NULL; }
@@ -28,14 +28,15 @@ wasapi_audio_callback(void *param) {
 }
 
 Lowl::Audio::WasapiDevice::WasapiDevice() {
-    default_sample_rate = 44200;
-    output_channel = Lowl::Audio::AudioChannel::Stereo;
-    sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
+    default_sample_rate = 0;
+    output_channel = Lowl::Audio::AudioChannel::None;
+    sample_format = Lowl::Audio::SampleFormat::Unknown;
     wasapi_device = nullptr;
     audio_client = nullptr;
     wasapi_audio_thread_handle = nullptr;
     wasapi_audio_event_handle = nullptr;
     audio_render_client = nullptr;
+    share_mode = AUDCLNT_SHAREMODE_SHARED;
 }
 
 Lowl::Audio::WasapiDevice::~WasapiDevice() {
@@ -54,8 +55,6 @@ void Lowl::Audio::WasapiDevice::start(std::shared_ptr<AudioSource> p_audio_sourc
     if (FAILED(result)) {
         return;
     }
-
-    _AUDCLNT_SHAREMODE share_mode = AUDCLNT_SHAREMODE_SHARED;
 
     WAVEFORMATEX *closest_match;
     if (share_mode == AUDCLNT_SHAREMODE_SHARED) {
@@ -91,6 +90,7 @@ void Lowl::Audio::WasapiDevice::start(std::shared_ptr<AudioSource> p_audio_sourc
         if (result == S_OK && closest_match == nullptr) {
             // if the audio engine supports the caller-specified format, IsFormatSupported sets *ppClosestMatch to NULL and returns S_OK.
         } else if (result == S_FALSE && closest_match != nullptr) {
+            int iasda = 1;
             // if the audio engine supports the caller-specified format, IsFormatSupported sets *ppClosestMatch to NULL and returns S_OK.
         }
     } else if (share_mode == AUDCLNT_SHAREMODE_EXCLUSIVE) {
@@ -168,9 +168,7 @@ void Lowl::Audio::WasapiDevice::start(std::shared_ptr<AudioSource> p_audio_sourc
 
 uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
 
-
     while (true) {
-
         DWORD state = WaitForSingleObject(wasapi_audio_event_handle, INFINITE);
         switch (state) {
             case WAIT_ABANDONED:
@@ -183,23 +181,50 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
                 break;
         }
 
-
-        /// This method retrieves the length of the endpoint buffer shared between the client application and the audio engine.
-        /// The length is expressed as the number of audio frames the buffer can hold.
-        /// The size in bytes of an audio frame is calculated as the number of channels in the stream multiplied by the sample size per channel.
-        /// For example, the frame size is four bytes for a stereo (2-channel) stream with 16-bit samples.
         UINT32 frames_available_in_buffer;
         HRESULT result = audio_client->GetBufferSize(&frames_available_in_buffer);
         if (FAILED(result)) {
             return 0;
         }
 
+        if (share_mode == AUDCLNT_SHAREMODE_SHARED) {
+            UINT32 padding_frames_count;
+            result = audio_client->GetCurrentPadding(&padding_frames_count);
+            if (FAILED(result)) {
+                return 0;
+            }
+            frames_available_in_buffer = frames_available_in_buffer - padding_frames_count;
+        }
+
+
         BYTE *pData;
         result = audio_render_client->GetBuffer(frames_available_in_buffer, &pData);
         if (FAILED(result)) {
+            switch (result) {
+                case AUDCLNT_E_BUFFER_ERROR:
+                    break;
+                case AUDCLNT_E_BUFFER_TOO_LARGE: {
+                    int asd = 1;
+                    break;
+                }
+                case AUDCLNT_E_BUFFER_SIZE_ERROR:
+                    break;
+                case AUDCLNT_E_OUT_OF_ORDER:
+                    break;
+                case AUDCLNT_E_DEVICE_INVALIDATED:
+                    break;
+                case AUDCLNT_E_BUFFER_OPERATION_PENDING:
+                    break;
+                case AUDCLNT_E_SERVICE_NOT_RUNNING:
+                    break;
+                case E_POINTER:
+                    break;
+            }
+
             return 0;
         }
-        // long bytes_per_frame = sizeof(float) * get_channel_num(output_channel);
+
+        int32_t *dst = (int32_t *) pData;
 
         unsigned long current_frame = 0;
         AudioFrame frame{};
@@ -207,33 +232,14 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
             AudioSource::ReadResult read_result = audio_source->read(frame);
             if (read_result == AudioSource::ReadResult::Read) {
                 for (int current_channel = 0; current_channel < audio_source->get_channel_num(); current_channel++) {
-                    std::clamp(frame[current_channel], AudioFrame::MIN_SAMPLE_VALUE, AudioFrame::MAX_SAMPLE_VALUE);
-                    Sample sample = frame[current_channel];
-
-
-
-                    //int32_t int24 = lround((float)sample * 0x7FFFFF) & 0xFFFFFF;
-                    //memcpy(pData, &int24, 3);
-                    //pData+=3;
-
-
-                    float scaled = sample * 0x7FFFFFFF;
-                    signed int temp = (signed int) scaled;
-                    unsigned char a = (unsigned char) (temp >> 8);
-                    unsigned char b = (unsigned char) (temp >> 16);
-                    unsigned char c = (unsigned char) (temp >> 24);
-                    memcpy(pData, &a, 1);
-                    memcpy(pData + 1, &b, 1);
-                    memcpy(pData + 2, &c, 1);
-
-                    pData += 3;
-
-
-
-
-                    ///  *dst++ = (float) frame[current_channel];
-
-
+                    Sample sample = std::clamp(
+                            frame[current_channel],
+                            AudioFrame::MIN_SAMPLE_VALUE,
+                            AudioFrame::MAX_SAMPLE_VALUE
+                    );
+                    double scaled = sample * 0x7FFFFFFF;
+                    int32_t r = (int32_t) scaled;
+                    *dst++ = r;
                 }
             } else if (read_result == AudioSource::ReadResult::End) {
                 break;
@@ -244,19 +250,12 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
             }
         }
 
+        DWORD flags = 0;
         if (current_frame < frames_available_in_buffer) {
-            // fill buffer with silence if not enough samples available.
-            unsigned long missing_frames = frames_available_in_buffer - current_frame;
-            unsigned long missing_samples = missing_frames * (unsigned long) audio_source->get_channel_num();
-            unsigned long current_sample = 0;
-
-            for (; current_sample < missing_samples; current_sample++) {
-                memset(pData, 0, 3);
-                pData += 3;
-            }
+            flags |= AUDCLNT_BUFFERFLAGS_SILENT;
         }
 
-        result = audio_render_client->ReleaseBuffer(frames_available_in_buffer, 0);
+        result = audio_render_client->ReleaseBuffer(frames_available_in_buffer, flags);
         if (FAILED(result)) {
             return 0;
         }
@@ -268,17 +267,8 @@ void Lowl::Audio::WasapiDevice::stop(Lowl::Error &error) {
     //  CloseHandle(hThreadArray[i]);
 }
 
-bool Lowl::Audio::WasapiDevice::is_supported(Lowl::Audio::AudioChannel p_channel, Lowl::SampleRate p_sample_rate,
-                                             Lowl::Audio::SampleFormat p_sample_format, Lowl::Error &error) {
-    return false;
-}
-
 Lowl::SampleRate Lowl::Audio::WasapiDevice::get_default_sample_rate() {
     return default_sample_rate;
-}
-
-void Lowl::Audio::WasapiDevice::set_exclusive_mode(bool p_exclusive_mode, Lowl::Error &error) {
-
 }
 
 std::unique_ptr<Lowl::Audio::WasapiDevice>
@@ -389,6 +379,9 @@ Lowl::Audio::SampleFormat Lowl::Audio::WasapiDevice::get_sample_format(const WAV
             if (pWFEX->Samples.wValidBitsPerSample == 24) {
                 if (pWFEX->Format.wBitsPerSample == 24) {
                     return Lowl::Audio::SampleFormat::INT_24;
+                }
+                if (pWFEX->Format.wBitsPerSample == 32) {
+                    return Lowl::Audio::SampleFormat::INT_32;
                 }
             }
             if (pWFEX->Samples.wValidBitsPerSample == 16) {

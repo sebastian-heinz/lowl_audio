@@ -409,17 +409,8 @@ Lowl::SampleRate Lowl::Audio::CoreAudioDevice::set_sample_rate(SampleRate p_samp
     return 0;
 }
 
-bool Lowl::Audio::CoreAudioDevice::is_supported(AudioChannel p_channel, SampleRate p_sample_rate,
-                                                SampleFormat p_sample_format, Error &error) {
-    return false;
-}
-
 Lowl::SampleRate Lowl::Audio::CoreAudioDevice::get_default_sample_rate() {
     return 0;
-}
-
-void Lowl::Audio::CoreAudioDevice::set_exclusive_mode(bool p_exclusive_mode, Error &error) {
-
 }
 
 Lowl::Audio::CoreAudioDevice::CoreAudioDevice() : AudioDevice() {

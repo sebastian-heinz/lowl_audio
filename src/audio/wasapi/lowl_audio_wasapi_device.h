@@ -22,6 +22,7 @@ namespace Lowl::Audio {
         IAudioRenderClient *audio_render_client;
         HANDLE wasapi_audio_thread_handle;
         HANDLE wasapi_audio_event_handle;
+        AUDCLNT_SHAREMODE share_mode;
 
         Lowl::SampleRate default_sample_rate;
         Lowl::Audio::AudioChannel output_channel;
@@ -40,15 +41,7 @@ namespace Lowl::Audio {
 
         void stop(Error &error) override;
 
-        bool is_supported(Lowl::Audio::AudioChannel channel,
-                          Lowl::SampleRate sample_rate,
-                          SampleFormat sample_format,
-                          Error &error
-        ) override;
-
         Lowl::SampleRate get_default_sample_rate() override;
-
-        void set_exclusive_mode(bool p_exclusive_mode, Error &error) override;
 
         WasapiDevice();
 
