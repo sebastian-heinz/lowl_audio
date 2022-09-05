@@ -21,9 +21,9 @@ static int audio_callback(const void *p_input_buffer, void *p_output_buffer,
 }
 
 PaStreamCallbackResult Lowl::Audio::AudioDevicePa::callback(const void *p_input_buffer, void *p_output_buffer,
-                                                     unsigned long p_frames_per_buffer,
-                                                     const PaStreamCallbackTimeInfo *p_time_info,
-                                                     PaStreamCallbackFlags p_status_flags) {
+                                                            unsigned long p_frames_per_buffer,
+                                                            const PaStreamCallbackTimeInfo *p_time_info,
+                                                            PaStreamCallbackFlags p_status_flags) {
     if (!active) {
         return paAbort;
     }
@@ -132,13 +132,6 @@ void Lowl::Audio::AudioDevicePa::open_stream(Error &error) {
         return;
     }
 
-    if (exclusive_mode) {
-        enable_exclusive_mode(output_parameter, error);
-        if (error.has_error()) {
-            return;
-        }
-    }
-
     PaError pa_error = Pa_OpenStream(
             &stream,
             nullptr, /* no input */
@@ -165,8 +158,9 @@ void Lowl::Audio::AudioDevicePa::close_stream(Error &error) {
 }
 
 PaStreamParameters
-Lowl::Audio::AudioDevicePa::create_output_parameters(Lowl::Audio::AudioChannel p_channel, Lowl::Audio::SampleFormat p_sample_format,
-                                              Error &error) {
+Lowl::Audio::AudioDevicePa::create_output_parameters(Lowl::Audio::AudioChannel p_channel,
+                                                     Lowl::Audio::SampleFormat p_sample_format,
+                                                     Error &error) {
     const PaDeviceInfo *device_info = Pa_GetDeviceInfo(device_index);
     if (device_info == nullptr) {
         error.set_error(ErrorCode::PortAudioNoDeviceInfo);
@@ -236,7 +230,8 @@ Lowl::Audio::AudioDevicePa::~AudioDevicePa() {
     stream = nullptr;
 }
 
-PaSampleFormat Lowl::Audio::AudioDevicePa::get_pa_sample_format(Lowl::Audio::SampleFormat sample_format, Lowl::Error &error) {
+PaSampleFormat
+Lowl::Audio::AudioDevicePa::get_pa_sample_format(Lowl::Audio::SampleFormat sample_format, Lowl::Error &error) {
     PaSampleFormat pa_sample_format;
     switch (sample_format) {
         case Lowl::Audio::SampleFormat::FLOAT_32: {
@@ -276,15 +271,5 @@ PaSampleFormat Lowl::Audio::AudioDevicePa::get_pa_sample_format(Lowl::Audio::Sam
     }
     return pa_sample_format;
 }
-
-Lowl::SampleRate Lowl::Audio::AudioDevicePa::get_default_sample_rate() {
-    const PaDeviceInfo *device_info = Pa_GetDeviceInfo(device_index);
-    if (device_info == nullptr) {
-        return 0;
-    }
-    Lowl::SampleRate sample_rate = device_info->defaultSampleRate;
-    return sample_rate;
-}
-
 
 #endif

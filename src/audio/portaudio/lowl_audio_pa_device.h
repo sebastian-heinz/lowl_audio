@@ -27,7 +27,8 @@ namespace Lowl::Audio {
         void close_stream(Error &error);
 
         PaStreamParameters
-        create_output_parameters(Lowl::Audio::AudioChannel p_channel, Lowl::Audio::SampleFormat p_sample_format, Error &error);
+        create_output_parameters(Lowl::Audio::AudioChannel p_channel, Lowl::Audio::SampleFormat p_sample_format,
+                                 Error &error);
 
         PaSampleFormat get_pa_sample_format(SampleFormat sample_format, Error &error);
 
@@ -35,8 +36,6 @@ namespace Lowl::Audio {
         virtual void start(std::shared_ptr<AudioSource> p_audio_source, Error &error) override;
 
         virtual void stop(Error &error) override;
-
-        virtual Lowl::SampleRate get_default_sample_rate() override;
 
         PaStreamCallbackResult callback(const void *p_input_buffer,
                                         void *p_output_buffer,

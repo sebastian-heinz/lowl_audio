@@ -14,7 +14,9 @@ namespace Lowl::Audio {
 
     private:
         static char *wc_to_utf8(const wchar_t *p_wc);
-        static Lowl::Audio::SampleFormat get_sample_format(const WAVEFORMATEX* p_wave_format_ex);
+
+        static Lowl::Audio::SampleFormat get_sample_format(const WAVEFORMATEX *p_wave_format_ex);
+
         static GUID get_wave_sub_format(const Lowl::Audio::SampleFormat p_sample_format);
 
         IMMDevice *wasapi_device;
@@ -28,6 +30,8 @@ namespace Lowl::Audio {
         Lowl::Audio::AudioChannel output_channel;
         Lowl::Audio::SampleFormat sample_format;
 
+        void populate_device_properties();
+
     public:
         static std::unique_ptr<WasapiDevice> construct(
                 const std::string &p_driver_name,
@@ -35,13 +39,12 @@ namespace Lowl::Audio {
                 Error &error
         );
 
+
         uint32_t audio_callback();
 
         void start(std::shared_ptr<AudioSource> p_audio_source, Error &error) override;
 
         void stop(Error &error) override;
-
-        Lowl::SampleRate get_default_sample_rate() override;
 
         WasapiDevice();
 
