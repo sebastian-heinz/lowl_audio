@@ -10,11 +10,20 @@ std::vector<std::string> music_paths = std::vector<std::string>();
 Lowl::SampleRate sample_rate = 44100.0;
 Lowl::Audio::AudioChannel channel = Lowl::Audio::AudioChannel::Stereo;
 int device_index = -1;
+int device_property_index = -1;
+
+void print_audio_properties(Lowl::Audio::AudioDeviceProperties p_device_properties) {
+    std::cout << "- Properties" << "\n";
+    std::cout << "-- SampleRate:" << std::to_string(p_device_properties.sample_rate) << "\n";
+    std::cout << "-- Channel:" << std::to_string(Lowl::Audio::get_channel_num(p_device_properties.channel)) << "\n";
+    std::cout << "-- SampleFormat:" << Lowl::Audio::SampleFormatToString(p_device_properties.sample_format) << "\n";
+    std::cout << "-- Exclusive:" << (p_device_properties.exclusive_mode ? "TRUE" : "FALSE") << "\n";
+}
 
 /**
  * example on how to use space
  */
-void space(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
+void space(std::shared_ptr<Lowl::Audio::AudioDevice> device, Lowl::Audio::AudioDeviceProperties p_device_properties) {
     std::shared_ptr<Lowl::Audio::AudioSpace> space = std::make_shared<Lowl::Audio::AudioSpace>(sample_rate, channel);
     Lowl::Error error;
 
@@ -107,7 +116,10 @@ int run() {
 
         std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>> devices = driver->get_devices();
         for (std::shared_ptr<Lowl::Audio::AudioDevice> device: devices) {
-            std::cout << "Device[" + std::to_string(current_device_index++) + "]: " + device->get_name() + "\n";
+            std::cout << "+ Device[" + std::to_string(current_device_index++) + "]: " + device->get_name() + "\n";
+            for (Lowl::Audio::AudioDeviceProperties device_properties: device->get_properties()) {
+                print_audio_properties(device_properties);
+            }
             all_devices.push_back(device);
         }
     }
@@ -119,15 +131,36 @@ int run() {
         device_index = std::stoi(user_input);
     }
     if (device_index >= all_devices.size()) {
-        std::cout << "selected index out of range\n";
+        std::cout << "selected device_index out of range\n";
         return -1;
     } else if (device_index < 0) {
-        std::cout << "selected index out of range\n";
+        std::cout << "selected device_index out of range\n";
         return -1;
     }
+
     std::shared_ptr<Lowl::Audio::AudioDevice> device = all_devices[device_index];
     std::cout << "Selected Device:" << device_index << " Name:" << device->get_name() << "\n";
-    space(device);
+
+    std::vector<Lowl::Audio::AudioDeviceProperties> device_properties_list = device->get_properties();
+    if (device_property_index <= -1) {
+        std::cout << "Select Device Properties:\n";
+        std::string user_input;
+        std::getline(std::cin, user_input);
+        device_index = std::stoi(user_input);
+    }
+    if (device_property_index >= device_properties_list.size()) {
+        std::cout << "selected device_property_index out of range\n";
+        return -1;
+    } else if (device_property_index < 0) {
+        std::cout << "selected device_property_index out of range\n";
+        return -1;
+    }
+
+    Lowl::Audio::AudioDeviceProperties device_properties = device_properties_list[device_property_index];
+    std::cout << "Selected Properties" << "\n";
+    print_audio_properties(device_properties);
+
+    space(device, device_properties);
 
     device->stop(error);
     if (error.has_error()) {
@@ -146,6 +179,7 @@ int main(int argc, char **argv) {
     std::string sample_rate_prefix = "-sr";
     std::string channel_prefix = "-ch";
     std::string device_index_prefix = "-dev";
+    std::string device_property_index_prefix = "-dev-prop";
 
     for (int i = 0; i < argc; ++i) {
         std::string arg = argv[i];
@@ -165,9 +199,14 @@ int main(int argc, char **argv) {
             std::string val = arg.substr(device_index_prefix.length());
             device_index = std::stoi(val);
         }
+        if (arg.rfind(device_property_index_prefix, 0) == 0) {
+            std::string val = arg.substr(device_property_index_prefix.length());
+            device_property_index = std::stoi(val);
+        }
     }
 
     std::cout << "device_index:" << device_index << "\n";
+    std::cout << "device_property_index:" << device_property_index << "\n";
     std::cout << "sample_rate:" << sample_rate << "\n";
     std::cout << "channel:" << Lowl::Audio::get_channel_num(channel) << "\n";
 

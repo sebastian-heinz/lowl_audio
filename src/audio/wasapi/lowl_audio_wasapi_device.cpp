@@ -306,7 +306,8 @@ Lowl::Audio::WasapiDevice::construct(const std::string &p_driver_name, void *p_w
         SAFE_RELEASE(device_properties)
         return nullptr;
     }
-    const char *device_name = WasapiDevice::wc_to_utf8(value.pwszVal);
+    const char *device_name_ptr = WasapiDevice::wc_to_utf8(value.pwszVal);
+    std::string device_name = "[" + p_driver_name + "] " + std::string(device_name_ptr);
     PropVariantClear(&value);
 
     PropVariantInit(&value);
@@ -316,24 +317,23 @@ Lowl::Audio::WasapiDevice::construct(const std::string &p_driver_name, void *p_w
         SAFE_RELEASE(device_properties)
         return nullptr;
     }
-
     WAVEFORMATEX *wave_format = (WAVEFORMATEX *) value.blob.pBlobData;
     if (wave_format == nullptr) {
         PropVariantClear(&value);
         SAFE_RELEASE(device_properties)
         return nullptr;
     }
-
+    std::vector<AudioDeviceProperties> audio_device_properties = create_device_properties(
+            wasapi_device,
+            wave_format,
+            device_name
+    );
     PropVariantClear(&value);
 
     std::unique_ptr<WasapiDevice> device = std::make_unique<WasapiDevice>(_constructor_tag{});
-    device->name = "[" + p_driver_name + "] " + std::string(device_name);
+    device->name = device_name;
     device->wasapi_device = wasapi_device;
-    device->properties = create_device_properties(
-            wasapi_device,
-            wave_format,
-            device->get_name()
-    );
+    device->properties = audio_device_properties;
 
     return device;
 }
@@ -471,7 +471,10 @@ Lowl::Audio::WasapiDevice::to_wave_format_extensible(
     wfe.Format.wBitsPerSample = (WORD) Lowl::Audio::get_sample_bits(audio_device_properties.sample_format);
     wfe.Format.nBlockAlign = (wfe.Format.nChannels * wfe.Format.wBitsPerSample) / 8;
     wfe.Format.nAvgBytesPerSec = wfe.Format.nBlockAlign * wfe.Format.nSamplesPerSec;
-    wfe.Samples.wValidBitsPerSample = wfe.Format.wBitsPerSample;
+
+    // wfe.Samples.wValidBitsPerSample = wfe.Format.wBitsPerSample;
+    wfe.Samples.wValidBitsPerSample = audio_device_properties.user_data.valid_bits_per_sample;
+
     wfe.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
     wfe.SubFormat = get_wave_sub_format(audio_device_properties.sample_format);
     return wfe;
@@ -500,12 +503,11 @@ Lowl::Audio::WasapiDevice::create_device_properties(IMMDevice *p_wasapi_device,
     WAVEFORMATEXTENSIBLE wfe_exclusive = to_wave_format_extensible(default_properties);
     result = tmp_audio_client->IsFormatSupported(
             AUDCLNT_SHAREMODE_EXCLUSIVE,
-            (WAVEFORMATEX *) &wfe_exclusive,
+            (WAVEFORMATEX * ) & wfe_exclusive,
             nullptr
     );
     if (result == S_OK) {
         AudioDeviceProperties property = AudioDeviceProperties();
-        property.valid = true;
         property.channel = default_properties.channel;
         property.sample_rate = default_properties.sample_rate;
         property.sample_format = default_properties.sample_format;
@@ -546,12 +548,11 @@ Lowl::Audio::WasapiDevice::create_device_properties(IMMDevice *p_wasapi_device,
     memset(&closest_match, 0, sizeof(closest_match));
     result = tmp_audio_client->IsFormatSupported(
             AUDCLNT_SHAREMODE_SHARED,
-            (WAVEFORMATEX *) &wfe_shared,
+            (WAVEFORMATEX * ) & wfe_shared,
             &closest_match
     );
     if (result == S_OK && closest_match == nullptr) {
         AudioDeviceProperties property = AudioDeviceProperties();
-        property.valid = true;
         property.channel = default_properties.channel;
         property.sample_rate = default_properties.sample_rate;
         property.sample_format = default_properties.sample_format;
@@ -559,7 +560,6 @@ Lowl::Audio::WasapiDevice::create_device_properties(IMMDevice *p_wasapi_device,
         properties.push_back(property);
     } else if (result == S_FALSE && closest_match != nullptr) {
         AudioDeviceProperties property = to_audio_device_properties(closest_match);
-        property.valid = true;
         property.exclusive_mode = false;
         properties.push_back(property);
     } else {

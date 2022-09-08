@@ -24,6 +24,17 @@ Lowl::Audio::SampleFormat Lowl::Audio::AudioSource::get_sample_format() const {
     return SampleFormat::FLOAT_32;
 }
 
+
+Lowl::Audio::AudioDeviceProperties Lowl::Audio::AudioSource::get_properties() const {
+    AudioDeviceProperties properties{};
+    properties.exclusive_mode = false;
+    properties.channel = get_channel();
+    properties.sample_format = get_sample_format();
+    properties.sample_rate = get_sample_rate();
+    return properties;
+}
+
+
 size_t Lowl::Audio::AudioSource::get_channel_num() const {
     return Lowl::Audio::get_channel_num(channel);
 }

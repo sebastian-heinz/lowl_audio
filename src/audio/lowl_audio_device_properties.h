@@ -5,7 +5,6 @@
 
 namespace Lowl::Audio {
     struct AudioDeviceProperties {
-        bool valid;
         SampleRate sample_rate;
         AudioChannel channel;
         SampleFormat sample_format;

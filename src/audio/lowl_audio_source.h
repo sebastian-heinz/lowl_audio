@@ -6,6 +6,7 @@
 #include "audio/lowl_audio_channel.h"
 #include "audio/lowl_audio_frame.h"
 #include "audio/lowl_audio_sample_format.h"
+#include "audio/lowl_audio_device_properties.h"
 
 #include <atomic>
 #include <string>
@@ -60,6 +61,8 @@ namespace Lowl::Audio {
         size_t get_channel_num() const;
 
         SampleFormat get_sample_format() const;
+
+        AudioDeviceProperties get_properties() const;
 
         void set_volume(Volume p_volume);
 
