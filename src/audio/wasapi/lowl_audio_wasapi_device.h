@@ -8,6 +8,8 @@
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 
+#include <vector>
+
 namespace Lowl::Audio {
 
     class WasapiDevice : public AudioDevice {
@@ -15,22 +17,28 @@ namespace Lowl::Audio {
     private:
         static char *wc_to_utf8(const wchar_t *p_wc);
 
-        static Lowl::Audio::SampleFormat get_sample_format(const WAVEFORMATEX *p_wave_format_ex);
+        static Lowl::Audio::AudioDeviceProperties to_audio_device_properties(const WAVEFORMATEX *p_wave_format_ex);
+
+        static WAVEFORMATEXTENSIBLE
+        to_wave_format_extensible(const Lowl::Audio::AudioDeviceProperties &p_wave_format_ex);
 
         static GUID get_wave_sub_format(const Lowl::Audio::SampleFormat p_sample_format);
+
+        static std::vector<Lowl::Audio::AudioDeviceProperties> create_device_properties(
+                IMMDevice *p_wasapi_device,
+                const WAVEFORMATEX *wave_format,
+                std::string device_name
+        );
+
 
         IMMDevice *wasapi_device;
         IAudioClient *audio_client;
         IAudioRenderClient *audio_render_client;
         HANDLE wasapi_audio_thread_handle;
         HANDLE wasapi_audio_event_handle;
-        AUDCLNT_SHAREMODE share_mode;
 
-        Lowl::SampleRate default_sample_rate;
-        Lowl::Audio::AudioChannel output_channel;
-        Lowl::Audio::SampleFormat sample_format;
+        AudioDeviceProperties audio_device_properties{};
 
-        void populate_device_properties();
 
     public:
         static std::unique_ptr<WasapiDevice> construct(
@@ -39,16 +47,17 @@ namespace Lowl::Audio {
                 Error &error
         );
 
+        WasapiDevice(_constructor_tag);
 
         uint32_t audio_callback();
 
-        void start(std::shared_ptr<AudioSource> p_audio_source, Error &error) override;
+        virtual void start(AudioDeviceProperties p_audio_device_properties,
+                   std::shared_ptr<AudioSource> p_audio_source,
+                   Error &error) override;
 
-        void stop(Error &error) override;
+        virtual void stop(Error &error) override;
 
-        WasapiDevice();
-
-        ~WasapiDevice();
+        ~WasapiDevice() override;
     };
 } //namespace Lowl::Audio
 

@@ -19,169 +19,37 @@ static const IID LOWL_IID_IAudioClient3 = {0x7ED4EE07, 0x8E67, 0x4CD4, {0x8C, 0x
 static const IID LOWL_IID_IAudioRenderClient = {0xF294ACFC, 0x3146, 0x4483, {0xA7, 0xBF, 0xAD, 0xDC, 0xA7, 0xC2, 0x60,0xE2}}; /* F294ACFC-3146-4483-A7BF-ADDCA7C260E2 = __uuidof(IAudioRenderClient) */
 GUID LOWL_GUID_KSDATAFORMAT_SUBTYPE_PCM = {0x00000001, 0x0000, 0x0010, {0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}};
 GUID LOWL_GUID_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT = {0x00000003, 0x0000, 0x0010,{0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}};
-// @formatter:on
 
 
-static DWORD WINAPI
-
-wasapi_audio_callback(void *param) {
+static DWORD WINAPI wasapi_audio_callback(void *param) {
     Lowl::Audio::WasapiDevice *device = (Lowl::Audio::WasapiDevice *) param;
     return device->audio_callback();
 }
+// @formatter:on
 
-Lowl::Audio::WasapiDevice::WasapiDevice() {
-    default_sample_rate = 0;
-    output_channel = Lowl::Audio::AudioChannel::None;
-    sample_format = Lowl::Audio::SampleFormat::Unknown;
+Lowl::Audio::WasapiDevice::WasapiDevice(_constructor_tag) {
     wasapi_device = nullptr;
     audio_client = nullptr;
     wasapi_audio_thread_handle = nullptr;
     wasapi_audio_event_handle = nullptr;
     audio_render_client = nullptr;
-    share_mode = AUDCLNT_SHAREMODE_SHARED;
+    audio_device_properties = AudioDeviceProperties();
 }
 
-Lowl::Audio::WasapiDevice::~WasapiDevice() {
-}
-
-
-void Lowl::Audio::WasapiDevice::populate_device_properties() {
-
-    IAudioClient *tmp_audio_client = nullptr;
-    HRESULT result = wasapi_device->Activate(LOWL_IID_IAudioClient3, CLSCTX_ALL, nullptr, (void **) &tmp_audio_client);
-    if (FAILED(result)) {
-        return;
-    }
-
-    WAVEFORMATEXTENSIBLE wfe;
-
-    // test for exclusive mode
-    memset(&wfe, 0, sizeof(wfe));
-    wfe.Format.cbSize = sizeof(wfe);
-    wfe.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
-    wfe.Format.nChannels = (WORD) get_channel_num(output_channel);
-    wfe.Format.nSamplesPerSec = (DWORD) default_sample_rate;
-    wfe.Format.wBitsPerSample = (WORD) Lowl::Audio::get_sample_bits(sample_format);
-    wfe.Format.nBlockAlign = (wfe.Format.nChannels * wfe.Format.wBitsPerSample) / 8;
-    wfe.Format.nAvgBytesPerSec = wfe.Format.nBlockAlign * wfe.Format.nSamplesPerSec;
-    wfe.Samples.wValidBitsPerSample = wfe.Format.wBitsPerSample;
-    wfe.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
-    wfe.SubFormat = get_wave_sub_format(sample_format);
-    result = tmp_audio_client->IsFormatSupported(
-            AUDCLNT_SHAREMODE_EXCLUSIVE,
-            (WAVEFORMATEX * ) & wfe,
-            nullptr
-    );
-    if (result == S_OK) {
-        AudioDeviceProperties property = AudioDeviceProperties();
-        property.channel = output_channel;
-        property.sample_rate = default_sample_rate;
-        property.sample_format = sample_format;
-        property.exclusive_mode = true;
-        properties.push_back(property);
-    } else {
-        switch (result) {
-            case AUDCLNT_E_UNSUPPORTED_FORMAT:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): AUDCLNT_E_UNSUPPORTED_FORMAT",
-                                 get_name().c_str());
-                break;
-            case E_POINTER:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): E_POINTER", get_name().c_str());
-                break;
-            case E_INVALIDARG:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): E_INVALIDARG",
-                                 get_name().c_str());
-                break;
-            case AUDCLNT_E_DEVICE_INVALIDATED:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): AUDCLNT_E_DEVICE_INVALIDATED",
-                                 get_name().c_str());
-                break;
-            case AUDCLNT_E_SERVICE_NOT_RUNNING:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): AUDCLNT_E_SERVICE_NOT_RUNNING",
-                                 get_name().c_str());
-                break;
-            default:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): Unknown HRESULT(0x%lx)",
-                                 get_name().c_str(), result);
-                break;
-        }
-    }
-
-
-    // test for share modes
-    WAVEFORMATEX *closest_match;
-    memset(&closest_match, 0, sizeof(closest_match));
-
-    memset(&wfe, 0, sizeof(wfe));
-    wfe.Format.cbSize = sizeof(wfe);
-    wfe.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
-    wfe.Format.nChannels = (WORD) get_channel_num(output_channel);
-    wfe.Format.nSamplesPerSec = (DWORD) default_sample_rate;
-    wfe.Format.wBitsPerSample = (WORD) Lowl::Audio::get_sample_bits(sample_format);
-    wfe.Format.nBlockAlign = (wfe.Format.nChannels * wfe.Format.wBitsPerSample) / 8;
-    wfe.Format.nAvgBytesPerSec = wfe.Format.nBlockAlign * wfe.Format.nSamplesPerSec;
-    wfe.Samples.wValidBitsPerSample = wfe.Format.wBitsPerSample;
-    wfe.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
-    wfe.SubFormat = get_wave_sub_format(sample_format);
-
-    result = tmp_audio_client->IsFormatSupported(
-            AUDCLNT_SHAREMODE_SHARED,
-            (WAVEFORMATEX * ) & wfe,
-            &closest_match
-    );
-
-    if (result == S_OK && closest_match == nullptr) {
-        AudioDeviceProperties property = AudioDeviceProperties();
-        property.channel = output_channel;
-        property.sample_rate = default_sample_rate;
-        property.sample_format = sample_format;
-        property.exclusive_mode = false;
-        properties.push_back(property);
-    } else if (result == S_FALSE && closest_match != nullptr) {
-        AudioDeviceProperties property = AudioDeviceProperties();
-        property.channel = Lowl::Audio::get_channel(closest_match->nChannels);
-        property.sample_rate = closest_match->nSamplesPerSec;
-        property.sample_format = get_sample_format(closest_match);;
-        property.exclusive_mode = false;
-        properties.push_back(property);
-    } else {
-        switch (result) {
-            case AUDCLNT_E_UNSUPPORTED_FORMAT:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): AUDCLNT_E_UNSUPPORTED_FORMAT",
-                                 get_name().c_str());
-                break;
-            case E_POINTER:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): E_POINTER", get_name().c_str());
-                break;
-            case E_INVALIDARG:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): E_INVALIDARG",
-                                 get_name().c_str());
-                break;
-            case AUDCLNT_E_DEVICE_INVALIDATED:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): AUDCLNT_E_DEVICE_INVALIDATED",
-                                 get_name().c_str());
-                break;
-            case AUDCLNT_E_SERVICE_NOT_RUNNING:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): AUDCLNT_E_SERVICE_NOT_RUNNING",
-                                 get_name().c_str());
-                break;
-            default:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): Unknown HRESULT(0x%lx)",
-                                 get_name().c_str(), result);
-                break;
-        }
-    }
-
-
-}
-
-
-void Lowl::Audio::WasapiDevice::start(std::shared_ptr<AudioSource> p_audio_source, Lowl::Error &error) {
+void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_properties,
+                                      std::shared_ptr<AudioSource> p_audio_source,
+                                      Lowl::Error &error) {
+    audio_device_properties = p_audio_device_properties;
     audio_source = p_audio_source;
 
     HRESULT result = S_OK;
     if (audio_client == nullptr) {
-        result = wasapi_device->Activate(LOWL_IID_IAudioClient3, CLSCTX_ALL, nullptr, (void **) &audio_client);
+        result = wasapi_device->Activate(
+                LOWL_IID_IAudioClient3,
+                CLSCTX_ALL,
+                nullptr,
+                (void **) &audio_client
+        );
         if (FAILED(result)) {
             return;
         }
@@ -194,6 +62,9 @@ void Lowl::Audio::WasapiDevice::start(std::shared_ptr<AudioSource> p_audio_sourc
         return;
     }
 
+    AUDCLNT_SHAREMODE share_mode = audio_device_properties.exclusive_mode ? AUDCLNT_SHAREMODE_EXCLUSIVE
+                                                                          : AUDCLNT_SHAREMODE_SHARED;
+
     WAVEFORMATEX *closest_match;
     if (share_mode == AUDCLNT_SHAREMODE_SHARED) {
         memset(&closest_match, 0, sizeof(closest_match));
@@ -204,36 +75,26 @@ void Lowl::Audio::WasapiDevice::start(std::shared_ptr<AudioSource> p_audio_sourc
         return;
     }
 
-    WAVEFORMATEXTENSIBLE wfe;
-    memset(&wfe, 0, sizeof(wfe));
-    wfe.Format.cbSize = sizeof(wfe);
-    wfe.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
-    wfe.Format.nChannels = (WORD) get_channel_num(output_channel);
-    wfe.Format.nSamplesPerSec = (DWORD) default_sample_rate;
-    wfe.Format.wBitsPerSample = (WORD) Lowl::Audio::get_sample_bits(sample_format);
-    wfe.Format.nBlockAlign = (wfe.Format.nChannels * wfe.Format.wBitsPerSample) / 8;
-    wfe.Format.nAvgBytesPerSec = wfe.Format.nBlockAlign * wfe.Format.nSamplesPerSec;
-    wfe.Samples.wValidBitsPerSample = wfe.Format.wBitsPerSample;
-    wfe.dwChannelMask = SPEAKER_FRONT_LEFT |
-                        SPEAKER_FRONT_RIGHT; // https://docs.microsoft.com/en-us/windows-hardware/drivers/ddi/ksmedia/ns-ksmedia-waveformatextensible#remarks
-    wfe.SubFormat = get_wave_sub_format(sample_format);
-
+    WAVEFORMATEXTENSIBLE wfe = to_wave_format_extensible(p_audio_device_properties);
     result = audio_client->IsFormatSupported(
             share_mode,
-            (WAVEFORMATEX * ) & wfe,
+            (WAVEFORMATEX *) &wfe,
             &closest_match
     );
 
     if (share_mode == AUDCLNT_SHAREMODE_SHARED) {
         if (result == S_OK && closest_match == nullptr) {
-            // if the audio engine supports the caller-specified format, IsFormatSupported sets *ppClosestMatch to NULL and returns S_OK.
+            // if the audio engine supports the caller-specified format,
+            // IsFormatSupported sets *ppClosestMatch to NULL and returns S_OK.
         } else if (result == S_FALSE && closest_match != nullptr) {
-            int iasda = 1;
-            // if the audio engine supports the caller-specified format, IsFormatSupported sets *ppClosestMatch to NULL and returns S_OK.
+            // not supported but alternative format available.
+            LOWL_LOG_DEBUG_F("%s -> alternative format available, but not discovered initially", get_name().c_str());
         }
     } else if (share_mode == AUDCLNT_SHAREMODE_EXCLUSIVE) {
         if (result == S_OK && closest_match == nullptr) {
-            // For exclusive mode, IsFormatSupported returns S_OK if the audio endpoint device supports the caller-specified format, or it returns AUDCLNT_E_UNSUPPORTED_FORMAT if the device does not support the format
+            // For exclusive mode, IsFormatSupported returns S_OK
+            // if the audio endpoint device supports the caller-specified format,
+            // or it returns AUDCLNT_E_UNSUPPORTED_FORMAT if the device does not support the format
         }
     }
 
@@ -259,7 +120,7 @@ void Lowl::Audio::WasapiDevice::start(std::shared_ptr<AudioSource> p_audio_sourc
             AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
             minimum_device_period,
             minimum_device_period,
-            (WAVEFORMATEX * ) & wfe,
+            (WAVEFORMATEX *) &wfe,
             nullptr
     );
     if (FAILED(result)) {
@@ -325,7 +186,8 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
             return 0;
         }
 
-        if (share_mode == AUDCLNT_SHAREMODE_SHARED) {
+        if (!audio_device_properties.exclusive_mode) {
+            //share_mode == AUDCLNT_SHAREMODE_SHARED
             UINT32 padding_frames_count;
             result = audio_client->GetCurrentPadding(&padding_frames_count);
             if (FAILED(result)) {
@@ -447,7 +309,6 @@ Lowl::Audio::WasapiDevice::construct(const std::string &p_driver_name, void *p_w
     const char *device_name = WasapiDevice::wc_to_utf8(value.pwszVal);
     PropVariantClear(&value);
 
-
     PropVariantInit(&value);
     result = device_properties->GetValue(PKEY_AudioEngine_DeviceFormat, &value);
     if (FAILED(result)) {
@@ -463,18 +324,17 @@ Lowl::Audio::WasapiDevice::construct(const std::string &p_driver_name, void *p_w
         return nullptr;
     }
 
-    Lowl::SampleRate device_sample_rate = wave_format->nSamplesPerSec;
-    Lowl::Audio::AudioChannel device_output_channel = Lowl::Audio::get_channel(wave_format->nChannels);
-    Lowl::Audio::SampleFormat device_sample_format = get_sample_format(wave_format);
-
     PropVariantClear(&value);
-    std::unique_ptr<WasapiDevice> device = std::make_unique<WasapiDevice>();
-    device->set_name("[" + p_driver_name + "] " + std::string(device_name));
-    device->default_sample_rate = device_sample_rate;
-    device->output_channel = device_output_channel;
+
+    std::unique_ptr<WasapiDevice> device = std::make_unique<WasapiDevice>(_constructor_tag{});
+    device->name = "[" + p_driver_name + "] " + std::string(device_name);
     device->wasapi_device = wasapi_device;
-    device->sample_format = device_sample_format;
-    device->populate_device_properties();
+    device->properties = create_device_properties(
+            wasapi_device,
+            wave_format,
+            device->get_name()
+    );
+
     return device;
 }
 
@@ -502,59 +362,244 @@ GUID Lowl::Audio::WasapiDevice::get_wave_sub_format(const Lowl::Audio::SampleFor
     }
 }
 
+/***
+ * https://www.ambisonic.net/mulchaud.html#_Toc446153097
+ * To keep the WAVEFORMATEXTENSIBLE structure under the 64-bit limit, wValidBitsPerSample and wSamplesPerBlock were joined together in a union called Samples.
+ * An extra field named wReserved was also added for future use.
+ *
+ * Details about wValidBitsPerSample
+ * The field wValidBitsPerSample is used to explicitly indicate how many bits of precision are present in the signal.
+ * Most of the time this value will be equal to wBitsPerSample.
+ * If, however, wave data originated from a 20-bit A/D, then wValidBitsPerSample could be set to 20, even though wBitsPerSample might be 24 or 32.
+ * Examples are included in sections 4.6 and later.
+ * If wValidBitsPerSample is less than wBitsPerSample, then the actual PCM data is "left-aligned" within the container.
+ * The sample itself is justified most significant; all extra bits are at the least-significant portion of the container.
+ * The value of wValidBitsPerSample should never exceed that of wBitsPerSample.
+ * If this is encountered, the proper action is to reject the data format.
+ * An entity can change wValidBitsPerSample as it processes the data.
+ * For example, an application would know that a stream with wValidBitsPerSample = 24 must be dithered to 16 bits if the output driver indicated that it supported wValidBitsPerSample = 16 only.
+ * Although this can be very expensive from a memory-bandwidth standpoint, wBitsPerSample can be changed as well.
+ * wValidBitsPerSample indicates whether the container size (wBitsPerSample) can be reduced without data loss.
+ * A stream with wValidBitsPerSample = 20; wBitsPerSample = 32 (for processing by a 32-bit CPU) could safely be compressed to wBitsPerSample = 24 (for archiving to disk).
+ * Without wValidBitsPerSample, one would not know whether this was lossless.
+ *
+ * Details about wSamplesPerBlock
+ * It is often times useful to know how many samples are contained in one compressed block of audio data.
+ * The wSamplesPerBlock is used in compressed formats that have a fixed number of samples within each block.
+ * This value aids in buffer estimation and position information.
+ * If wSamplesPerBlock is 0, a variable amount of samples are contained in each block of compressed audio data.
+ * In this case, buffer estimation and position information need to be obtained in other ways.
+ *
+ * Details about wReserved
+ * If neither wValidBitsPerSample or wSamplesPerBlock apply to the audio data being described by the WAVEFORMATEXTENSIBLE structure, set the wReserved field to 0.
+ *
+ * @param p_wave_format_ex
+ * @return
+ */
+Lowl::Audio::AudioDeviceProperties
+Lowl::Audio::WasapiDevice::to_audio_device_properties(const WAVEFORMATEX *p_wave_format_ex) {
 
-Lowl::Audio::SampleFormat Lowl::Audio::WasapiDevice::get_sample_format(const WAVEFORMATEX *p_wave_format_ex) {
+    AudioDeviceProperties properties = AudioDeviceProperties();
+    properties.sample_rate = p_wave_format_ex->nSamplesPerSec;
+    properties.channel = Lowl::Audio::get_channel(p_wave_format_ex->nChannels);
+    properties.sample_format = Lowl::Audio::SampleFormat::Unknown;
+
     if (p_wave_format_ex->wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
-        const WAVEFORMATEXTENSIBLE *pWFEX = (const WAVEFORMATEXTENSIBLE *) p_wave_format_ex;
+        const WAVEFORMATEXTENSIBLE *wave_format_extensible = (const WAVEFORMATEXTENSIBLE *) p_wave_format_ex;
 
-        if (IsEqualGUID(*(const GUID *) &pWFEX->SubFormat, *(const GUID *) &LOWL_GUID_KSDATAFORMAT_SUBTYPE_PCM)) {
-            if (pWFEX->Samples.wValidBitsPerSample == 32) {
-                return Lowl::Audio::SampleFormat::INT_32;
+        properties.user_data.valid_bits_per_sample = wave_format_extensible->Samples.wValidBitsPerSample;
+
+        if (IsEqualGUID(*(const GUID *) &wave_format_extensible->SubFormat,
+                        *(const GUID *) &LOWL_GUID_KSDATAFORMAT_SUBTYPE_PCM)) {
+            if (wave_format_extensible->Samples.wValidBitsPerSample == 32) {
+                properties.sample_format = Lowl::Audio::SampleFormat::INT_32;
             }
-            if (pWFEX->Samples.wValidBitsPerSample == 24) {
-                if (pWFEX->Format.wBitsPerSample == 24) {
-                    return Lowl::Audio::SampleFormat::INT_24;
+            if (wave_format_extensible->Samples.wValidBitsPerSample == 24) {
+                if (wave_format_extensible->Format.wBitsPerSample == 24) {
+                    properties.sample_format = Lowl::Audio::SampleFormat::INT_24;
                 }
-                if (pWFEX->Format.wBitsPerSample == 32) {
-                    return Lowl::Audio::SampleFormat::INT_32;
+                if (wave_format_extensible->Format.wBitsPerSample == 32) {
+                    properties.sample_format = Lowl::Audio::SampleFormat::INT_32;
                 }
             }
-            if (pWFEX->Samples.wValidBitsPerSample == 16) {
-                return Lowl::Audio::SampleFormat::INT_16;
+            if (wave_format_extensible->Samples.wValidBitsPerSample == 16) {
+                properties.sample_format = Lowl::Audio::SampleFormat::INT_16;
             }
-            if (pWFEX->Samples.wValidBitsPerSample == 8) {
-                return Lowl::Audio::SampleFormat::U_INT_8;
+            if (wave_format_extensible->Samples.wValidBitsPerSample == 8) {
+                properties.sample_format = Lowl::Audio::SampleFormat::U_INT_8;
             }
         }
-        if (IsEqualGUID(*(const GUID *) &pWFEX->SubFormat,
+        if (IsEqualGUID(*(const GUID *) &wave_format_extensible->SubFormat,
                         *(const GUID *) &LOWL_GUID_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT)) {
-            if (pWFEX->Samples.wValidBitsPerSample == 32) {
-                return Lowl::Audio::SampleFormat::FLOAT_32;
+            if (wave_format_extensible->Samples.wValidBitsPerSample == 32) {
+                properties.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
             }
         }
     } else {
         if (p_wave_format_ex->wFormatTag == WAVE_FORMAT_PCM) {
             if (p_wave_format_ex->wBitsPerSample == 32) {
-                return Lowl::Audio::SampleFormat::INT_32;
+                properties.sample_format = Lowl::Audio::SampleFormat::INT_32;
             }
             if (p_wave_format_ex->wBitsPerSample == 24) {
-                return Lowl::Audio::SampleFormat::INT_24;
+                properties.sample_format = Lowl::Audio::SampleFormat::INT_24;
             }
             if (p_wave_format_ex->wBitsPerSample == 16) {
-                return Lowl::Audio::SampleFormat::INT_16;
+                properties.sample_format = Lowl::Audio::SampleFormat::INT_16;
             }
             if (p_wave_format_ex->wBitsPerSample == 8) {
-                return Lowl::Audio::SampleFormat::U_INT_8;
+                properties.sample_format = Lowl::Audio::SampleFormat::U_INT_8;
             }
         }
         if (p_wave_format_ex->wFormatTag == WAVE_FORMAT_IEEE_FLOAT) {
             if (p_wave_format_ex->wBitsPerSample == 32) {
-                return Lowl::Audio::SampleFormat::FLOAT_32;
+                properties.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
             }
         }
     }
 
-    return Lowl::Audio::SampleFormat::Unknown;
+    return properties;
+}
+
+WAVEFORMATEXTENSIBLE
+Lowl::Audio::WasapiDevice::to_wave_format_extensible(
+        const Lowl::Audio::AudioDeviceProperties &audio_device_properties) {
+    WAVEFORMATEXTENSIBLE wfe = WAVEFORMATEXTENSIBLE();
+    wfe.Format.cbSize = sizeof(wfe);
+    wfe.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+    wfe.Format.nChannels = (WORD) get_channel_num(audio_device_properties.channel);
+    wfe.Format.nSamplesPerSec = (DWORD) audio_device_properties.sample_rate;
+    wfe.Format.wBitsPerSample = (WORD) Lowl::Audio::get_sample_bits(audio_device_properties.sample_format);
+    wfe.Format.nBlockAlign = (wfe.Format.nChannels * wfe.Format.wBitsPerSample) / 8;
+    wfe.Format.nAvgBytesPerSec = wfe.Format.nBlockAlign * wfe.Format.nSamplesPerSec;
+    wfe.Samples.wValidBitsPerSample = wfe.Format.wBitsPerSample;
+    wfe.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
+    wfe.SubFormat = get_wave_sub_format(audio_device_properties.sample_format);
+    return wfe;
+}
+
+std::vector<Lowl::Audio::AudioDeviceProperties>
+Lowl::Audio::WasapiDevice::create_device_properties(IMMDevice *p_wasapi_device,
+                                                    const WAVEFORMATEX *p_wave_format,
+                                                    std::string device_name) {
+
+    std::vector<Lowl::Audio::AudioDeviceProperties> properties = std::vector<Lowl::Audio::AudioDeviceProperties>();
+
+    IAudioClient *tmp_audio_client = nullptr;
+    HRESULT result = p_wasapi_device->Activate(
+            LOWL_IID_IAudioClient3,
+            CLSCTX_ALL,
+            nullptr,
+            (void **) &tmp_audio_client
+    );
+    if (FAILED(result)) {
+        return properties;
+    }
+
+    AudioDeviceProperties default_properties = to_audio_device_properties(p_wave_format);
+
+    WAVEFORMATEXTENSIBLE wfe_exclusive = to_wave_format_extensible(default_properties);
+    result = tmp_audio_client->IsFormatSupported(
+            AUDCLNT_SHAREMODE_EXCLUSIVE,
+            (WAVEFORMATEX *) &wfe_exclusive,
+            nullptr
+    );
+    if (result == S_OK) {
+        AudioDeviceProperties property = AudioDeviceProperties();
+        property.valid = true;
+        property.channel = default_properties.channel;
+        property.sample_rate = default_properties.sample_rate;
+        property.sample_format = default_properties.sample_format;
+        property.exclusive_mode = true;
+        properties.push_back(property);
+    } else {
+        switch (result) {
+            case AUDCLNT_E_UNSUPPORTED_FORMAT:
+                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): AUDCLNT_E_UNSUPPORTED_FORMAT",
+                                 device_name.c_str());
+                break;
+            case E_POINTER:
+                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): E_POINTER",
+                                 device_name.c_str());
+                break;
+            case E_INVALIDARG:
+                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): E_INVALIDARG",
+                                 device_name.c_str());
+                break;
+            case AUDCLNT_E_DEVICE_INVALIDATED:
+                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): AUDCLNT_E_DEVICE_INVALIDATED",
+                                 device_name.c_str());
+                break;
+            case AUDCLNT_E_SERVICE_NOT_RUNNING:
+                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): AUDCLNT_E_SERVICE_NOT_RUNNING",
+                                 device_name.c_str());
+                break;
+            default:
+                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): Unknown HRESULT(0x%lx)",
+                                 device_name.c_str(), result);
+                break;
+        }
+    }
+
+
+    WAVEFORMATEXTENSIBLE wfe_shared = to_wave_format_extensible(default_properties);
+    WAVEFORMATEX *closest_match = nullptr;
+    memset(&closest_match, 0, sizeof(closest_match));
+    result = tmp_audio_client->IsFormatSupported(
+            AUDCLNT_SHAREMODE_SHARED,
+            (WAVEFORMATEX *) &wfe_shared,
+            &closest_match
+    );
+    if (result == S_OK && closest_match == nullptr) {
+        AudioDeviceProperties property = AudioDeviceProperties();
+        property.valid = true;
+        property.channel = default_properties.channel;
+        property.sample_rate = default_properties.sample_rate;
+        property.sample_format = default_properties.sample_format;
+        property.exclusive_mode = false;
+        properties.push_back(property);
+    } else if (result == S_FALSE && closest_match != nullptr) {
+        AudioDeviceProperties property = to_audio_device_properties(closest_match);
+        property.valid = true;
+        property.exclusive_mode = false;
+        properties.push_back(property);
+    } else {
+        switch (result) {
+            case AUDCLNT_E_UNSUPPORTED_FORMAT:
+                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): AUDCLNT_E_UNSUPPORTED_FORMAT",
+                                 device_name.c_str());
+                break;
+            case E_POINTER:
+                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): E_POINTER",
+                                 device_name.c_str());
+                break;
+            case E_INVALIDARG:
+                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): E_INVALIDARG",
+                                 device_name.c_str());
+                break;
+            case AUDCLNT_E_DEVICE_INVALIDATED:
+                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): AUDCLNT_E_DEVICE_INVALIDATED",
+                                 device_name.c_str());
+                break;
+            case AUDCLNT_E_SERVICE_NOT_RUNNING:
+                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): AUDCLNT_E_SERVICE_NOT_RUNNING",
+                                 device_name.c_str());
+                break;
+            default:
+                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): Unknown HRESULT(0x%lx)",
+                                 device_name.c_str(), result);
+                break;
+        }
+    }
+
+    return properties;
+}
+
+Lowl::Audio::WasapiDevice::~WasapiDevice() {
+    SAFE_RELEASE(audio_client)
+    SAFE_RELEASE(wasapi_device)
+    SAFE_RELEASE(audio_render_client)
+    CloseHandle(wasapi_audio_event_handle);
+    CloseHandle(wasapi_audio_thread_handle);
 }
 
 #endif

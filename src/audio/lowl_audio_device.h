@@ -13,29 +13,34 @@ namespace Lowl::Audio {
 
     class AudioDevice {
 
-    private:
-        std::string name;
-
     protected:
+        struct _constructor_tag {
+            explicit _constructor_tag() = default;
+        };
+
+        virtual ~AudioDevice() = 0;
+
         std::shared_ptr<AudioSource> audio_source;
         std::vector<AudioDeviceProperties> properties;
+        std::string name;
 
     public:
-        virtual void start(std::shared_ptr<AudioSource> p_audio_source, Error &error) = 0;
+        AudioDevice();
+
+        void set_name(const std::string &p_name);
+
+        virtual void start(AudioDeviceProperties p_audio_device_properties,
+                           std::shared_ptr<AudioSource> p_audio_source,
+                           Error &error) = 0;
 
         virtual void stop(Error &error) = 0;
 
         std::vector<AudioDeviceProperties> get_properties() const;
 
-        AudioDeviceProperties get_closest_properties(AudioDeviceProperties p_audio_device_properties, Error &error) const;
+        AudioDeviceProperties
+        get_closest_properties(AudioDeviceProperties p_audio_device_properties, Error &error) const;
 
         std::string get_name() const;
-
-        void set_name(const std::string &p_name);
-
-        AudioDevice();
-
-        virtual ~AudioDevice() = default;
     };
 }
 

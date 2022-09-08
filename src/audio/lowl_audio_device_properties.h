@@ -5,10 +5,14 @@
 
 namespace Lowl::Audio {
     struct AudioDeviceProperties {
+        bool valid;
         SampleRate sample_rate;
         AudioChannel channel;
         SampleFormat sample_format;
         bool exclusive_mode;
+        union UserData {
+            uint16_t valid_bits_per_sample; /* wasapi */
+        } user_data;
     };
 }
 

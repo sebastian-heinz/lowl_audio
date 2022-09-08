@@ -31,3 +31,7 @@ Lowl::Audio::AudioDevice::get_closest_properties(Lowl::Audio::AudioDevicePropert
 std::vector<Lowl::Audio::AudioDeviceProperties> Lowl::Audio::AudioDevice::get_properties() const {
     return properties;
 }
+
+Lowl::Audio::AudioDevice::~AudioDevice() {
+
+}

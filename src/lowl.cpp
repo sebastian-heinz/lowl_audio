@@ -37,7 +37,7 @@ void Lowl::Lib::initialize(Lowl::Error &error) {
 #ifdef LOWL_DRIVER_PORTAUDIO
         PaError pa_error = Pa_Initialize();
         if (pa_error == PaErrorCode::paNoError) {
-            drivers.push_back(std::make_shared<Lowl::Audio::AudioDriverPa>());
+            drivers.push_back(std::make_shared<Lowl::Audio::PADriver>());
         } else {
             LOWL_LOG_ERROR_F("PortAudio failed Pa_Initialize (PaError:%d)", pa_error);
         }

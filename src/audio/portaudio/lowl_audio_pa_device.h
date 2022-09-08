@@ -9,7 +9,7 @@
 
 namespace Lowl::Audio {
 
-    class AudioDevicePa : public AudioDevice {
+    class PADevice : public AudioDevice {
 
     private:
         PaDeviceIndex device_index;
@@ -33,7 +33,9 @@ namespace Lowl::Audio {
         PaSampleFormat get_pa_sample_format(SampleFormat sample_format, Error &error);
 
     public:
-        virtual void start(std::shared_ptr<AudioSource> p_audio_source, Error &error) override;
+        virtual void start(AudioDeviceProperties p_audio_device_properties,
+                           std::shared_ptr<AudioSource> p_audio_source,
+                           Error &error) override;
 
         virtual void stop(Error &error) override;
 
@@ -46,9 +48,9 @@ namespace Lowl::Audio {
 
         void set_device_index(PaDeviceIndex device_index);
 
-        AudioDevicePa();
+        PADevice();
 
-        ~AudioDevicePa();
+        ~PADevice();
     };
 }
 

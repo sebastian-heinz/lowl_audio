@@ -33,7 +33,7 @@ void space(std::shared_ptr<Lowl::Audio::AudioDevice> device) {
         std::cout << "Space Entry: " << space_id << "->" << audio_name << "\n";
     }
 
-    device->start(space, error);
+    device->start({}, space, error);
     if (error.has_error()) {
         std::cout << "Err: device->start\n";
         return;

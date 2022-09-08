@@ -9,7 +9,7 @@
 
 namespace Lowl::Audio {
 
-    class AudioDriverPa : public AudioDriver {
+    class PADriver : public AudioDriver {
 
     private:
         void create_devices(Error &error);
@@ -19,9 +19,9 @@ namespace Lowl::Audio {
     public:
         void initialize(Error &error) override;
 
-        AudioDriverPa();
+        PADriver();
 
-        ~AudioDriverPa() override;
+        ~PADriver() override;
     };
 }
 
