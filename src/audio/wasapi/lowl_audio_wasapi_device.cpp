@@ -78,7 +78,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
     WAVEFORMATEXTENSIBLE wfe = to_wave_format_extensible(p_audio_device_properties);
     result = audio_client->IsFormatSupported(
             share_mode,
-            (WAVEFORMATEX *) &wfe,
+            (WAVEFORMATEX * ) & wfe,
             &closest_match
     );
 
@@ -88,30 +88,45 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
             // IsFormatSupported sets *ppClosestMatch to NULL and returns S_OK.
         } else if (result == S_FALSE && closest_match != nullptr) {
             // not supported but alternative format available.
-            LOWL_LOG_DEBUG_F("%s -> alternative format available, but not discovered initially", get_name().c_str());
+            LOWL_LOG_DEBUG_F("%s -> alternative format available, but not discovered via 'create_device_properties()'",
+                             get_name().c_str());
+        } else {
+            // not supported and no alternative format
+            LOWL_LOG_DEBUG_F("%s -> not supported and not alternative format", get_name().c_str());
         }
     } else if (share_mode == AUDCLNT_SHAREMODE_EXCLUSIVE) {
         if (result == S_OK && closest_match == nullptr) {
             // For exclusive mode, IsFormatSupported returns S_OK
             // if the audio endpoint device supports the caller-specified format,
             // or it returns AUDCLNT_E_UNSUPPORTED_FORMAT if the device does not support the format
+        } else {
+            LOWL_LOG_DEBUG_F("%s -> format not supported for exclusive mode", get_name().c_str());
         }
     }
 
     if (FAILED(result)) {
         switch (result) {
             case AUDCLNT_E_UNSUPPORTED_FORMAT:
+                LOWL_LOG_ERROR_F("%s -> AUDCLNT_E_UNSUPPORTED_FORMAT", get_name().c_str());
+                error.set_error(Lowl::ErrorCode::Error);
                 break;
             case E_POINTER:
+                LOWL_LOG_ERROR_F("%s -> E_POINTER", get_name().c_str());
+                error.set_error(Lowl::ErrorCode::Error);
                 break;
             case E_INVALIDARG:
+                LOWL_LOG_ERROR_F("%s -> E_INVALIDARG", get_name().c_str());
+                error.set_error(Lowl::ErrorCode::Error);
                 break;
             case AUDCLNT_E_DEVICE_INVALIDATED:
+                LOWL_LOG_ERROR_F("%s -> AUDCLNT_E_DEVICE_INVALIDATED", get_name().c_str());
+                error.set_error(Lowl::ErrorCode::Error);
                 break;
             case AUDCLNT_E_SERVICE_NOT_RUNNING:
+                LOWL_LOG_ERROR_F("%s -> AUDCLNT_E_SERVICE_NOT_RUNNING", get_name().c_str());
+                error.set_error(Lowl::ErrorCode::Error);
                 break;
         }
-
         return;
     }
 
@@ -120,10 +135,11 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
             AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
             minimum_device_period,
             minimum_device_period,
-            (WAVEFORMATEX *) &wfe,
+            (WAVEFORMATEX * ) & wfe,
             nullptr
     );
     if (FAILED(result)) {
+        error.set_error(Lowl::ErrorCode::Error);
         return;
     }
 
@@ -132,16 +148,19 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
             (void **) &audio_render_client
     );
     if (FAILED(result)) {
+        error.set_error(Lowl::ErrorCode::Error);
         return;
     }
 
     wasapi_audio_event_handle = CreateEvent(nullptr, false, false, nullptr);
     if (wasapi_audio_event_handle == INVALID_HANDLE_VALUE) {
+        error.set_error(Lowl::ErrorCode::Error);
         return;
     }
 
     result = audio_client->SetEventHandle(wasapi_audio_event_handle);
     if (FAILED(result)) {
+        error.set_error(Lowl::ErrorCode::Error);
         return;
     }
 
@@ -154,12 +173,14 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
             nullptr
     );
     if (wasapi_audio_thread_handle == nullptr) {
+        error.set_error(Lowl::ErrorCode::Error);
         return;
     }
     SetThreadPriority(wasapi_audio_thread_handle, THREAD_PRIORITY_HIGHEST);
 
     result = audio_client->Start();
     if (FAILED(result)) {
+        error.set_error(Lowl::ErrorCode::Error);
         return;
     }
 
@@ -407,7 +428,7 @@ Lowl::Audio::WasapiDevice::to_audio_device_properties(const WAVEFORMATEX *p_wave
     if (p_wave_format_ex->wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
         const WAVEFORMATEXTENSIBLE *wave_format_extensible = (const WAVEFORMATEXTENSIBLE *) p_wave_format_ex;
 
-        properties.user_data.valid_bits_per_sample = wave_format_extensible->Samples.wValidBitsPerSample;
+        properties.wasapi.valid_bits_per_sample = wave_format_extensible->Samples.wValidBitsPerSample;
 
         if (IsEqualGUID(*(const GUID *) &wave_format_extensible->SubFormat,
                         *(const GUID *) &LOWL_GUID_KSDATAFORMAT_SUBTYPE_PCM)) {
@@ -472,8 +493,11 @@ Lowl::Audio::WasapiDevice::to_wave_format_extensible(
     wfe.Format.nBlockAlign = (wfe.Format.nChannels * wfe.Format.wBitsPerSample) / 8;
     wfe.Format.nAvgBytesPerSec = wfe.Format.nBlockAlign * wfe.Format.nSamplesPerSec;
 
-    // wfe.Samples.wValidBitsPerSample = wfe.Format.wBitsPerSample;
-    wfe.Samples.wValidBitsPerSample = audio_device_properties.user_data.valid_bits_per_sample;
+    if (audio_device_properties.wasapi.valid_bits_per_sample > 0) {
+        wfe.Samples.wValidBitsPerSample = audio_device_properties.wasapi.valid_bits_per_sample;
+    } else {
+        wfe.Samples.wValidBitsPerSample = wfe.Format.wBitsPerSample;
+    }
 
     wfe.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
     wfe.SubFormat = get_wave_sub_format(audio_device_properties.sample_format);
