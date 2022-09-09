@@ -172,6 +172,15 @@ int run() {
 
 /**
  * example how to select a device
+ *
+ * -dev14
+ * -ch2
+ * --sr44100.0
+ * -sr48000.0
+ * -mC:\\Users\\railgun\\Downloads\\CantinaBand60.wav
+ * -mC:\\Users\\railgun\\Downloads\\StarWars60.wav
+ *
+ *
  */
 int main(int argc, char **argv) {
 
