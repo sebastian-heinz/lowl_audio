@@ -47,19 +47,19 @@ namespace Lowl::Audio {
                 Error &error
         );
 
-        WasapiDevice(_constructor_tag);
-
         uint32_t audio_callback();
 
         virtual void start(AudioDeviceProperties p_audio_device_properties,
-                   std::shared_ptr<AudioSource> p_audio_source,
-                   Error &error) override;
+                           std::shared_ptr<AudioSource> p_audio_source,
+                           Error &error) override;
 
         virtual void stop(Error &error) override;
 
+        WasapiDevice(_constructor_tag);
+
         ~WasapiDevice() override;
     };
-} //namespace Lowl::Audio
+}
 
 #endif /* LOWL_DRIVER_WASAPI */
 #endif /* LOWL_AUDIO_WASAPI_DEVICE_H */

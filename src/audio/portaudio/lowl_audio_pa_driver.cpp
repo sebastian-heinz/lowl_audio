@@ -24,11 +24,19 @@ void Lowl::Audio::PADriver::create_devices(Error &error) {
                 continue;
             }
             std::string device_name =
-                    "[" + name + "] " + "[" + std::string(api_info->name) + "] " + std::string(device_info->name);
-            std::shared_ptr<PADevice> device = std::make_shared<PADevice>();
-            device->set_name(device_name);
-            device->set_device_index(device_index);
-            devices.push_back(device);
+                    "[" + name + "] "
+                    + "[" + std::string(api_info->name) + "] "
+                    + std::string(device_info->name);
+
+            Error err;
+            std::shared_ptr<Lowl::Audio::AudioDevice> device = PADevice::construct(
+                    device_name,
+                    device_index,
+                    err
+            );
+            if (err.ok()) {
+                devices.push_back(device);
+            }
 
             if (device_index == default_device_index) {
                 if (default_device) {
@@ -73,7 +81,7 @@ PaHostApiIndex Lowl::Audio::PADriver::get_default_host_api_index() {
         default_driver_priority.push_back(default_driver_priority_setting);
     }
 
-    for (std::string default_driver : default_driver_priority) {
+    for (std::string default_driver: default_driver_priority) {
         for (PaHostApiIndex api_index = 0; api_index < api_count; api_index++) {
             const PaHostApiInfo *api_info = Pa_GetHostApiInfo(api_index);
             std::string current_driver;

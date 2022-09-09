@@ -33,11 +33,11 @@ namespace Lowl::Audio {
         PaSampleFormat get_pa_sample_format(SampleFormat sample_format, Error &error);
 
     public:
-        virtual void start(AudioDeviceProperties p_audio_device_properties,
-                           std::shared_ptr<AudioSource> p_audio_source,
-                           Error &error) override;
-
-        virtual void stop(Error &error) override;
+        static std::unique_ptr<PADevice> construct(
+                const std::string &p_device_name,
+                const PaDeviceIndex p_device_index,
+                Error &error
+        );
 
         PaStreamCallbackResult callback(const void *p_input_buffer,
                                         void *p_output_buffer,
@@ -46,11 +46,15 @@ namespace Lowl::Audio {
                                         PaStreamCallbackFlags p_status_flags
         );
 
-        void set_device_index(PaDeviceIndex device_index);
+        virtual void start(AudioDeviceProperties p_audio_device_properties,
+                           std::shared_ptr<AudioSource> p_audio_source,
+                           Error &error) override;
 
-        PADevice();
+        virtual void stop(Error &error) override;
 
-        ~PADevice();
+        PADevice(_constructor_tag);
+
+        ~PADevice() override;
     };
 }
 

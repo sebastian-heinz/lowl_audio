@@ -25,7 +25,7 @@ namespace Lowl::Audio {
         std::string name;
 
     public:
-        AudioDevice();
+        AudioDevice(_constructor_tag);
 
         void set_name(const std::string &p_name);
 

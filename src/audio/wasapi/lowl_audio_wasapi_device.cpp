@@ -27,7 +27,7 @@ static DWORD WINAPI wasapi_audio_callback(void *param) {
 }
 // @formatter:on
 
-Lowl::Audio::WasapiDevice::WasapiDevice(_constructor_tag) {
+Lowl::Audio::WasapiDevice::WasapiDevice(_constructor_tag ct) : AudioDevice(ct) {
     wasapi_device = nullptr;
     audio_client = nullptr;
     wasapi_audio_thread_handle = nullptr;
@@ -78,7 +78,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
     WAVEFORMATEXTENSIBLE wfe = to_wave_format_extensible(p_audio_device_properties);
     result = audio_client->IsFormatSupported(
             share_mode,
-            (WAVEFORMATEX * ) & wfe,
+            (WAVEFORMATEX *) &wfe,
             &closest_match
     );
 
@@ -135,7 +135,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
             AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
             minimum_device_period,
             minimum_device_period,
-            (WAVEFORMATEX * ) & wfe,
+            (WAVEFORMATEX *) &wfe,
             nullptr
     );
     if (FAILED(result)) {
@@ -527,7 +527,7 @@ Lowl::Audio::WasapiDevice::create_device_properties(IMMDevice *p_wasapi_device,
     WAVEFORMATEXTENSIBLE wfe_exclusive = to_wave_format_extensible(default_properties);
     result = tmp_audio_client->IsFormatSupported(
             AUDCLNT_SHAREMODE_EXCLUSIVE,
-            (WAVEFORMATEX * ) & wfe_exclusive,
+            (WAVEFORMATEX *) &wfe_exclusive,
             nullptr
     );
     if (result == S_OK) {
@@ -572,7 +572,7 @@ Lowl::Audio::WasapiDevice::create_device_properties(IMMDevice *p_wasapi_device,
     memset(&closest_match, 0, sizeof(closest_match));
     result = tmp_audio_client->IsFormatSupported(
             AUDCLNT_SHAREMODE_SHARED,
-            (WAVEFORMATEX * ) & wfe_shared,
+            (WAVEFORMATEX *) &wfe_shared,
             &closest_match
     );
     if (result == S_OK && closest_match == nullptr) {

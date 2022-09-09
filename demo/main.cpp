@@ -13,7 +13,6 @@ int device_index = -1;
 int device_property_index = -1;
 
 void print_audio_properties(Lowl::Audio::AudioDeviceProperties p_device_properties) {
-    std::cout << "- Properties" << "\n";
     std::cout << "-- SampleRate:" << std::to_string(p_device_properties.sample_rate) << "\n";
     std::cout << "-- Channel:" << std::to_string(Lowl::Audio::get_channel_num(p_device_properties.channel)) << "\n";
     std::cout << "-- SampleFormat:" << Lowl::Audio::SampleFormatToString(p_device_properties.sample_format) << "\n";
@@ -42,7 +41,7 @@ void space(std::shared_ptr<Lowl::Audio::AudioDevice> device, Lowl::Audio::AudioD
         std::cout << "Space Entry: " << space_id << "->" << audio_name << "\n";
     }
 
-    device->start({}, space, error);
+    device->start(p_device_properties, space, error);
     if (error.has_error()) {
         std::cout << "Err: device->start\n";
         return;
@@ -117,7 +116,9 @@ int run() {
         std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>> devices = driver->get_devices();
         for (std::shared_ptr<Lowl::Audio::AudioDevice> device: devices) {
             std::cout << "+ Device[" + std::to_string(current_device_index++) + "]: " + device->get_name() + "\n";
+            int index = 0;
             for (Lowl::Audio::AudioDeviceProperties device_properties: device->get_properties()) {
+                std::cout << "- Properties[" << index++ << "]\n";
                 print_audio_properties(device_properties);
             }
             all_devices.push_back(device);
@@ -146,9 +147,9 @@ int run() {
         std::cout << "Select Device Properties:\n";
         std::string user_input;
         std::getline(std::cin, user_input);
-        device_index = std::stoi(user_input);
+        device_property_index = std::stoi(user_input);
     }
-    if (device_property_index >= device_properties_list.size()) {
+    if (device_property_index > device_properties_list.size()) {
         std::cout << "selected device_property_index out of range\n";
         return -1;
     } else if (device_property_index < 0) {
@@ -157,7 +158,7 @@ int run() {
     }
 
     Lowl::Audio::AudioDeviceProperties device_properties = device_properties_list[device_property_index];
-    std::cout << "Selected Properties" << "\n";
+    std::cout << "Selected Properties:" << "\n";
     print_audio_properties(device_properties);
 
     space(device, device_properties);

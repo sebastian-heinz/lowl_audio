@@ -8,7 +8,7 @@ void Lowl::Audio::AudioDevice::set_name(const std::string &p_name) {
     name = p_name;
 }
 
-Lowl::Audio::AudioDevice::AudioDevice() {
+Lowl::Audio::AudioDevice::AudioDevice(_constructor_tag) {
     properties = std::vector<AudioDeviceProperties>();
     name = std::string();
     audio_source = std::shared_ptr<AudioSource>();

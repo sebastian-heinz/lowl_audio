@@ -6,11 +6,6 @@
 
 #include <algorithm>
 
-#ifdef PA_USE_WASAPI
-#include <pa_win_wasapi.h>
-#include <core/os/memory.h>
-#endif
-
 static int audio_callback(const void *p_input_buffer, void *p_output_buffer,
                           unsigned long p_frames_per_buffer, const PaStreamCallbackTimeInfo *p_time_info,
                           PaStreamCallbackFlags p_status_flags, void *p_user_data) {
@@ -213,11 +208,8 @@ void Lowl::Audio::PADevice::stop(Error &error) {
     }
 }
 
-void Lowl::Audio::PADevice::set_device_index(PaDeviceIndex p_device_index) {
-    device_index = p_device_index;
-}
-
-Lowl::Audio::PADevice::PADevice() {
+Lowl::Audio::PADevice::PADevice(_constructor_tag ct)
+        : AudioDevice(ct) {
     active = false;
     stream = nullptr;
     device_index = paNoDevice;
@@ -272,6 +264,18 @@ Lowl::Audio::PADevice::get_pa_sample_format(Lowl::Audio::SampleFormat sample_for
         }
     }
     return pa_sample_format;
+}
+
+std::unique_ptr<Lowl::Audio::PADevice>
+Lowl::Audio::PADevice::construct(const std::string &p_device_name, const PaDeviceIndex p_device_index,
+                                 Lowl::Error &error) {
+
+    std::unique_ptr<PADevice> device = std::make_unique<PADevice>(_constructor_tag{});
+    device->name = p_device_name;
+    device->device_index = p_device_index;
+    device->properties = {}; // TODO
+
+    return device;
 }
 
 #endif
