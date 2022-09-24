@@ -3,6 +3,7 @@
 #include "lowl_audio_pa_device.h"
 
 #include "lowl_logger.h"
+#include "audio/lowl_audio_setting.h"
 
 #include <algorithm>
 
@@ -269,13 +270,55 @@ Lowl::Audio::PADevice::get_pa_sample_format(Lowl::Audio::SampleFormat sample_for
 std::unique_ptr<Lowl::Audio::PADevice>
 Lowl::Audio::PADevice::construct(const std::string &p_device_name, const PaDeviceIndex p_device_index,
                                  Lowl::Error &error) {
-
     std::unique_ptr<PADevice> device = std::make_unique<PADevice>(_constructor_tag{});
     device->name = p_device_name;
     device->device_index = p_device_index;
-    device->properties = {}; // TODO
-
+    device->properties = create_device_properties(p_device_index);
     return device;
+}
+
+std::vector<Lowl::Audio::AudioDeviceProperties>
+Lowl::Audio::PADevice::create_device_properties(const PaDeviceIndex p_device_index) {
+
+    std::vector<Lowl::Audio::AudioDeviceProperties> properties = std::vector<Lowl::Audio::AudioDeviceProperties>();
+
+    const PaDeviceInfo *device_info = Pa_GetDeviceInfo(p_device_index);
+
+
+    std::vector<double> test_sample_rates = Lowl::Audio::AudioSetting::get_test_sample_rates();
+    std::vector<SampleFormat> test_sample_formats = Lowl::Audio::AudioSetting::get_test_sample_formats();
+
+    for (int sample_format_index = 0; sample_format_index < test_sample_formats.size(); sample_format_index++) {
+        SampleFormat test_sample_format = test_sample_formats[sample_format_index];
+
+        Lowl::Error error;
+        PaSampleFormat pa_sample_format = get_pa_sample_format(test_sample_format, error);
+        if (error.has_error()) {
+            continue;
+        }
+
+        PaStreamParameters outputParameters;
+        outputParameters.device = p_device_index;
+        outputParameters.channelCount = device_info->maxOutputChannels;
+        outputParameters.sampleFormat = pa_sample_format;
+        outputParameters.suggestedLatency = 0; /* ignored by Pa_IsFormatSupported() */
+        outputParameters.hostApiSpecificStreamInfo = nullptr;
+
+        for (int sample_rate_index = 0; sample_rate_index < test_sample_rates.size(); sample_rate_index++) {
+            double test_sample_rate = test_sample_rates[sample_rate_index];
+            PaError err = Pa_IsFormatSupported(nullptr, &outputParameters, test_sample_rate);
+            if (err == paFormatIsSupported) {
+                AudioDeviceProperties property = AudioDeviceProperties();
+                property.channel = Lowl::Audio::get_channel(outputParameters.channelCount);
+                property.sample_rate = test_sample_rate;
+                property.sample_format = test_sample_format;
+                property.exclusive_mode = false;
+                properties.push_back(property);
+            }
+        }
+    }
+
+    return properties;
 }
 
 #endif

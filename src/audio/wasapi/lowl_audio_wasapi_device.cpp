@@ -2,6 +2,7 @@
 
 #include "lowl_audio_wasapi_device.h"
 
+#include "audio/lowl_audio_setting.h"
 #include "audio/convert/lowl_audio_sample_converter.h"
 #include "lowl_logger.h"
 
@@ -78,7 +79,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
     WAVEFORMATEXTENSIBLE wfe = to_wave_format_extensible(p_audio_device_properties);
     result = audio_client->IsFormatSupported(
             share_mode,
-            (WAVEFORMATEX *) &wfe,
+            (WAVEFORMATEX * ) & wfe,
             &closest_match
     );
 
@@ -135,7 +136,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
             AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
             minimum_device_period,
             minimum_device_period,
-            (WAVEFORMATEX *) &wfe,
+            (WAVEFORMATEX * ) & wfe,
             nullptr
     );
     if (FAILED(result)) {
@@ -509,7 +510,7 @@ Lowl::Audio::WasapiDevice::create_device_properties(IMMDevice *p_wasapi_device,
                                                     const WAVEFORMATEX *p_wave_format,
                                                     std::string device_name) {
 
-    std::vector<Lowl::Audio::AudioDeviceProperties> properties = std::vector<Lowl::Audio::AudioDeviceProperties>();
+    std::vector<Lowl::Audio::AudioDeviceProperties> properties_list = std::vector<Lowl::Audio::AudioDeviceProperties>();
 
     IAudioClient *tmp_audio_client = nullptr;
     HRESULT result = p_wasapi_device->Activate(
@@ -519,104 +520,152 @@ Lowl::Audio::WasapiDevice::create_device_properties(IMMDevice *p_wasapi_device,
             (void **) &tmp_audio_client
     );
     if (FAILED(result)) {
-        return properties;
+        return properties_list;
     }
 
-    AudioDeviceProperties default_properties = to_audio_device_properties(p_wave_format);
+    Error error;
 
-    WAVEFORMATEXTENSIBLE wfe_exclusive = to_wave_format_extensible(default_properties);
-    result = tmp_audio_client->IsFormatSupported(
-            AUDCLNT_SHAREMODE_EXCLUSIVE,
-            (WAVEFORMATEX *) &wfe_exclusive,
-            nullptr
+    // device default properties
+    AudioDeviceProperties default_properties = to_audio_device_properties(p_wave_format);
+    std::vector<Lowl::Audio::AudioDeviceProperties> default_properties_list = create_device_properties(
+            tmp_audio_client,
+            default_properties,
+            device_name,
+            error
     );
-    if (result == S_OK) {
-        AudioDeviceProperties property = AudioDeviceProperties();
-        property.channel = default_properties.channel;
-        property.sample_rate = default_properties.sample_rate;
-        property.sample_format = default_properties.sample_format;
-        property.exclusive_mode = true;
-        properties.push_back(property);
-    } else {
-        switch (result) {
-            case AUDCLNT_E_UNSUPPORTED_FORMAT:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): AUDCLNT_E_UNSUPPORTED_FORMAT",
-                                 device_name.c_str());
-                break;
-            case E_POINTER:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): E_POINTER",
-                                 device_name.c_str());
-                break;
-            case E_INVALIDARG:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): E_INVALIDARG",
-                                 device_name.c_str());
-                break;
-            case AUDCLNT_E_DEVICE_INVALIDATED:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): AUDCLNT_E_DEVICE_INVALIDATED",
-                                 device_name.c_str());
-                break;
-            case AUDCLNT_E_SERVICE_NOT_RUNNING:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): AUDCLNT_E_SERVICE_NOT_RUNNING",
-                                 device_name.c_str());
-                break;
-            default:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): Unknown HRESULT(0x%lx)",
-                                 device_name.c_str(), result);
-                break;
+    properties_list.insert(properties_list.end(), default_properties_list.begin(), default_properties_list.end());
+
+    // test other capabilities
+    std::vector<double> test_sample_rates = Lowl::Audio::AudioSetting::get_test_sample_rates();
+    std::vector<SampleFormat> test_sample_formats = Lowl::Audio::AudioSetting::get_test_sample_formats();
+    for (int sample_format_index = 0; sample_format_index < test_sample_formats.size(); sample_format_index++) {
+        for (int sample_rate_index = 0; sample_rate_index < test_sample_rates.size(); sample_rate_index++) {
+            AudioDeviceProperties test_properties{};
+            test_properties.sample_format = test_sample_formats[sample_format_index];
+            test_properties.sample_rate = test_sample_rates[sample_rate_index];
+            test_properties.channel = AudioChannel::Stereo;
+
+            std::vector<Lowl::Audio::AudioDeviceProperties> test_properties_list = create_device_properties(
+                    tmp_audio_client,
+                    test_properties,
+                    device_name,
+                    error
+            );
+            properties_list.insert(properties_list.end(), test_properties_list.begin(), test_properties_list.end());
         }
     }
 
 
-    WAVEFORMATEXTENSIBLE wfe_shared = to_wave_format_extensible(default_properties);
+    return properties_list;
+}
+
+
+std::vector<Lowl::Audio::AudioDeviceProperties>
+Lowl::Audio::WasapiDevice::create_device_properties(IAudioClient *p_audio_client,
+                                                    AudioDeviceProperties p_device_properties,
+                                                    std::string device_name,
+                                                    Error &error) {
+
+    std::vector<Lowl::Audio::AudioDeviceProperties> properties = std::vector<Lowl::Audio::AudioDeviceProperties>();
+
+
+    WAVEFORMATEXTENSIBLE wfe_exclusive = to_wave_format_extensible(p_device_properties);
+    HRESULT result = p_audio_client->IsFormatSupported(
+            AUDCLNT_SHAREMODE_EXCLUSIVE,
+            (WAVEFORMATEX * ) & wfe_exclusive,
+            nullptr
+    );
+    if (result == S_OK) {
+        AudioDeviceProperties property = AudioDeviceProperties();
+        property.channel = p_device_properties.channel;
+        property.sample_rate = p_device_properties.sample_rate;
+        property.sample_format = p_device_properties.sample_format;
+        property.exclusive_mode = true;
+        properties.push_back(property);
+    }
+    //else {
+    //    switch (result) {
+    //        case AUDCLNT_E_UNSUPPORTED_FORMAT:
+    //            LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): AUDCLNT_E_UNSUPPORTED_FORMAT",
+    //                             device_name.c_str());
+    //            break;
+    //        case E_POINTER:
+    //            LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): E_POINTER",
+    //                             device_name.c_str());
+    //            break;
+    //        case E_INVALIDARG:
+    //            LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): E_INVALIDARG",
+    //                             device_name.c_str());
+    //            break;
+    //        case AUDCLNT_E_DEVICE_INVALIDATED:
+    //            LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): AUDCLNT_E_DEVICE_INVALIDATED",
+    //                             device_name.c_str());
+    //            break;
+    //        case AUDCLNT_E_SERVICE_NOT_RUNNING:
+    //            LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): AUDCLNT_E_SERVICE_NOT_RUNNING",
+    //                             device_name.c_str());
+    //            break;
+    //        default:
+    //            LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): Unknown HRESULT(0x%lx)",
+    //                             device_name.c_str(), result);
+    //            break;
+    //    }
+    // }
+
+
+    WAVEFORMATEXTENSIBLE wfe_shared = to_wave_format_extensible(p_device_properties);
     WAVEFORMATEX *closest_match = nullptr;
-    memset(&closest_match, 0, sizeof(closest_match));
-    result = tmp_audio_client->IsFormatSupported(
+    memset(&closest_match,
+           0, sizeof(closest_match));
+    result = p_audio_client->IsFormatSupported(
             AUDCLNT_SHAREMODE_SHARED,
-            (WAVEFORMATEX *) &wfe_shared,
+            (WAVEFORMATEX * ) & wfe_shared,
             &closest_match
     );
     if (result == S_OK && closest_match == nullptr) {
         AudioDeviceProperties property = AudioDeviceProperties();
-        property.channel = default_properties.channel;
-        property.sample_rate = default_properties.sample_rate;
-        property.sample_format = default_properties.sample_format;
+        property.channel = p_device_properties.channel;
+        property.sample_rate = p_device_properties.sample_rate;
+        property.sample_format = p_device_properties.sample_format;
         property.exclusive_mode = false;
         properties.push_back(property);
     } else if (result == S_FALSE && closest_match != nullptr) {
         AudioDeviceProperties property = to_audio_device_properties(closest_match);
         property.exclusive_mode = false;
         properties.push_back(property);
-    } else {
-        switch (result) {
-            case AUDCLNT_E_UNSUPPORTED_FORMAT:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): AUDCLNT_E_UNSUPPORTED_FORMAT",
-                                 device_name.c_str());
-                break;
-            case E_POINTER:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): E_POINTER",
-                                 device_name.c_str());
-                break;
-            case E_INVALIDARG:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): E_INVALIDARG",
-                                 device_name.c_str());
-                break;
-            case AUDCLNT_E_DEVICE_INVALIDATED:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): AUDCLNT_E_DEVICE_INVALIDATED",
-                                 device_name.c_str());
-                break;
-            case AUDCLNT_E_SERVICE_NOT_RUNNING:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): AUDCLNT_E_SERVICE_NOT_RUNNING",
-                                 device_name.c_str());
-                break;
-            default:
-                LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): Unknown HRESULT(0x%lx)",
-                                 device_name.c_str(), result);
-                break;
-        }
     }
+// else {
+//     switch (result) {
+//         case AUDCLNT_E_UNSUPPORTED_FORMAT:
+//             LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): AUDCLNT_E_UNSUPPORTED_FORMAT",
+//                              device_name.c_str());
+//             break;
+//         case E_POINTER:
+//             LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): E_POINTER",
+//                              device_name.c_str());
+//             break;
+//         case E_INVALIDARG:
+//             LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): E_INVALIDARG",
+//                              device_name.c_str());
+//             break;
+//         case AUDCLNT_E_DEVICE_INVALIDATED:
+//             LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): AUDCLNT_E_DEVICE_INVALIDATED",
+//                              device_name.c_str());
+//             break;
+//         case AUDCLNT_E_SERVICE_NOT_RUNNING:
+//             LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): AUDCLNT_E_SERVICE_NOT_RUNNING",
+//                              device_name.c_str());
+//             break;
+//         default:
+//             LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): Unknown HRESULT(0x%lx)",
+//                              device_name.c_str(), result);
+//             break;
+//     }
+// }
 
     return properties;
 }
+
 
 Lowl::Audio::WasapiDevice::~WasapiDevice() {
     SAFE_RELEASE(audio_client)

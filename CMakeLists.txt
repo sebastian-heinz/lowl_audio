@@ -32,6 +32,7 @@ set(LOWL_SOURCES
         src/audio/lowl_audio_device.cpp
         src/audio/lowl_audio_driver.cpp
         src/audio/lowl_audio_mixer.cpp
+        src/audio/lowl_audio_setting.cpp
         src/audio/lowl_audio_source.cpp
         src/audio/lowl_audio_space.cpp
         src/audio/lowl_audio_stream.cpp

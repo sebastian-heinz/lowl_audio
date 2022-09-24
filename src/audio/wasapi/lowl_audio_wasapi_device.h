@@ -30,6 +30,13 @@ namespace Lowl::Audio {
                 std::string device_name
         );
 
+        static std::vector<Lowl::Audio::AudioDeviceProperties> create_device_properties(
+                IAudioClient *p_audio_client,
+                AudioDeviceProperties p_device_properties,
+                std::string device_name,
+                Error &error
+        );
+
 
         IMMDevice *wasapi_device;
         IAudioClient *audio_client;

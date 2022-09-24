@@ -26,11 +26,15 @@ namespace Lowl::Audio {
 
         void close_stream(Error &error);
 
+        static std::vector<Lowl::Audio::AudioDeviceProperties> create_device_properties(
+                const PaDeviceIndex p_device_index
+        );
+
         PaStreamParameters
         create_output_parameters(Lowl::Audio::AudioChannel p_channel, Lowl::Audio::SampleFormat p_sample_format,
                                  Error &error);
 
-        PaSampleFormat get_pa_sample_format(SampleFormat sample_format, Error &error);
+        static PaSampleFormat get_pa_sample_format(SampleFormat sample_format, Error &error);
 
     public:
         static std::unique_ptr<PADevice> construct(

@@ -144,6 +144,11 @@ int run() {
 
     std::vector<Lowl::Audio::AudioDeviceProperties> device_properties_list = device->get_properties();
     if (device_property_index <= -1) {
+        int index = 0;
+        for (Lowl::Audio::AudioDeviceProperties device_properties: device->get_properties()) {
+            std::cout << "- Properties[" << index++ << "]\n";
+            print_audio_properties(device_properties);
+        }
         std::cout << "Select Device Properties:\n";
         std::string user_input;
         std::getline(std::cin, user_input);
