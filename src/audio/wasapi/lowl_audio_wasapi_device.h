@@ -4,6 +4,7 @@
 #ifdef LOWL_DRIVER_WASAPI
 
 #include "audio/lowl_audio_device.h"
+#include "audio/convert/lowl_audio_sample_converter.h"
 
 #include <mmdeviceapi.h>
 #include <audioclient.h>
@@ -37,6 +38,14 @@ namespace Lowl::Audio {
                 Error &error
         );
 
+        static Lowl::Audio::AudioChannelMask to_channel_mask(DWORD p_wasapi_channel_map);
+
+        static DWORD to_wasapi_channel_mask(AudioChannelMask p_channel_map);
+
+        static Lowl::Audio::AudioChannelMask to_channel_bit(DWORD p_wasapi_channel_bit);
+
+        static DWORD to_wasapi_channel_bit(AudioChannelMask p_channel_bit);
+
 
         IMMDevice *wasapi_device;
         IAudioClient *audio_client;
@@ -45,6 +54,7 @@ namespace Lowl::Audio {
         HANDLE wasapi_audio_event_handle;
 
         AudioDeviceProperties audio_device_properties{};
+        SampleConverter sample_converter;
 
 
     public:

@@ -11,10 +11,12 @@ Lowl::SampleRate sample_rate = 44100.0;
 Lowl::Audio::AudioChannel channel = Lowl::Audio::AudioChannel::Stereo;
 int device_index = -1;
 int device_property_index = -1;
+bool print_all_device_properties = false;
 
 void print_audio_properties(Lowl::Audio::AudioDeviceProperties p_device_properties) {
     std::cout << "-- SampleRate:" << std::to_string(p_device_properties.sample_rate) << "\n";
     std::cout << "-- Channel:" << std::to_string(Lowl::Audio::get_channel_num(p_device_properties.channel)) << "\n";
+    std::cout << "-- ChannelMap:" << audio_channel_mask_string(p_device_properties.channel_map) << "\n";
     std::cout << "-- SampleFormat:" << Lowl::Audio::SampleFormatToString(p_device_properties.sample_format) << "\n";
     std::cout << "-- Exclusive:" << (p_device_properties.exclusive_mode ? "TRUE" : "FALSE") << "\n";
 }
@@ -116,11 +118,13 @@ int run() {
         std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>> devices = driver->get_devices();
         for (std::shared_ptr<Lowl::Audio::AudioDevice> device: devices) {
             std::cout << "+ Device[" + std::to_string(current_device_index++) + "]: " + device->get_name() + "\n";
-            int index = 0;
-            for (Lowl::Audio::AudioDeviceProperties device_properties: device->get_properties()) {
-                std::cout << "- Properties[" << index++ << "]\n";
-                print_audio_properties(device_properties);
-            }
+           if(print_all_device_properties) {
+               int index = 0;
+               for (Lowl::Audio::AudioDeviceProperties device_properties: device->get_properties()) {
+                   std::cout << "- Properties[" << index++ << "]\n";
+                   print_audio_properties(device_properties);
+               }
+           }
             all_devices.push_back(device);
         }
     }

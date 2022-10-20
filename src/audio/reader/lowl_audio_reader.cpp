@@ -62,7 +62,7 @@ Lowl::Audio::AudioReader::read_frames(Lowl::Audio::AudioFormat p_audio_format,
                 int32_t *int32 = reinterpret_cast<int32_t *>(p_buffer.get());
                 for (size_t current_sample = 0; current_sample < num_samples; current_sample++) {
                     int32_t sample_32 = int32[current_sample];
-                    float sample = sample_converter->to_float(sample_32);
+                    float sample = sample_converter->int32_to_float(sample_32);
                     samples.push_back(sample);
                 }
                 break;
@@ -74,7 +74,7 @@ Lowl::Audio::AudioReader::read_frames(Lowl::Audio::AudioFormat p_audio_format,
                 int16_t *int16 = reinterpret_cast<int16_t *>(p_buffer.get());
                 for (size_t current_sample = 0; current_sample < num_samples; current_sample++) {
                     int16_t sample_16 = int16[current_sample];
-                    float sample = sample_converter->to_float(sample_16);
+                    float sample = sample_converter->int16_to_float(sample_16);
                     samples.push_back(sample);
                 }
                 break;
