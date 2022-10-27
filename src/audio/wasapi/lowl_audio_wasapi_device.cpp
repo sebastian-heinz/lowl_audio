@@ -6,12 +6,15 @@
 #include "audio/convert/lowl_audio_sample_converter.h"
 #include "lowl_logger.h"
 
+#include <avrt.h>
+
 #include <functional>
 #include <algorithm>
 #include <bitset>
+#include <thread>
 
-#define SAFE_CLOSE(h) if ((h) != NULL) { CloseHandle((h)); (h) = NULL; }
-#define SAFE_RELEASE(punk) if ((punk) != NULL) { (punk)->Release(); (punk) = NULL; }
+#define SAFE_CLOSE(h) if ((h) != nullptr) { CloseHandle((h)); (h) = nullptr; }
+#define SAFE_RELEASE(punk) if ((punk) != nullptr) { (punk)->Release(); (punk) = nullptr; }
 
 // @formatter:off
 static const PROPERTYKEY LOWL_PKEY_Device_FriendlyName = {
@@ -45,105 +48,60 @@ Lowl::Audio::WasapiDevice::WasapiDevice(_constructor_tag ct) : AudioDevice(ct) {
     audio_client = nullptr;
     wasapi_audio_thread_handle = nullptr;
     wasapi_audio_event_handle = nullptr;
+    wasapi_audio_stop_handle = nullptr;
     audio_render_client = nullptr;
     audio_device_properties = AudioDeviceProperties();
     sample_converter = SampleConverter();
+    avrt_handle = nullptr;
+    avrt_task_index = 0;
 }
 
 void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_properties,
                                       std::shared_ptr<AudioSource> p_audio_source,
                                       Lowl::Error &error) {
+    LOWL_LOG_DEBUG_F("start->%s", name.c_str());
+
+    Lowl::Error stop_error;
+    stop(stop_error);
+
+    HRESULT result = S_OK;
+
+    if (!p_audio_device_properties.is_supported) {
+        error.set_error(Lowl::ErrorCode::Error);
+        return;
+    }
+
     audio_device_properties = p_audio_device_properties;
     audio_source = p_audio_source;
 
-    HRESULT result = S_OK;
-    if (audio_client == nullptr) {
-        result = wasapi_device->Activate(
-                LOWL_IID_IAudioClient3,
-                CLSCTX_ALL,
-                nullptr,
-                (void **) &audio_client
-        );
-        if (FAILED(result)) {
-            return;
-        }
+    result = wasapi_device->Activate(
+            LOWL_IID_IAudioClient3,
+            CLSCTX_ALL,
+            nullptr,
+            (void **) &audio_client
+    );
+    if (result != S_OK) {
+        LOWL_LOG_DEBUG_F("start->%s - audio_client->Activate:FAILED", name.c_str());
+        error.set_error(Lowl::ErrorCode::Error);
+        return;
     }
+    LOWL_LOG_DEBUG_F("start->%s - audio_client->Activate:OK", name.c_str());
+
 
     REFERENCE_TIME default_device_period = 0;
     REFERENCE_TIME minimum_device_period = 0;
     result = audio_client->GetDevicePeriod(&default_device_period, &minimum_device_period);
-    if (FAILED(result)) {
+    if (result != S_OK) {
+        LOWL_LOG_DEBUG_F("start->%s - audio_client->GetDevicePeriod:FAILED", name.c_str());
+        error.set_error(Lowl::ErrorCode::Error);
         return;
     }
+    LOWL_LOG_DEBUG_F("start->%s - audio_client->GetDevicePeriod:OK", name.c_str());
 
+
+    WAVEFORMATEXTENSIBLE wfe = to_wave_format_extensible(audio_device_properties);
     AUDCLNT_SHAREMODE share_mode = audio_device_properties.exclusive_mode ? AUDCLNT_SHAREMODE_EXCLUSIVE
                                                                           : AUDCLNT_SHAREMODE_SHARED;
-
-    WAVEFORMATEX *closest_match;
-    if (share_mode == AUDCLNT_SHAREMODE_SHARED) {
-        memset(&closest_match, 0, sizeof(closest_match));
-    } else if (share_mode == AUDCLNT_SHAREMODE_EXCLUSIVE) {
-        closest_match = nullptr;
-    } else {
-        // error
-        return;
-    }
-
-    WAVEFORMATEXTENSIBLE wfe = to_wave_format_extensible(p_audio_device_properties);
-    result = audio_client->IsFormatSupported(
-            share_mode,
-            (WAVEFORMATEX * ) & wfe,
-            &closest_match
-    );
-
-    if (share_mode == AUDCLNT_SHAREMODE_SHARED) {
-        if (result == S_OK && closest_match == nullptr) {
-            // if the audio engine supports the caller-specified format,
-            // IsFormatSupported sets *ppClosestMatch to NULL and returns S_OK.
-        } else if (result == S_FALSE && closest_match != nullptr) {
-            // not supported but alternative format available.
-            LOWL_LOG_DEBUG_F("%s -> alternative format available, but not discovered via 'create_device_properties()'",
-                             get_name().c_str());
-        } else {
-            // not supported and no alternative format
-            LOWL_LOG_DEBUG_F("%s -> not supported and not alternative format", get_name().c_str());
-        }
-    } else if (share_mode == AUDCLNT_SHAREMODE_EXCLUSIVE) {
-        if (result == S_OK && closest_match == nullptr) {
-            // For exclusive mode, IsFormatSupported returns S_OK
-            // if the audio endpoint device supports the caller-specified format,
-            // or it returns AUDCLNT_E_UNSUPPORTED_FORMAT if the device does not support the format
-        } else {
-            LOWL_LOG_DEBUG_F("%s -> format not supported for exclusive mode", get_name().c_str());
-        }
-    }
-
-    if (FAILED(result)) {
-        switch (result) {
-            case AUDCLNT_E_UNSUPPORTED_FORMAT:
-                LOWL_LOG_ERROR_F("%s -> AUDCLNT_E_UNSUPPORTED_FORMAT", get_name().c_str());
-                error.set_error(Lowl::ErrorCode::Error);
-                break;
-            case E_POINTER:
-                LOWL_LOG_ERROR_F("%s -> E_POINTER", get_name().c_str());
-                error.set_error(Lowl::ErrorCode::Error);
-                break;
-            case E_INVALIDARG:
-                LOWL_LOG_ERROR_F("%s -> E_INVALIDARG", get_name().c_str());
-                error.set_error(Lowl::ErrorCode::Error);
-                break;
-            case AUDCLNT_E_DEVICE_INVALIDATED:
-                LOWL_LOG_ERROR_F("%s -> AUDCLNT_E_DEVICE_INVALIDATED", get_name().c_str());
-                error.set_error(Lowl::ErrorCode::Error);
-                break;
-            case AUDCLNT_E_SERVICE_NOT_RUNNING:
-                LOWL_LOG_ERROR_F("%s -> AUDCLNT_E_SERVICE_NOT_RUNNING", get_name().c_str());
-                error.set_error(Lowl::ErrorCode::Error);
-                break;
-        }
-        return;
-    }
-
     result = audio_client->Initialize(
             share_mode,
             AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
@@ -152,31 +110,171 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
             (WAVEFORMATEX * ) & wfe,
             nullptr
     );
-    if (FAILED(result)) {
+
+    if (result == AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED) {
+        LOWL_LOG_DEBUG_F("start->%s - Initialize:AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED - fixing... (%s)",
+                         name.c_str(), audio_device_properties.to_string().c_str());
+
+        // Call IAudioClient::GetBufferSize and receive the next-highest-aligned buffer size (in frames).
+        UINT32 frames_available_in_buffer;
+        result = audio_client->GetBufferSize(&frames_available_in_buffer);
+        if (result != S_OK) {
+            LOWL_LOG_DEBUG_F("start->%s - Initialize:AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED - GetBufferSize:FAILED (%s)",
+                             name.c_str(), audio_device_properties.to_string().c_str());
+            error.set_error(Lowl::ErrorCode::Error);
+            return;
+        }
+
+        // Call IAudioClient::Release to release the audio client used in the previous call that returned AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED.
+        SAFE_RELEASE(audio_client);
+
+        // Calculate the aligned buffer size in 100-nanosecond units (hns).
+        // The buffer size is (REFERENCE_TIME)((10000.0 * 1000 / WAVEFORMATEX.nSamplesPerSecond * nFrames) + 0.5).
+        // In this formula, nFrames is the buffer size retrieved by GetBufferSize.
+        minimum_device_period =
+                (REFERENCE_TIME)(10000.0 * 1000 / wfe.Format.nSamplesPerSec * frames_available_in_buffer) + 0.5;
+
+        // Call the IMMDevice::Activate method with parameter iid set to REFIID IID_IAudioClient to create a new audio client.
+        result = wasapi_device->Activate(
+                LOWL_IID_IAudioClient3,
+                CLSCTX_ALL,
+                nullptr,
+                (void **) &audio_client
+        );
+        if (result != S_OK) {
+            LOWL_LOG_DEBUG_F("start->%s - Initialize:AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED - Activate:FAILED (%s)",
+                             name.c_str(), audio_device_properties.to_string().c_str());
+            error.set_error(Lowl::ErrorCode::Error);
+            return;
+        }
+
+        // Call Initialize again on the created audio client and specify the new buffer size and periodicity.
+        result = audio_client->Initialize(
+                share_mode,
+                AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+                minimum_device_period,
+                minimum_device_period,
+                (WAVEFORMATEX * ) & wfe,
+                nullptr
+        );
+        if (result != S_OK) {
+            LOWL_LOG_DEBUG_F("start->%s - Initialize:AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED - Initialize:FAILED (%s)",
+                             name.c_str(), audio_device_properties.to_string().c_str());
+            error.set_error(Lowl::ErrorCode::Error);
+            return;
+        }
+
+        LOWL_LOG_DEBUG_F("start->%s - Initialize:AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED - fixed! (%s)",
+                         name.c_str(), audio_device_properties.to_string().c_str());
+    } else if (result != S_OK) {
+        switch (result) {
+            case AUDCLNT_E_ALREADY_INITIALIZED:
+                LOWL_LOG_DEBUG_F("start->%s - Initialize:AUDCLNT_E_ALREADY_INITIALIZED (%s)",
+                                 name.c_str(), audio_device_properties.to_string().c_str());
+                break;
+            case AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED: {
+                LOWL_LOG_DEBUG_F("start->%s - Initialize:AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED (%s)",
+                                 name.c_str(), audio_device_properties.to_string().c_str());
+                break;
+            }
+            case AUDCLNT_E_BUFFER_SIZE_ERROR:
+                LOWL_LOG_DEBUG_F("start->%s - Initialize:AUDCLNT_E_BUFFER_SIZE_ERROR (%s)",
+                                 name.c_str(), audio_device_properties.to_string().c_str());
+                break;
+            case AUDCLNT_E_CPUUSAGE_EXCEEDED:
+                LOWL_LOG_DEBUG_F("start->%s - Initialize:AUDCLNT_E_CPUUSAGE_EXCEEDED (%s)",
+                                 name.c_str(), audio_device_properties.to_string().c_str());
+                break;
+            case AUDCLNT_E_DEVICE_INVALIDATED:
+                LOWL_LOG_DEBUG_F("start->%s - Initialize:AUDCLNT_E_DEVICE_INVALIDATED (%s)",
+                                 name.c_str(), audio_device_properties.to_string().c_str());
+                break;
+            case AUDCLNT_E_DEVICE_IN_USE:
+                LOWL_LOG_DEBUG_F("start->%s - Initialize:AUDCLNT_E_DEVICE_IN_USE (%s)",
+                                 name.c_str(), audio_device_properties.to_string().c_str());
+                break;
+            case AUDCLNT_E_ENDPOINT_CREATE_FAILED:
+                LOWL_LOG_DEBUG_F("start->%s - Initialize:AUDCLNT_E_ENDPOINT_CREATE_FAILED (%s)",
+                                 name.c_str(), audio_device_properties.to_string().c_str());
+                break;
+            case AUDCLNT_E_INVALID_DEVICE_PERIOD:
+                LOWL_LOG_DEBUG_F("start->%s - Initialize:AUDCLNT_E_INVALID_DEVICE_PERIOD (%s)",
+                                 name.c_str(), audio_device_properties.to_string().c_str());
+                break;
+            case AUDCLNT_E_UNSUPPORTED_FORMAT:
+                LOWL_LOG_DEBUG_F("start->%s - Initialize:AUDCLNT_E_UNSUPPORTED_FORMAT (%s)",
+                                 name.c_str(), audio_device_properties.to_string().c_str());
+                break;
+            case AUDCLNT_E_EXCLUSIVE_MODE_NOT_ALLOWED:
+                LOWL_LOG_DEBUG_F("start->%s - Initialize:AUDCLNT_E_EXCLUSIVE_MODE_NOT_ALLOWED (%s)",
+                                 name.c_str(), audio_device_properties.to_string().c_str());
+                break;
+            case AUDCLNT_E_BUFDURATION_PERIOD_NOT_EQUAL:
+                LOWL_LOG_DEBUG_F("start->%s - Initialize:AUDCLNT_E_BUFDURATION_PERIOD_NOT_EQUAL (%s)",
+                                 name.c_str(), audio_device_properties.to_string().c_str());
+                break;
+            case AUDCLNT_E_SERVICE_NOT_RUNNING:
+                LOWL_LOG_DEBUG_F("start->%s - Initialize:AUDCLNT_E_SERVICE_NOT_RUNNING (%s)",
+                                 name.c_str(), audio_device_properties.to_string().c_str());
+                break;
+            case E_POINTER:
+                LOWL_LOG_DEBUG_F("start->%s - Initialize:E_POINTER (%s)",
+                                 name.c_str(), audio_device_properties.to_string().c_str());
+                break;
+            case E_INVALIDARG:
+                LOWL_LOG_DEBUG_F("start->%s - Initialize:E_INVALIDARG (%s)",
+                                 name.c_str(), audio_device_properties.to_string().c_str());
+                break;
+            case E_OUTOFMEMORY:
+                LOWL_LOG_DEBUG_F("start->%s - Initialize:E_OUTOFMEMORY (%s)",
+                                 name.c_str(), audio_device_properties.to_string().c_str());
+                break;
+            default:
+                LOWL_LOG_DEBUG_F("start->%s - Initialize:UNKNOWN(%ld) (%s)",
+                                 name.c_str(), result, audio_device_properties.to_string().c_str());
+                break;
+        }
+        LOWL_LOG_DEBUG_F("start->%s - audio_client->Initialize:FAILED", name.c_str());
         error.set_error(Lowl::ErrorCode::Error);
         return;
     }
+    LOWL_LOG_DEBUG_F("start->%s - audio_client->Initialize:OK", name.c_str());
+
 
     result = audio_client->GetService(
             LOWL_IID_IAudioRenderClient,
             (void **) &audio_render_client
     );
-    if (FAILED(result)) {
+    if (result != S_OK) {
+        LOWL_LOG_DEBUG_F("start->%s - audio_client->GetService:FAILED", name.c_str());
+        error.set_error(Lowl::ErrorCode::Error);
+        return;
+    }
+    LOWL_LOG_DEBUG_F("start->%s - audio_client->GetService:OK", name.c_str());
+
+
+
+    wasapi_audio_stop_handle = CreateEvent(nullptr, false, false, nullptr);
+    if (wasapi_audio_stop_handle == INVALID_HANDLE_VALUE || wasapi_audio_stop_handle == nullptr) {
+        wasapi_audio_stop_handle = nullptr;
         error.set_error(Lowl::ErrorCode::Error);
         return;
     }
 
     wasapi_audio_event_handle = CreateEvent(nullptr, false, false, nullptr);
-    if (wasapi_audio_event_handle == INVALID_HANDLE_VALUE) {
+    if (wasapi_audio_event_handle == INVALID_HANDLE_VALUE || wasapi_audio_event_handle == nullptr) {
+        wasapi_audio_event_handle = nullptr;
         error.set_error(Lowl::ErrorCode::Error);
         return;
     }
 
     result = audio_client->SetEventHandle(wasapi_audio_event_handle);
-    if (FAILED(result)) {
+    if (result != S_OK) {
+        LOWL_LOG_DEBUG_F("start->%s - audio_client->SetEventHandle:FAILED", name.c_str());
         error.set_error(Lowl::ErrorCode::Error);
         return;
     }
+    LOWL_LOG_DEBUG_F("start->%s - audio_client->SetEventHandle:OK", name.c_str());
 
     wasapi_audio_thread_handle = CreateThread(
             nullptr,
@@ -190,35 +288,92 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
         error.set_error(Lowl::ErrorCode::Error);
         return;
     }
-    SetThreadPriority(wasapi_audio_thread_handle, THREAD_PRIORITY_HIGHEST);
 
     result = audio_client->Start();
-    if (FAILED(result)) {
+    if (result != S_OK) {
+        LOWL_LOG_DEBUG_F("start->%s - audio_client->Start:FAILED", name.c_str());
         error.set_error(Lowl::ErrorCode::Error);
         return;
     }
+    LOWL_LOG_DEBUG_F("start->%s - audio_client->Start:OK", name.c_str());
 
+    LOWL_LOG_DEBUG_F("started->%s", name.c_str());
+}
+
+void Lowl::Audio::WasapiDevice::stop(Lowl::Error &error) {
+    LOWL_LOG_DEBUG_F("stop->%s", name.c_str());
+    if (audio_client != nullptr) {
+        HRESULT result = audio_client->Stop();
+        if (result != S_OK) {
+            LOWL_LOG_DEBUG_F("stop->%s - audio_client->Stop:FAILED (%ld)", name.c_str(), result);
+        }
+    }
+
+    if (wasapi_audio_thread_handle)
+    {
+        SetEvent(wasapi_audio_stop_handle);
+        WaitForSingleObject(wasapi_audio_thread_handle, INFINITE);
+    }
+
+    SAFE_RELEASE(audio_client)
+    SAFE_RELEASE(audio_render_client)
+    SAFE_CLOSE(wasapi_audio_stop_handle)
+    SAFE_CLOSE(wasapi_audio_event_handle)
+    SAFE_CLOSE(wasapi_audio_thread_handle)
+    LOWL_LOG_DEBUG_F("stopped->%s", name.c_str());
+}
+
+bool Lowl::Audio::WasapiDevice::enable_avrt() {
+    if (avrt_handle != nullptr) {
+        AvRevertMmThreadCharacteristics(avrt_handle);
+        LOWL_LOG_DEBUG_F("enable_avrt->%s - AvRevertMmThreadCharacteristics (avrt_handle != nullptr)", name.c_str());
+    }
+    avrt_task_index = 0;
+    avrt_handle = AvSetMmThreadCharacteristics("Pro Audio", &avrt_task_index);
+    if (avrt_handle == nullptr) {
+        LOWL_LOG_DEBUG_F("enable_avrt->%s - AvSetMmThreadCharacteristics failed", name.c_str());
+        return false;
+    }
+    if (!AvSetMmThreadPriority(avrt_handle, AVRT_PRIORITY::AVRT_PRIORITY_CRITICAL)) {
+        LOWL_LOG_DEBUG_F("enable_avrt->%s - AvSetMmThreadPriority failed", name.c_str());
+        return false;
+    }
+    return true;
 }
 
 uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
+    LOWL_LOG_DEBUG_F("audio_callback->%s - enter", name.c_str());
 
-    while (true) {
-        DWORD state = WaitForSingleObject(wasapi_audio_event_handle, INFINITE);
-        switch (state) {
-            case WAIT_ABANDONED:
-                break;
-            case WAIT_OBJECT_0:
-                break;
-            case WAIT_TIMEOUT:
-                break;
-            case WAIT_FAILED:
-                break;
-        }
+    UINT32 frames_available_in_buffer;
+    HRESULT result = audio_client->GetBufferSize(&frames_available_in_buffer);
+    if (FAILED(result)) {
+        LOWL_LOG_DEBUG_F("audio_callback->%s - GetBufferSize failed", name.c_str());
+        return 0;
+    }
 
-        UINT32 frames_available_in_buffer;
-        HRESULT result = audio_client->GetBufferSize(&frames_available_in_buffer);
-        if (FAILED(result)) {
-            return 0;
+    if (!enable_avrt()) {
+        SetThreadPriority(wasapi_audio_thread_handle, THREAD_PRIORITY_HIGHEST);
+    }
+
+    HANDLE wait_array[] = {wasapi_audio_stop_handle, wasapi_audio_event_handle};
+    bool playing = true;
+    while (playing) {
+        DWORD wait_result = WaitForMultipleObjects(
+                std::size(wait_array),
+                wait_array,
+                false,
+                INFINITE
+        );
+
+        switch (wait_result) {
+            case WAIT_OBJECT_0 + 0: // wasapi_audio_stop_handle
+                LOWL_LOG_DEBUG_F("audio_callback->%s - stop signal", name.c_str());
+                playing = false;
+                continue;
+            case WAIT_OBJECT_0 + 1: // wasapi_audio_event_handle
+                break;
+            default:
+                break;
         }
 
         if (!audio_device_properties.exclusive_mode) {
@@ -226,7 +381,8 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
             UINT32 padding_frames_count;
             result = audio_client->GetCurrentPadding(&padding_frames_count);
             if (FAILED(result)) {
-                return 0;
+                LOWL_LOG_DEBUG_F("audio_callback->%s - audio_client->GetCurrentPadding:FAILED", name.c_str());
+                break;
             }
             frames_available_in_buffer = frames_available_in_buffer - padding_frames_count;
         }
@@ -237,26 +393,31 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
         if (FAILED(result)) {
             switch (result) {
                 case AUDCLNT_E_BUFFER_ERROR:
+                    LOWL_LOG_DEBUG_F("audio_callback->%s - AUDCLNT_E_BUFFER_ERROR", name.c_str());
                     break;
-                case AUDCLNT_E_BUFFER_TOO_LARGE: {
-                    int asd = 1;
+                case AUDCLNT_E_BUFFER_TOO_LARGE:
+                    LOWL_LOG_DEBUG_F("audio_callback->%s - AUDCLNT_E_BUFFER_TOO_LARGE", name.c_str());
                     break;
-                }
                 case AUDCLNT_E_BUFFER_SIZE_ERROR:
+                    LOWL_LOG_DEBUG_F("audio_callback->%s - AUDCLNT_E_BUFFER_SIZE_ERROR", name.c_str());
                     break;
                 case AUDCLNT_E_OUT_OF_ORDER:
+                    LOWL_LOG_DEBUG_F("audio_callback->%s - AUDCLNT_E_OUT_OF_ORDER", name.c_str());
                     break;
                 case AUDCLNT_E_DEVICE_INVALIDATED:
+                    LOWL_LOG_DEBUG_F("audio_callback->%s - AUDCLNT_E_DEVICE_INVALIDATED", name.c_str());
                     break;
                 case AUDCLNT_E_BUFFER_OPERATION_PENDING:
+                    LOWL_LOG_DEBUG_F("audio_callback->%s - AUDCLNT_E_BUFFER_OPERATION_PENDING", name.c_str());
                     break;
                 case AUDCLNT_E_SERVICE_NOT_RUNNING:
+                    LOWL_LOG_DEBUG_F("audio_callback->%s - AUDCLNT_E_SERVICE_NOT_RUNNING", name.c_str());
                     break;
                 case E_POINTER:
+                    LOWL_LOG_DEBUG_F("audio_callback->%s - E_POINTER", name.c_str());
                     break;
             }
-
-            return 0;
+            break;
         }
 
         void *audio_buffer_ptr = (void *) audio_buffer_byte_ptr;
@@ -293,14 +454,17 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
 
         result = audio_render_client->ReleaseBuffer(frames_available_in_buffer, flags);
         if (FAILED(result)) {
-            return 0;
+            LOWL_LOG_DEBUG_F("audio_callback->%s - ReleaseBuffer failed", name.c_str());
+            break;
         }
     }
 
-}
+    if (avrt_handle != nullptr) {
+        AvRevertMmThreadCharacteristics(avrt_handle);
+    }
 
-void Lowl::Audio::WasapiDevice::stop(Lowl::Error &error) {
-    //  CloseHandle(hThreadArray[i]);
+    LOWL_LOG_DEBUG_F("audio_callback->%s - exit", name.c_str());
+    return 0;
 }
 
 std::unique_ptr<Lowl::Audio::WasapiDevice>
@@ -610,8 +774,7 @@ Lowl::Audio::WasapiDevice::to_audio_device_properties(const WAVEFORMATEX *p_wave
     return properties;
 }
 
-WAVEFORMATEXTENSIBLE
-Lowl::Audio::WasapiDevice::to_wave_format_extensible(
+WAVEFORMATEXTENSIBLE Lowl::Audio::WasapiDevice::to_wave_format_extensible(
         const Lowl::Audio::AudioDeviceProperties &audio_device_properties) {
     WAVEFORMATEXTENSIBLE wfe = WAVEFORMATEXTENSIBLE();
     wfe.Format.cbSize = sizeof(wfe);
@@ -620,9 +783,8 @@ Lowl::Audio::WasapiDevice::to_wave_format_extensible(
     wfe.Format.nSamplesPerSec = (DWORD) audio_device_properties.sample_rate;
 
     if (audio_device_properties.wasapi.valid_bits_per_sample > 0) {
-      //  wfe.Format.wBitsPerSample = audio_device_properties.wasapi.valid_bits_per_sample;
+        //  wfe.Format.wBitsPerSample = audio_device_properties.wasapi.valid_bits_per_sample;
         wfe.Format.wBitsPerSample = (WORD) Lowl::Audio::get_sample_bits(audio_device_properties.sample_format);
-
         wfe.Samples.wValidBitsPerSample = audio_device_properties.wasapi.valid_bits_per_sample;
     } else {
         wfe.Format.wBitsPerSample = (WORD) Lowl::Audio::get_sample_bits(audio_device_properties.sample_format);
@@ -644,23 +806,12 @@ Lowl::Audio::WasapiDevice::create_device_properties(IMMDevice *p_wasapi_device,
 
     std::vector<Lowl::Audio::AudioDeviceProperties> properties_list = std::vector<Lowl::Audio::AudioDeviceProperties>();
 
-    IAudioClient *tmp_audio_client = nullptr;
-    HRESULT result = p_wasapi_device->Activate(
-            LOWL_IID_IAudioClient3,
-            CLSCTX_ALL,
-            nullptr,
-            (void **) &tmp_audio_client
-    );
-    if (FAILED(result)) {
-        return properties_list;
-    }
-
     Error error;
 
     // device default properties
     AudioDeviceProperties default_properties = to_audio_device_properties(p_wave_format);
     std::vector<Lowl::Audio::AudioDeviceProperties> default_properties_list = create_device_properties(
-            tmp_audio_client,
+            p_wasapi_device,
             default_properties,
             device_name,
             error
@@ -672,14 +823,14 @@ Lowl::Audio::WasapiDevice::create_device_properties(IMMDevice *p_wasapi_device,
     std::vector<SampleFormat> test_sample_formats = Lowl::Audio::AudioSetting::get_test_sample_formats();
     for (int sample_format_index = 0; sample_format_index < test_sample_formats.size(); sample_format_index++) {
         for (int sample_rate_index = 0; sample_rate_index < test_sample_rates.size(); sample_rate_index++) {
-            AudioDeviceProperties test_properties{};
+            AudioDeviceProperties test_properties = AudioDeviceProperties();
             test_properties.sample_format = test_sample_formats[sample_format_index];
             test_properties.sample_rate = test_sample_rates[sample_rate_index];
             test_properties.channel = AudioChannel::Stereo;
             test_properties.channel_map = AudioChannelMask::LEFT | AudioChannelMask::RIGHT;
 
             std::vector<Lowl::Audio::AudioDeviceProperties> test_properties_list = create_device_properties(
-                    tmp_audio_client,
+                    p_wasapi_device,
                     test_properties,
                     device_name,
                     error
@@ -695,123 +846,117 @@ Lowl::Audio::WasapiDevice::create_device_properties(IMMDevice *p_wasapi_device,
 }
 
 
-std::vector<Lowl::Audio::AudioDeviceProperties>
-Lowl::Audio::WasapiDevice::create_device_properties(IAudioClient *p_audio_client,
-                                                    AudioDeviceProperties p_device_properties,
-                                                    std::string device_name,
-                                                    Error &error) {
+Lowl::Audio::AudioDeviceProperties Lowl::Audio::WasapiDevice::validate(
+        IMMDevice *p_wasapi_device,
+        const AudioDeviceProperties p_device_properties) {
 
-    std::vector<Lowl::Audio::AudioDeviceProperties> properties = std::vector<Lowl::Audio::AudioDeviceProperties>();
+    AudioDeviceProperties ret = p_device_properties;
+    ret.is_supported = false;
 
-
-    WAVEFORMATEXTENSIBLE wfe_exclusive = to_wave_format_extensible(p_device_properties);
-    HRESULT result = p_audio_client->IsFormatSupported(
-            AUDCLNT_SHAREMODE_EXCLUSIVE,
-            (WAVEFORMATEX * ) & wfe_exclusive,
-            nullptr
+    IAudioClient *tmp_audio_client = nullptr;
+    HRESULT result = p_wasapi_device->Activate(
+            LOWL_IID_IAudioClient3,
+            CLSCTX_ALL,
+            nullptr,
+            (void **) &tmp_audio_client
     );
-    if (result == S_OK) {
-        AudioDeviceProperties property = AudioDeviceProperties();
-        property.channel = p_device_properties.channel;
-        property.sample_rate = p_device_properties.sample_rate;
-        property.sample_format = p_device_properties.sample_format;
-        property.channel_map = p_device_properties.channel_map;
-        property.exclusive_mode = true;
-        property.wasapi = p_device_properties.wasapi;
-        properties.push_back(property);
+    if (result != S_OK) {
+        SAFE_RELEASE(tmp_audio_client);
+        return ret;
     }
-    //else {
-    //    switch (result) {
-    //        case AUDCLNT_E_UNSUPPORTED_FORMAT:
-    //            LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): AUDCLNT_E_UNSUPPORTED_FORMAT",
-    //                             device_name.c_str());
-    //            break;
-    //        case E_POINTER:
-    //            LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): E_POINTER",
-    //                             device_name.c_str());
-    //            break;
-    //        case E_INVALIDARG:
-    //            LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): E_INVALIDARG",
-    //                             device_name.c_str());
-    //            break;
-    //        case AUDCLNT_E_DEVICE_INVALIDATED:
-    //            LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): AUDCLNT_E_DEVICE_INVALIDATED",
-    //                             device_name.c_str());
-    //            break;
-    //        case AUDCLNT_E_SERVICE_NOT_RUNNING:
-    //            LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): AUDCLNT_E_SERVICE_NOT_RUNNING",
-    //                             device_name.c_str());
-    //            break;
-    //        default:
-    //            LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE): Unknown HRESULT(0x%lx)",
-    //                             device_name.c_str(), result);
-    //            break;
-    //    }
-    // }
 
-
-    WAVEFORMATEXTENSIBLE wfe_shared = to_wave_format_extensible(p_device_properties);
+    WAVEFORMATEXTENSIBLE wfe = to_wave_format_extensible(p_device_properties);
+    AUDCLNT_SHAREMODE share_mode = AUDCLNT_SHAREMODE_EXCLUSIVE;
     WAVEFORMATEX *closest_match = nullptr;
-    memset(&closest_match,
-           0, sizeof(closest_match));
-    result = p_audio_client->IsFormatSupported(
-            AUDCLNT_SHAREMODE_SHARED,
-            (WAVEFORMATEX * ) & wfe_shared,
+    if (!p_device_properties.exclusive_mode) {
+        memset(&closest_match, 0, sizeof(closest_match));
+        share_mode = AUDCLNT_SHAREMODE_SHARED;
+    }
+
+    result = tmp_audio_client->IsFormatSupported(
+            share_mode,
+            (WAVEFORMATEX * ) & wfe,
             &closest_match
     );
-    if (result == S_OK && closest_match == nullptr) {
-        AudioDeviceProperties property = AudioDeviceProperties();
-        property.channel = p_device_properties.channel;
-        property.sample_rate = p_device_properties.sample_rate;
-        property.sample_format = p_device_properties.sample_format;
-        property.channel_map = p_device_properties.channel_map;
-        property.wasapi = p_device_properties.wasapi;
-        property.exclusive_mode = false;
-        properties.push_back(property);
-    } else if (result == S_FALSE && closest_match != nullptr) {
-        AudioDeviceProperties property = to_audio_device_properties(closest_match);
-        property.exclusive_mode = false;
-        properties.push_back(property);
+
+    if (p_device_properties.exclusive_mode) {
+        // no failure allowed
+        if (result != S_OK) {
+            SAFE_RELEASE(tmp_audio_client);
+            return ret;
+        }
+    } else {
+        // not exclusive check for closest match
+        if (result == S_OK && closest_match == nullptr) {
+            // properties worked as is
+        } else if (result == S_FALSE && closest_match != nullptr) {
+            // properties did not work, but we have the closest match.
+            ret = to_audio_device_properties(closest_match);
+            // TODO assert ret.exclusive == false
+            wfe = to_wave_format_extensible(ret);
+        } else {
+            switch (result) {
+                case AUDCLNT_E_UNSUPPORTED_FORMAT:
+                    LOWL_LOG_DEBUG_F("IsFormatSupported: AUDCLNT_E_UNSUPPORTED_FORMAT %s", ret.to_string().c_str());
+                    break;
+                case E_POINTER:
+                    LOWL_LOG_DEBUG_F("IsFormatSupported: E_POINTER %s", ret.to_string().c_str());
+                    break;
+                case E_INVALIDARG:
+                    LOWL_LOG_DEBUG_F("IsFormatSupported: E_INVALIDARG %s", ret.to_string().c_str());
+                    break;
+                case AUDCLNT_E_DEVICE_INVALIDATED:
+                    LOWL_LOG_DEBUG_F("IsFormatSupported: AUDCLNT_E_DEVICE_INVALIDATED %s", ret.to_string().c_str());
+                    break;
+                case AUDCLNT_E_SERVICE_NOT_RUNNING:
+                    LOWL_LOG_DEBUG_F("IsFormatSupported: AUDCLNT_E_SERVICE_NOT_RUNNING %s", ret.to_string().c_str());
+                    break;
+                default:
+                    LOWL_LOG_DEBUG_F("IsFormatSupported: UNKNOWN(%ld) %s", result, ret.to_string().c_str());
+                    break;
+            }
+
+            SAFE_RELEASE(tmp_audio_client);
+            return ret;
+        }
     }
-// else {
-//     switch (result) {
-//         case AUDCLNT_E_UNSUPPORTED_FORMAT:
-//             LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): AUDCLNT_E_UNSUPPORTED_FORMAT",
-//                              device_name.c_str());
-//             break;
-//         case E_POINTER:
-//             LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): E_POINTER",
-//                              device_name.c_str());
-//             break;
-//         case E_INVALIDARG:
-//             LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): E_INVALIDARG",
-//                              device_name.c_str());
-//             break;
-//         case AUDCLNT_E_DEVICE_INVALIDATED:
-//             LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): AUDCLNT_E_DEVICE_INVALIDATED",
-//                              device_name.c_str());
-//             break;
-//         case AUDCLNT_E_SERVICE_NOT_RUNNING:
-//             LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): AUDCLNT_E_SERVICE_NOT_RUNNING",
-//                              device_name.c_str());
-//             break;
-//         default:
-//             LOWL_LOG_DEBUG_F("%s -> IsFormatSupported(AUDCLNT_SHAREMODE_SHARED): Unknown HRESULT(0x%lx)",
-//                              device_name.c_str(), result);
-//             break;
-//     }
-// }
+
+    SAFE_RELEASE(tmp_audio_client);
+    ret.is_supported = true;
+    return ret;
+}
+
+std::vector<Lowl::Audio::AudioDeviceProperties>
+Lowl::Audio::WasapiDevice::create_device_properties(IMMDevice *p_wasapi_device,
+                                                    const AudioDeviceProperties p_device_properties,
+                                                    std::string device_name,
+                                                    Error &error) {
+    std::vector<AudioDeviceProperties> properties = std::vector<Lowl::Audio::AudioDeviceProperties>();
+
+    AudioDeviceProperties exclusive_properties = p_device_properties;
+    exclusive_properties.exclusive_mode = true;
+    exclusive_properties = validate(p_wasapi_device, exclusive_properties);
+    if (exclusive_properties.is_supported) {
+        properties.push_back(exclusive_properties);
+    }
+
+    AudioDeviceProperties shared_properties = p_device_properties;
+    shared_properties.exclusive_mode = false;
+    shared_properties = validate(p_wasapi_device, shared_properties);
+    if (shared_properties.is_supported) {
+        properties.push_back(shared_properties);
+    }
 
     return properties;
 }
-
 
 Lowl::Audio::WasapiDevice::~WasapiDevice() {
     SAFE_RELEASE(audio_client)
     SAFE_RELEASE(wasapi_device)
     SAFE_RELEASE(audio_render_client)
-    CloseHandle(wasapi_audio_event_handle);
-    CloseHandle(wasapi_audio_thread_handle);
+    SAFE_CLOSE(wasapi_audio_event_handle)
+    SAFE_CLOSE(wasapi_audio_thread_handle)
+    SAFE_CLOSE(wasapi_audio_stop_handle)
 }
 
 #endif

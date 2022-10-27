@@ -31,6 +31,8 @@ namespace Lowl::Audio {
         virtual float sample_to_float(Lowl::Sample p_sample) const;
 
         virtual ~SampleConverter() = default;
+
+        uint8_t sample_to_uint8(Sample sample);
     };
 }
 #endif

@@ -31,9 +31,14 @@ namespace Lowl::Audio {
                 std::string device_name
         );
 
+        static Lowl::Audio::AudioDeviceProperties validate(
+                IMMDevice *p_wasapi_device,
+                const Lowl::Audio::AudioDeviceProperties p_device_properties
+        );
+
         static std::vector<Lowl::Audio::AudioDeviceProperties> create_device_properties(
-                IAudioClient *p_audio_client,
-                AudioDeviceProperties p_device_properties,
+                IMMDevice *p_wasapi_device,
+                const AudioDeviceProperties p_device_properties,
                 std::string device_name,
                 Error &error
         );
@@ -52,10 +57,14 @@ namespace Lowl::Audio {
         IAudioRenderClient *audio_render_client;
         HANDLE wasapi_audio_thread_handle;
         HANDLE wasapi_audio_event_handle;
+        HANDLE wasapi_audio_stop_handle;
+        HANDLE avrt_handle;
+        DWORD avrt_task_index;
 
         AudioDeviceProperties audio_device_properties{};
         SampleConverter sample_converter;
 
+        bool enable_avrt();
 
     public:
         static std::unique_ptr<WasapiDevice> construct(

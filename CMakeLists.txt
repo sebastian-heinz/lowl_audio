@@ -71,18 +71,16 @@ IF (LOWL_DRIVER_DUMMY)
     target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_DUMMY)
 ENDIF ()
 
-
-
 IF (LOWL_DRIVER_PORTAUDIO)
     target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_PORTAUDIO)
     target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE "LOWL_PA_DEFAULT_DRIVER_PRIORITY=\"${LOWL_PA_DEFAULT_DRIVER_PRIORITY}\"")
 ENDIF ()
 
-
 if (WIN32)
     message([LOWL] WIN32)
     IF (LOWL_DRIVER_WASAPI)
         target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_WASAPI)
+        target_link_libraries(${LOWL_LIB_MAIN} PUBLIC avrt)
     ENDIF ()
 endif ()
 if (APPLE)

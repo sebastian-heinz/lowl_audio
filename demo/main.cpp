@@ -17,7 +17,7 @@ void print_audio_properties(Lowl::Audio::AudioDeviceProperties p_device_properti
     std::cout << "-- SampleRate:" << std::to_string(p_device_properties.sample_rate) << "\n";
     std::cout << "-- Channel:" << std::to_string(Lowl::Audio::get_channel_num(p_device_properties.channel)) << "\n";
     std::cout << "-- ChannelMap:" << audio_channel_mask_string(p_device_properties.channel_map) << "\n";
-    std::cout << "-- SampleFormat:" << Lowl::Audio::SampleFormatToString(p_device_properties.sample_format) << "\n";
+    std::cout << "-- SampleFormat:" << Lowl::Audio::sample_format_to_string(p_device_properties.sample_format) << "\n";
     std::cout << "-- Exclusive:" << (p_device_properties.exclusive_mode ? "TRUE" : "FALSE") << "\n";
 }
 

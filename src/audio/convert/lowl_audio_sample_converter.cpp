@@ -66,6 +66,13 @@ void Lowl::Audio::SampleConverter::write_sample(Lowl::Audio::SampleFormat p_samp
                 *p_dst = dst;
                 break;
             }
+            case SampleFormat::U_INT_8: {
+                uint8_t sample = sample_to_uint8(p_sample);
+                uint8_t *dst = (uint8_t *) *p_dst;
+                *dst++ = sample;
+                *p_dst = dst;
+                break;
+            }
         }
     }
 }
@@ -80,10 +87,15 @@ int32_t Lowl::Audio::SampleConverter::sample_to_int32(Lowl::Sample p_sample) con
 }
 
 int16_t Lowl::Audio::SampleConverter::sample_to_int16(Lowl::Sample p_sample) const {
-    double scaled = (double) (p_sample) * 2147483647.0;
-    return (int16_t) scaled;
+    int16_t int16 = (int16_t) (p_sample * (32767.0f));
+    return int16;
 }
 
 float Lowl::Audio::SampleConverter::sample_to_float(Lowl::Sample p_sample) const {
     return static_cast<float>(p_sample);
+}
+
+uint8_t Lowl::Audio::SampleConverter::sample_to_uint8(Lowl::Sample p_sample) {
+    uint8_t scaled = (uint8_t) (128 + ((uint8_t) (p_sample * (127.0f))));
+    return scaled;
 }

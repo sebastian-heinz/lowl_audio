@@ -17,7 +17,7 @@ namespace Lowl::Audio {
         U_INT_8 = 7,
     };
 
-    inline std::string SampleFormatToString(SampleFormat e) noexcept {
+    inline std::string sample_format_to_string(SampleFormat e) noexcept {
         switch (e) {
             case SampleFormat::Unknown:
                 return "Unknown";

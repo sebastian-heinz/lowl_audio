@@ -3,6 +3,8 @@
 
 #include "audio/lowl_audio_source.h"
 
+#include <string>
+
 namespace Lowl::Audio {
 
     struct AudioDevicePropertiesWasapi {
@@ -10,6 +12,8 @@ namespace Lowl::Audio {
     };
 
     struct AudioDeviceProperties {
+
+        bool is_supported;
         SampleRate sample_rate;
         AudioChannel channel;
         SampleFormat sample_format;
@@ -19,8 +23,18 @@ namespace Lowl::Audio {
             AudioDevicePropertiesWasapi wasapi;
         };
 
+        std::string to_string() {
+            return "{channel:" + std::to_string(get_channel_num(channel)) + "," +
+                   "sample_rate:" + std::to_string(sample_rate) + "," +
+                   "sample_format:" + sample_format_to_string(sample_format) + "," +
+                   "channel_map:" + audio_channel_mask_string(channel_map) + "," +
+                   "is_supported:" + std::to_string(is_supported) + "," +
+                   "exclusive_mode:" + std::to_string(exclusive_mode) + "}";
+        }
+
         bool operator==(const AudioDeviceProperties &rhs) const {
-            return sample_rate == rhs.sample_rate &&
+            return is_supported == rhs.is_supported &&
+                   sample_rate == rhs.sample_rate &&
                    channel == rhs.channel &&
                    sample_format == rhs.sample_format &&
                    channel_map == rhs.channel_map &&
@@ -32,10 +46,16 @@ namespace Lowl::Audio {
         }
 
         bool operator<(const AudioDeviceProperties &rhs) const {
-            if (sample_format < rhs.sample_format) {
+            if (is_supported < rhs.is_supported) {
                 return true;
             }
-            if (rhs.sample_format < sample_format) {
+            if (rhs.is_supported < is_supported) {
+                return false;
+            }
+            if (sample_rate < rhs.sample_rate) {
+                return true;
+            }
+            if (rhs.sample_rate < sample_rate) {
                 return false;
             }
             if (channel < rhs.channel) {
@@ -44,10 +64,10 @@ namespace Lowl::Audio {
             if (rhs.channel < channel) {
                 return false;
             }
-            if (sample_rate < rhs.sample_rate) {
+            if (sample_format < rhs.sample_format) {
                 return true;
             }
-            if (rhs.sample_rate < sample_rate) {
+            if (rhs.sample_format < sample_format) {
                 return false;
             }
             if (channel_map < rhs.channel_map) {
