@@ -4,6 +4,12 @@
 #ifdef LOWL_DRIVER_WASAPI
 
 #include "audio/lowl_audio_device.h"
+#include "audio/convert/lowl_audio_sample_converter.h"
+
+#include <mmdeviceapi.h>
+#include <audioclient.h>
+
+#include <vector>
 
 namespace Lowl::Audio {
 
@@ -11,10 +17,54 @@ namespace Lowl::Audio {
 
     private:
         static char *wc_to_utf8(const wchar_t *p_wc);
-        void *wasapi_device;
-        Lowl::SampleRate default_sample_rate;
-        Lowl::Audio::AudioChannel output_channel;
-        Lowl::Audio::SampleFormat sample_format;
+
+        static Lowl::Audio::AudioDeviceProperties to_audio_device_properties(const WAVEFORMATEX *p_wave_format_ex);
+
+        static WAVEFORMATEXTENSIBLE
+        to_wave_format_extensible(const Lowl::Audio::AudioDeviceProperties &p_wave_format_ex);
+
+        static GUID get_wave_sub_format(const Lowl::Audio::SampleFormat p_sample_format);
+
+        static std::vector<Lowl::Audio::AudioDeviceProperties> create_device_properties(
+                IMMDevice *p_wasapi_device,
+                const WAVEFORMATEX *wave_format,
+                std::string device_name
+        );
+
+        static Lowl::Audio::AudioDeviceProperties validate(
+                IMMDevice *p_wasapi_device,
+                const Lowl::Audio::AudioDeviceProperties p_device_properties
+        );
+
+        static std::vector<Lowl::Audio::AudioDeviceProperties> create_device_properties(
+                IMMDevice *p_wasapi_device,
+                const AudioDeviceProperties p_device_properties,
+                std::string device_name,
+                Error &error
+        );
+
+        static Lowl::Audio::AudioChannelMask to_channel_mask(DWORD p_wasapi_channel_map);
+
+        static DWORD to_wasapi_channel_mask(AudioChannelMask p_channel_map);
+
+        static Lowl::Audio::AudioChannelMask to_channel_bit(DWORD p_wasapi_channel_bit);
+
+        static DWORD to_wasapi_channel_bit(AudioChannelMask p_channel_bit);
+
+
+        IMMDevice *wasapi_device;
+        IAudioClient *audio_client;
+        IAudioRenderClient *audio_render_client;
+        HANDLE wasapi_audio_thread_handle;
+        HANDLE wasapi_audio_event_handle;
+        HANDLE wasapi_audio_stop_handle;
+        HANDLE avrt_handle;
+        DWORD avrt_task_index;
+
+        AudioDeviceProperties audio_device_properties{};
+        SampleConverter sample_converter;
+
+        bool enable_avrt();
 
     public:
         static std::unique_ptr<WasapiDevice> construct(
@@ -25,25 +75,17 @@ namespace Lowl::Audio {
 
         uint32_t audio_callback();
 
-        void start(std::shared_ptr<AudioSource> p_audio_source, Error &error) override;
+        virtual void start(AudioDeviceProperties p_audio_device_properties,
+                           std::shared_ptr<AudioSource> p_audio_source,
+                           Error &error) override;
 
-        void stop(Error &error) override;
+        virtual void stop(Error &error) override;
 
-        bool is_supported(Lowl::Audio::AudioChannel channel,
-                          Lowl::SampleRate sample_rate,
-                          SampleFormat sample_format,
-                          Error &error
-        ) override;
+        WasapiDevice(_constructor_tag);
 
-        Lowl::SampleRate get_default_sample_rate() override;
-
-        void set_exclusive_mode(bool p_exclusive_mode, Error &error) override;
-
-        WasapiDevice();
-
-        ~WasapiDevice();
+        ~WasapiDevice() override;
     };
-} //namespace Lowl::Audio
+}
 
 #endif /* LOWL_DRIVER_WASAPI */
 #endif /* LOWL_AUDIO_WASAPI_DEVICE_H */

@@ -3,27 +3,23 @@
 #include "lowl_audio_pa_device.h"
 
 #include "lowl_logger.h"
+#include "audio/lowl_audio_setting.h"
 
 #include <algorithm>
-
-#ifdef PA_USE_WASAPI
-#include <pa_win_wasapi.h>
-#include <core/os/memory.h>
-#endif
 
 static int audio_callback(const void *p_input_buffer, void *p_output_buffer,
                           unsigned long p_frames_per_buffer, const PaStreamCallbackTimeInfo *p_time_info,
                           PaStreamCallbackFlags p_status_flags, void *p_user_data) {
-    Lowl::Audio::AudioDevicePa *device = (Lowl::Audio::AudioDevicePa *) p_user_data;
+    Lowl::Audio::PADevice *device = (Lowl::Audio::PADevice *) p_user_data;
     return device->callback(p_input_buffer, p_output_buffer,
                             p_frames_per_buffer, p_time_info, p_status_flags
     );
 }
 
-PaStreamCallbackResult Lowl::Audio::AudioDevicePa::callback(const void *p_input_buffer, void *p_output_buffer,
-                                                     unsigned long p_frames_per_buffer,
-                                                     const PaStreamCallbackTimeInfo *p_time_info,
-                                                     PaStreamCallbackFlags p_status_flags) {
+PaStreamCallbackResult Lowl::Audio::PADevice::callback(const void *p_input_buffer, void *p_output_buffer,
+                                                       unsigned long p_frames_per_buffer,
+                                                       const PaStreamCallbackTimeInfo *p_time_info,
+                                                       PaStreamCallbackFlags p_status_flags) {
     if (!active) {
         return paAbort;
     }
@@ -65,7 +61,7 @@ PaStreamCallbackResult Lowl::Audio::AudioDevicePa::callback(const void *p_input_
     return paContinue;
 }
 
-void Lowl::Audio::AudioDevicePa::start_stream(Error &error) {
+void Lowl::Audio::PADevice::start_stream(Error &error) {
     /*
     A stream is active after a successful call to Pa_StartStream(), until it
     becomes inactive either as a result of a call to Pa_StopStream() or
@@ -93,7 +89,7 @@ void Lowl::Audio::AudioDevicePa::start_stream(Error &error) {
     }
 }
 
-void Lowl::Audio::AudioDevicePa::stop_stream(Error &error) {
+void Lowl::Audio::PADevice::stop_stream(Error &error) {
     /*
     A stream is considered to be stopped prior to a successful call to
     Pa_StartStream and after a successful call to Pa_StopStream or Pa_AbortStream.
@@ -120,7 +116,7 @@ void Lowl::Audio::AudioDevicePa::stop_stream(Error &error) {
     }
 }
 
-void Lowl::Audio::AudioDevicePa::open_stream(Error &error) {
+void Lowl::Audio::PADevice::open_stream(Error &error) {
 
     unsigned long frames_per_buffer = paFramesPerBufferUnspecified;
     PaStreamFlags stream_flags = paNoFlag;
@@ -130,13 +126,6 @@ void Lowl::Audio::AudioDevicePa::open_stream(Error &error) {
     );
     if (error.has_error()) {
         return;
-    }
-
-    if (exclusive_mode) {
-        enable_exclusive_mode(output_parameter, error);
-        if (error.has_error()) {
-            return;
-        }
     }
 
     PaError pa_error = Pa_OpenStream(
@@ -156,7 +145,7 @@ void Lowl::Audio::AudioDevicePa::open_stream(Error &error) {
     }
 }
 
-void Lowl::Audio::AudioDevicePa::close_stream(Error &error) {
+void Lowl::Audio::PADevice::close_stream(Error &error) {
     PaError pa_error = Pa_CloseStream(stream);
     if (pa_error != PaErrorCode::paNoError) {
         error.set_vendor_error(pa_error, Error::VendorError::PortAudioVendorError);
@@ -164,24 +153,10 @@ void Lowl::Audio::AudioDevicePa::close_stream(Error &error) {
     }
 }
 
-bool Lowl::Audio::AudioDevicePa::is_supported(Lowl::Audio::AudioChannel p_channel, Lowl::SampleRate p_sample_rate,
-                                              Lowl::Audio::SampleFormat p_sample_format, Error &error) {
-    const PaStreamParameters output_parameter = create_output_parameters(p_channel, p_sample_format, error);
-    if (error.has_error()) {
-        return false;
-    }
-
-    PaError pa_error = Pa_IsFormatSupported(nullptr, &output_parameter, p_sample_rate);
-    if (pa_error != PaErrorCode::paNoError) {
-        error.set_vendor_error(pa_error, Error::VendorError::PortAudioVendorError);
-        return false;
-    }
-    return true;
-}
-
 PaStreamParameters
-Lowl::Audio::AudioDevicePa::create_output_parameters(Lowl::Audio::AudioChannel p_channel, Lowl::Audio::SampleFormat p_sample_format,
-                                              Error &error) {
+Lowl::Audio::PADevice::create_output_parameters(Lowl::Audio::AudioChannel p_channel,
+                                                Lowl::Audio::SampleFormat p_sample_format,
+                                                Error &error) {
     const PaDeviceInfo *device_info = Pa_GetDeviceInfo(device_index);
     if (device_info == nullptr) {
         error.set_error(ErrorCode::PortAudioNoDeviceInfo);
@@ -204,12 +179,14 @@ Lowl::Audio::AudioDevicePa::create_output_parameters(Lowl::Audio::AudioChannel p
     return output_parameter;
 }
 
-void Lowl::Audio::AudioDevicePa::start(std::shared_ptr<AudioSource> p_audio_source, Lowl::Error &error) {
+void Lowl::Audio::PADevice::start(AudioDeviceProperties p_audio_device_properties,
+                                  std::shared_ptr<AudioSource> p_audio_source,
+                                  Error &error) {
     audio_source = p_audio_source;
     start(error);
 }
 
-void Lowl::Audio::AudioDevicePa::start(Error &error) {
+void Lowl::Audio::PADevice::start(Error &error) {
     open_stream(error);
     if (error.has_error()) {
         return;
@@ -220,7 +197,7 @@ void Lowl::Audio::AudioDevicePa::start(Error &error) {
     }
 }
 
-void Lowl::Audio::AudioDevicePa::stop(Error &error) {
+void Lowl::Audio::PADevice::stop(Error &error) {
     stop_stream(error);
     audio_source = nullptr;
     if (error.has_error()) {
@@ -232,17 +209,14 @@ void Lowl::Audio::AudioDevicePa::stop(Error &error) {
     }
 }
 
-void Lowl::Audio::AudioDevicePa::set_device_index(PaDeviceIndex p_device_index) {
-    device_index = p_device_index;
-}
-
-Lowl::Audio::AudioDevicePa::AudioDevicePa() {
+Lowl::Audio::PADevice::PADevice(_constructor_tag ct)
+        : AudioDevice(ct) {
     active = false;
     stream = nullptr;
     device_index = paNoDevice;
 }
 
-Lowl::Audio::AudioDevicePa::~AudioDevicePa() {
+Lowl::Audio::PADevice::~PADevice() {
     PaError pa_error = Pa_CloseStream(stream);
     if (pa_error != PaErrorCode::paNoError) {
     }
@@ -251,7 +225,8 @@ Lowl::Audio::AudioDevicePa::~AudioDevicePa() {
     stream = nullptr;
 }
 
-PaSampleFormat Lowl::Audio::AudioDevicePa::get_pa_sample_format(Lowl::Audio::SampleFormat sample_format, Lowl::Error &error) {
+PaSampleFormat
+Lowl::Audio::PADevice::get_pa_sample_format(Lowl::Audio::SampleFormat sample_format, Lowl::Error &error) {
     PaSampleFormat pa_sample_format;
     switch (sample_format) {
         case Lowl::Audio::SampleFormat::FLOAT_32: {
@@ -292,63 +267,58 @@ PaSampleFormat Lowl::Audio::AudioDevicePa::get_pa_sample_format(Lowl::Audio::Sam
     return pa_sample_format;
 }
 
-Lowl::SampleRate Lowl::Audio::AudioDevicePa::get_default_sample_rate() {
-    const PaDeviceInfo *device_info = Pa_GetDeviceInfo(device_index);
-    if (device_info == nullptr) {
-        return 0;
-    }
-    Lowl::SampleRate sample_rate = device_info->defaultSampleRate;
-    return sample_rate;
+std::unique_ptr<Lowl::Audio::PADevice>
+Lowl::Audio::PADevice::construct(const std::string &p_device_name, const PaDeviceIndex p_device_index,
+                                 Lowl::Error &error) {
+    std::unique_ptr<PADevice> device = std::make_unique<PADevice>(_constructor_tag{});
+    device->name = p_device_name;
+    device->device_index = p_device_index;
+    device->properties = create_device_properties(p_device_index);
+    return device;
 }
 
-void Lowl::Audio::AudioDevicePa::set_exclusive_mode(bool p_exclusive_mode, Lowl::Error &error) {
-    if (p_exclusive_mode) {
-        if (active) {
-            // stream already running
-            error.set_error(ErrorCode::InvalidOperationWhileActive);
-            return;
+std::vector<Lowl::Audio::AudioDeviceProperties>
+Lowl::Audio::PADevice::create_device_properties(const PaDeviceIndex p_device_index) {
+
+    std::vector<Lowl::Audio::AudioDeviceProperties> properties = std::vector<Lowl::Audio::AudioDeviceProperties>();
+
+    const PaDeviceInfo *device_info = Pa_GetDeviceInfo(p_device_index);
+
+
+    std::vector<double> test_sample_rates = Lowl::Audio::AudioSetting::get_test_sample_rates();
+    std::vector<SampleFormat> test_sample_formats = Lowl::Audio::AudioSetting::get_test_sample_formats();
+
+    for (unsigned long sample_format_index = 0; sample_format_index < test_sample_formats.size(); sample_format_index++) {
+        SampleFormat test_sample_format = test_sample_formats[sample_format_index];
+
+        Lowl::Error error;
+        PaSampleFormat pa_sample_format = get_pa_sample_format(test_sample_format, error);
+        if (error.has_error()) {
+            continue;
         }
-        exclusive_mode = true;
-        return;
-    } else {
-        exclusive_mode = false;
-    }
-}
 
-void Lowl::Audio::AudioDevicePa::enable_exclusive_mode(PaStreamParameters &p_stream_parameter, Lowl::Error &error) {
-	if (p_stream_parameter.device != device_index) {
-        // parameter mismatch this device
-        error.set_error(ErrorCode::InvalidParameter);
-        return;
+        PaStreamParameters outputParameters;
+        outputParameters.device = p_device_index;
+        outputParameters.channelCount = device_info->maxOutputChannels;
+        outputParameters.sampleFormat = pa_sample_format;
+        outputParameters.suggestedLatency = 0; /* ignored by Pa_IsFormatSupported() */
+        outputParameters.hostApiSpecificStreamInfo = nullptr;
+
+        for (unsigned long sample_rate_index = 0; sample_rate_index < test_sample_rates.size(); sample_rate_index++) {
+            double test_sample_rate = test_sample_rates[sample_rate_index];
+            PaError err = Pa_IsFormatSupported(nullptr, &outputParameters, test_sample_rate);
+            if (err == paFormatIsSupported) {
+                AudioDeviceProperties property = AudioDeviceProperties();
+                property.channel = Lowl::Audio::get_channel(outputParameters.channelCount);
+                property.sample_rate = test_sample_rate;
+                property.sample_format = test_sample_format;
+                property.exclusive_mode = false;
+                properties.push_back(property);
+            }
+        }
     }
-    const PaDeviceInfo *pa_device_info = Pa_GetDeviceInfo(device_index);
-    if (pa_device_info == nullptr) {
-        // unknown device
-        error.set_error(ErrorCode::PortAudioNoDeviceInfo);
-        return;
-    }
-    const PaHostApiInfo *pa_api_info = Pa_GetHostApiInfo(pa_device_info->hostApi);
-    if (pa_api_info == nullptr) {
-        // unknown host api
-        error.set_error(ErrorCode::PortAudioNoHostApiInfo);
-        return;
-    }
-    bool exclusive_mode_applied = false;
-	#ifdef PA_USE_WASAPI
-	if (pa_api_info->type == paWASAPI) {
-		 PaWasapiStreamInfo *wasapiInfo = (PaWasapiStreamInfo *)memalloc(sizeof(PaWasapiStreamInfo));
-		 wasapiInfo->size = sizeof(PaWasapiStreamInfo);
-		 wasapiInfo->hostApiType = paWASAPI;
-		 wasapiInfo->version = 1;
-		 wasapiInfo->flags = (paWinWasapiExclusive | paWinWasapiThreadPriority);
-		 wasapiInfo->threadPriority = eThreadPriorityProAudio;
-		 p_stream_parameter.hostApiSpecificStreamInfo = wasapiInfo;
-		 exclusive_mode_applied = true;
-	}
-	#endif
-    if (!exclusive_mode_applied) {
-        LOWL_LOG_WARN("!exclusive_mode_applied");
-    }
+
+    return properties;
 }
 
 #endif

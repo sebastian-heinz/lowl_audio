@@ -121,6 +121,7 @@ Lowl::Audio::ReSampler::resample(std::shared_ptr<AudioData> p_audio_data, Sample
     std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(
             resamples, p_sample_rate_dst, p_audio_data->get_channel()
     );
+    audio_data->set_name(p_audio_data->get_name());
     return audio_data;
 
 }

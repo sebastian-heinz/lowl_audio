@@ -198,3 +198,15 @@ Lowl::size_l Lowl::Audio::AudioSpace::get_frame_position() const {
 Lowl::size_l Lowl::Audio::AudioSpace::get_frame_count() const {
     return 0;
 }
+
+std::map<Lowl::SpaceId, std::string> Lowl::Audio::AudioSpace::get_name_mapping() const {
+    std::map<SpaceId, std::string> map = std::map<SpaceId, std::string>();
+    for (SpaceId space_id = 0; space_id < audio_data_lookup.size(); space_id++) {
+        std::shared_ptr<AudioData> audio_data = audio_data_lookup[space_id];
+        if (!audio_data) {
+            continue;
+        }
+        map.insert_or_assign(space_id, audio_data->get_name());
+    }
+    return map;
+}

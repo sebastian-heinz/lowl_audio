@@ -1,10 +1,5 @@
 #include "lowl_audio_device.h"
 
-bool Lowl::Audio::AudioDevice::is_supported(std::shared_ptr<AudioSource> p_audio_source, Error &error) {
-    return is_supported(p_audio_source->get_channel(), p_audio_source->get_sample_rate(),
-                        p_audio_source->get_sample_format(), error);
-}
-
 std::string Lowl::Audio::AudioDevice::get_name() const {
     return name;
 }
@@ -13,12 +8,30 @@ void Lowl::Audio::AudioDevice::set_name(const std::string &p_name) {
     name = p_name;
 }
 
-bool Lowl::Audio::AudioDevice::is_exclusive_mode() const {
-    return exclusive_mode;
-}
-
-Lowl::Audio::AudioDevice::AudioDevice() {
-    exclusive_mode = false;
+Lowl::Audio::AudioDevice::AudioDevice(_constructor_tag) {
+    properties = std::vector<AudioDeviceProperties>();
     name = std::string();
     audio_source = std::shared_ptr<AudioSource>();
+}
+
+Lowl::Audio::AudioDeviceProperties
+Lowl::Audio::AudioDevice::get_closest_properties(Lowl::Audio::AudioDeviceProperties p_audio_device_properties,
+                                                 Error &error) const {
+    if (properties.empty()) {
+        error.set_error(Lowl::ErrorCode::Error);
+        return AudioDeviceProperties();
+    }
+    for (AudioDeviceProperties property: properties) {
+
+    }
+    // TODO find best match between `property` and `p_audio_device_properties`
+    return properties[0];
+}
+
+std::vector<Lowl::Audio::AudioDeviceProperties> Lowl::Audio::AudioDevice::get_properties() const {
+    return properties;
+}
+
+Lowl::Audio::AudioDevice::~AudioDevice() {
+
 }

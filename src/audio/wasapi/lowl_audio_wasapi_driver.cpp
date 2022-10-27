@@ -70,7 +70,7 @@ void Lowl::Audio::WasapiDriver::create_devices(Lowl::Error &error) {
             continue;
         }
         Error err;
-        std::shared_ptr <Lowl::Audio::AudioDevice> device = WasapiDevice::construct(
+        std::shared_ptr<Lowl::Audio::AudioDevice> device = WasapiDevice::construct(
                 name,
                 wasapi_device,
                 err

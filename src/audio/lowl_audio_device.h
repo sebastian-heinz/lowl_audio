@@ -4,42 +4,43 @@
 #include "lowl_error.h"
 
 #include "audio/lowl_audio_source.h"
+#include "audio/lowl_audio_device_properties.h"
 
 #include <memory>
+#include <vector>
 
 namespace Lowl::Audio {
 
     class AudioDevice {
 
-    private:
+    protected:
+        struct _constructor_tag {
+            explicit _constructor_tag() = default;
+        };
+
+        virtual ~AudioDevice() = 0;
+
+        std::shared_ptr<AudioSource> audio_source;
+        std::vector<AudioDeviceProperties> properties;
         std::string name;
 
-    protected:
-        std::shared_ptr<AudioSource> audio_source;
-        bool exclusive_mode;
-
     public:
-        virtual void start(std::shared_ptr<AudioSource> p_audio_source, Error &error) = 0;
-
-        virtual void stop(Error &error) = 0;
-
-        virtual bool is_supported(AudioChannel p_channel, SampleRate p_sample_rate, SampleFormat p_sample_format, Error &error) = 0;
-
-        virtual SampleRate get_default_sample_rate() = 0;
-
-        virtual void set_exclusive_mode(bool p_exclusive_mode, Error &error) = 0;
-
-        bool is_exclusive_mode() const;
-
-        bool is_supported(std::shared_ptr<AudioSource> p_audio_source, Error &error);
-
-        std::string get_name() const;
+        AudioDevice(_constructor_tag);
 
         void set_name(const std::string &p_name);
 
-        AudioDevice();
+        virtual void start(AudioDeviceProperties p_audio_device_properties,
+                           std::shared_ptr<AudioSource> p_audio_source,
+                           Error &error) = 0;
 
-        virtual ~AudioDevice() = default;
+        virtual void stop(Error &error) = 0;
+
+        std::vector<AudioDeviceProperties> get_properties() const;
+
+        AudioDeviceProperties
+        get_closest_properties(AudioDeviceProperties p_audio_device_properties, Error &error) const;
+
+        std::string get_name() const;
     };
 }
 

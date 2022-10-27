@@ -9,7 +9,7 @@
 
 namespace Lowl::Audio {
 
-    class AudioDevicePa : public AudioDevice {
+    class PADevice : public AudioDevice {
 
     private:
         PaDeviceIndex device_index;
@@ -26,24 +26,22 @@ namespace Lowl::Audio {
 
         void close_stream(Error &error);
 
+        static std::vector<Lowl::Audio::AudioDeviceProperties> create_device_properties(
+                const PaDeviceIndex p_device_index
+        );
+
         PaStreamParameters
-        create_output_parameters(Lowl::Audio::AudioChannel p_channel, Lowl::Audio::SampleFormat p_sample_format, Error &error);
+        create_output_parameters(Lowl::Audio::AudioChannel p_channel, Lowl::Audio::SampleFormat p_sample_format,
+                                 Error &error);
 
-        PaSampleFormat get_pa_sample_format(SampleFormat sample_format, Error &error);
-
-        void enable_exclusive_mode(PaStreamParameters &stream_parameters, Error &error);
+        static PaSampleFormat get_pa_sample_format(SampleFormat sample_format, Error &error);
 
     public:
-        virtual void start(std::shared_ptr<AudioSource> p_audio_source, Error &error) override;
-
-        virtual void stop(Error &error) override;
-
-        virtual bool is_supported(Lowl::Audio::AudioChannel p_channel, Lowl::SampleRate p_sample_rate, Lowl::Audio::SampleFormat p_sample_format,
-                                  Error &error) override;
-
-        virtual Lowl::SampleRate get_default_sample_rate() override;
-
-        virtual void set_exclusive_mode(bool p_exclusive_mode, Error &error) override;
+        static std::unique_ptr<PADevice> construct(
+                const std::string &p_device_name,
+                const PaDeviceIndex p_device_index,
+                Error &error
+        );
 
         PaStreamCallbackResult callback(const void *p_input_buffer,
                                         void *p_output_buffer,
@@ -52,11 +50,15 @@ namespace Lowl::Audio {
                                         PaStreamCallbackFlags p_status_flags
         );
 
-        void set_device_index(PaDeviceIndex device_index);
+        virtual void start(AudioDeviceProperties p_audio_device_properties,
+                           std::shared_ptr<AudioSource> p_audio_source,
+                           Error &error) override;
 
-        AudioDevicePa();
+        virtual void stop(Error &error) override;
 
-        ~AudioDevicePa();
+        PADevice(_constructor_tag);
+
+        ~PADevice() override;
     };
 }
 

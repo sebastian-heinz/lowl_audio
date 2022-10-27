@@ -2,7 +2,8 @@
 
 #include <algorithm>
 
-Lowl::Audio::AudioData::AudioData(std::vector<AudioFrame> p_audio_frames, SampleRate p_sample_rate, AudioChannel p_channel)
+Lowl::Audio::AudioData::AudioData(std::vector<AudioFrame> p_audio_frames, SampleRate p_sample_rate,
+                                  AudioChannel p_channel)
         : AudioSource(p_sample_rate, p_channel) {
     frames = std::vector<AudioFrame>(p_audio_frames);
     position = 0;
@@ -34,7 +35,8 @@ std::vector<Lowl::Audio::AudioFrame> Lowl::Audio::AudioData::get_frames() {
     return std::vector<AudioFrame>(frames);
 }
 
-std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioData::create_slice(TimeSeconds p_begin_sec, TimeSeconds p_end_sec) {
+std::unique_ptr<Lowl::Audio::AudioData>
+Lowl::Audio::AudioData::create_slice(TimeSeconds p_begin_sec, TimeSeconds p_end_sec) {
     size_t first_frame = static_cast<size_t>(p_begin_sec * sample_rate);
     size_t last_frame = static_cast<size_t>(p_end_sec * sample_rate);
     std::clamp<size_t>(first_frame, 0, size - 1);

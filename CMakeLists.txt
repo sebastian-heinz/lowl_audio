@@ -16,7 +16,7 @@ message([LOWL] CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME})
 set(LOWL_DEBUG TRUE)
 set(LOWL_DRIVER_DUMMY TRUE)
 set(LOWL_DRIVER_CORE_AUDIO TRUE)
-set(LOWL_DRIVER_PORTAUDIO FALSE)
+set(LOWL_DRIVER_PORTAUDIO TRUE)
 set(LOWL_DRIVER_WASAPI TRUE)
 set(LOWL_PA_DEFAULT_DRIVER_PRIORITY "ALSA,OSS,JACK,COREAUDIO,WASAPI,WDMKS,DSOUND,WMME,ASIO,ASIHPI")
 # config - end
@@ -32,6 +32,7 @@ set(LOWL_SOURCES
         src/audio/lowl_audio_device.cpp
         src/audio/lowl_audio_driver.cpp
         src/audio/lowl_audio_mixer.cpp
+        src/audio/lowl_audio_setting.cpp
         src/audio/lowl_audio_source.cpp
         src/audio/lowl_audio_space.cpp
         src/audio/lowl_audio_stream.cpp
@@ -70,18 +71,16 @@ IF (LOWL_DRIVER_DUMMY)
     target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_DUMMY)
 ENDIF ()
 
-
-
 IF (LOWL_DRIVER_PORTAUDIO)
     target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_PORTAUDIO)
     target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE "LOWL_PA_DEFAULT_DRIVER_PRIORITY=\"${LOWL_PA_DEFAULT_DRIVER_PRIORITY}\"")
 ENDIF ()
 
-
 if (WIN32)
     message([LOWL] WIN32)
     IF (LOWL_DRIVER_WASAPI)
         target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_WASAPI)
+        target_link_libraries(${LOWL_LIB_MAIN} PUBLIC avrt)
     ENDIF ()
 endif ()
 if (APPLE)

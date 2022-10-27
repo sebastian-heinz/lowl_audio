@@ -194,8 +194,8 @@ std::unique_ptr<Lowl::Audio::CoreAudioDevice> Lowl::Audio::CoreAudioDevice::cons
     }
     LOWL_LOG_DEBUG_F("Device:%u - output_streams[0] latency_low: %d", p_device_id, latency_low);
 
-    std::unique_ptr<CoreAudioDevice> device = std::unique_ptr<CoreAudioDevice>(new CoreAudioDevice());
-    device->set_name("[" + p_driver_name + "] " + device_name);
+    std::unique_ptr<CoreAudioDevice> device = std::make_unique<CoreAudioDevice>(_constructor_tag{});
+    device->name = "[" + p_driver_name + "] " + device_name;
     device->device_id = p_device_id;
     device->input_stream_count = input_stream_count;
     device->output_stream_count = output_stream_count;
@@ -204,7 +204,9 @@ std::unique_ptr<Lowl::Audio::CoreAudioDevice> Lowl::Audio::CoreAudioDevice::cons
     return device;
 }
 
-void Lowl::Audio::CoreAudioDevice::start(std::shared_ptr<AudioSource> p_audio_source, Lowl::Error &error) {
+void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_properties,
+                                         std::shared_ptr<AudioSource> p_audio_source,
+                                         Error &error) {
     audio_source = p_audio_source;
 
     AudioComponentDescription desc;
@@ -409,20 +411,7 @@ Lowl::SampleRate Lowl::Audio::CoreAudioDevice::set_sample_rate(SampleRate p_samp
     return 0;
 }
 
-bool Lowl::Audio::CoreAudioDevice::is_supported(AudioChannel p_channel, SampleRate p_sample_rate,
-                                                SampleFormat p_sample_format, Error &error) {
-    return false;
-}
-
-Lowl::SampleRate Lowl::Audio::CoreAudioDevice::get_default_sample_rate() {
-    return 0;
-}
-
-void Lowl::Audio::CoreAudioDevice::set_exclusive_mode(bool p_exclusive_mode, Error &error) {
-
-}
-
-Lowl::Audio::CoreAudioDevice::CoreAudioDevice() : AudioDevice() {
+Lowl::Audio::CoreAudioDevice::CoreAudioDevice(_constructor_tag ct) : AudioDevice(ct) {
     audio_unit = nullptr;
 }
 

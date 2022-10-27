@@ -17,6 +17,7 @@
 
 namespace Lowl {
 
+    // TODO move this to lowl_audio as it only audio related
     class Lib {
 
     private:

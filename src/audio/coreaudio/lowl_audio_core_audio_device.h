@@ -53,21 +53,15 @@ namespace Lowl::Audio {
                 const AudioObjectPropertyAddress *_Nonnull inAddresses
         );
 
-        void start(std::shared_ptr<AudioSource> p_audio_source, Error &error) override;
+        virtual void start(AudioDeviceProperties p_audio_device_properties,
+                           std::shared_ptr<AudioSource> p_audio_source,
+                           Error &error) override;
 
-        void stop(Error &error) override;
+        virtual void stop(Error &error) override;
 
-        bool is_supported(Lowl::Audio::AudioChannel p_channel,
-                          Lowl::SampleRate p_sample_rate,
-                          SampleFormat p_sample_format,
-                          Error &error
-        ) override;
+        CoreAudioDevice(_constructor_tag);
 
-        Lowl::SampleRate get_default_sample_rate() override;
-
-        void set_exclusive_mode(bool p_exclusive_mode, Error &error) override;
-
-        ~CoreAudioDevice();
+        ~CoreAudioDevice() override;
     };
 }
 
