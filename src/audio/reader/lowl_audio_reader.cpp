@@ -140,6 +140,7 @@ Lowl::Audio::AudioReader::read_frames(Lowl::Audio::AudioChannel p_channel, std::
             break;
         }
         case AudioChannel::None:
+        case AudioChannel::Quadraphonic:
         default: {
             // channels not supported
             break;

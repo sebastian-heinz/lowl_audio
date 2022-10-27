@@ -288,7 +288,7 @@ Lowl::Audio::PADevice::create_device_properties(const PaDeviceIndex p_device_ind
     std::vector<double> test_sample_rates = Lowl::Audio::AudioSetting::get_test_sample_rates();
     std::vector<SampleFormat> test_sample_formats = Lowl::Audio::AudioSetting::get_test_sample_formats();
 
-    for (int sample_format_index = 0; sample_format_index < test_sample_formats.size(); sample_format_index++) {
+    for (unsigned long sample_format_index = 0; sample_format_index < test_sample_formats.size(); sample_format_index++) {
         SampleFormat test_sample_format = test_sample_formats[sample_format_index];
 
         Lowl::Error error;
@@ -304,7 +304,7 @@ Lowl::Audio::PADevice::create_device_properties(const PaDeviceIndex p_device_ind
         outputParameters.suggestedLatency = 0; /* ignored by Pa_IsFormatSupported() */
         outputParameters.hostApiSpecificStreamInfo = nullptr;
 
-        for (int sample_rate_index = 0; sample_rate_index < test_sample_rates.size(); sample_rate_index++) {
+        for (unsigned long sample_rate_index = 0; sample_rate_index < test_sample_rates.size(); sample_rate_index++) {
             double test_sample_rate = test_sample_rates[sample_rate_index];
             PaError err = Pa_IsFormatSupported(nullptr, &outputParameters, test_sample_rate);
             if (err == paFormatIsSupported) {

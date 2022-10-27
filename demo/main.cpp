@@ -118,13 +118,13 @@ int run() {
         std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>> devices = driver->get_devices();
         for (std::shared_ptr<Lowl::Audio::AudioDevice> device: devices) {
             std::cout << "+ Device[" + std::to_string(current_device_index++) + "]: " + device->get_name() + "\n";
-           if(print_all_device_properties) {
-               int index = 0;
-               for (Lowl::Audio::AudioDeviceProperties device_properties: device->get_properties()) {
-                   std::cout << "- Properties[" << index++ << "]\n";
-                   print_audio_properties(device_properties);
-               }
-           }
+            if (print_all_device_properties) {
+                int index = 0;
+                for (Lowl::Audio::AudioDeviceProperties device_properties: device->get_properties()) {
+                    std::cout << "- Properties[" << index++ << "]\n";
+                    print_audio_properties(device_properties);
+                }
+            }
             all_devices.push_back(device);
         }
     }
@@ -147,6 +147,10 @@ int run() {
     std::cout << "Selected Device:" << device_index << " Name:" << device->get_name() << "\n";
 
     std::vector<Lowl::Audio::AudioDeviceProperties> device_properties_list = device->get_properties();
+    if (device_properties_list.empty()) {
+        std::cout << "device_properties_list is empty, no valid configurations available\n";
+        return -1;
+    }
     if (device_property_index <= -1) {
         int index = 0;
         for (Lowl::Audio::AudioDeviceProperties device_properties: device->get_properties()) {

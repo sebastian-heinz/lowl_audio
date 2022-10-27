@@ -66,6 +66,11 @@ void Lowl::Audio::AudioSource::process_volume(AudioFrame &audio_frame) {
 void Lowl::Audio::AudioSource::process_panning(AudioFrame &audio_frame) {
     Panning pan = panning.load();
     switch (channel) {
+        case AudioChannel::Quadraphonic:
+            // TODO
+            audio_frame.left *= std::sqrt(1.0 - pan);
+            audio_frame.right *= std::sqrt(1.0 + pan);
+            break;
         case AudioChannel::Stereo:
             audio_frame.left *= std::sqrt(1.0 - pan);
             audio_frame.right *= std::sqrt(1.0 + pan);

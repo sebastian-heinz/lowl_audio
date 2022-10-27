@@ -46,9 +46,9 @@ void Lowl::Audio::SampleConverter::write_sample(Lowl::Audio::SampleFormat p_samp
             case SampleFormat::INT_24: {
                 int32_t sample = sample_to_int24(p_sample);
                 uint8_t *dst = (uint8_t *) *p_dst;
-                *dst++ = sample >> 8;
-                *dst++ = sample >> 16;
-                *dst++ = sample >> 24;
+                *dst++ = static_cast<uint8_t>(sample >> 8);
+                *dst++ = static_cast<uint8_t>(sample >> 16);
+                *dst++ = static_cast<uint8_t>(sample >> 24);
                 *p_dst = dst;
                 break;
             }
@@ -73,6 +73,12 @@ void Lowl::Audio::SampleConverter::write_sample(Lowl::Audio::SampleFormat p_samp
                 *p_dst = dst;
                 break;
             }
+            case SampleFormat::Unknown:
+                break;
+            case SampleFormat::FLOAT_64:
+                break;
+            case SampleFormat::INT_8:
+                break;
         }
     }
 }
