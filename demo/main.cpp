@@ -209,22 +209,27 @@ int main(int argc, char **argv) {
         if (arg.rfind(music_prefix, 0) == 0) {
             std::string val = arg.substr(music_prefix.length());
             music_paths.push_back(val);
+            continue;
         }
         if (arg.rfind(sample_rate_prefix, 0) == 0) {
             std::string val = arg.substr(sample_rate_prefix.length());
             sample_rate = std::stod(val);
+            continue;
         }
         if (arg.rfind(channel_prefix, 0) == 0) {
             std::string val = arg.substr(channel_prefix.length());
             channel = Lowl::Audio::get_channel(std::stoi(val));
-        }
-        if (arg.rfind(device_index_prefix, 0) == 0) {
-            std::string val = arg.substr(device_index_prefix.length());
-            device_index = std::stoi(val);
+            continue;
         }
         if (arg.rfind(device_property_index_prefix, 0) == 0) {
             std::string val = arg.substr(device_property_index_prefix.length());
             device_property_index = std::stoi(val);
+            continue;
+        }
+        if (arg.find(device_index_prefix, 0) == 0) {
+            std::string val = arg.substr(device_index_prefix.length());
+            device_index = std::stoi(val);
+            continue;
         }
     }
 

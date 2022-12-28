@@ -473,6 +473,56 @@ void Lowl::Audio::CoreAudioUtilities::set_render_quality(AudioUnit p_audio_unit,
     }
 }
 
+pid_t Lowl::Audio::CoreAudioUtilities::get_output_hog_pid(AudioObjectID p_device_id, Lowl::Error &error) {
+
+    pid_t hog_pid = -1;
+    UInt32 property_size = sizeof(hog_pid);
+
+    AudioObjectPropertyAddress hog_property = {
+            kAudioDevicePropertyHogMode,
+            kAudioDevicePropertyScopeOutput,
+            kAudioObjectPropertyElementMaster};
+
+    OSStatus result = AudioObjectGetPropertyData(
+            p_device_id,
+            &hog_property,
+            0,
+            nullptr,
+            &property_size,
+            &hog_pid
+    );
+    if (result != noErr) {
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return -1;
+    }
+
+    // -1 = No process has hogged
+    // getpid() = our process hogged
+    // else -> another process hogged
+    return hog_pid;
+}
+
+void Lowl::Audio::CoreAudioUtilities::set_output_hog_device_pid(AudioObjectID p_device_id, pid_t p_hog_pid,
+                                                                Lowl::Error &error) {
+    UInt32 property_size = sizeof(UInt32);
+    AudioObjectPropertyAddress hog_property = {
+            kAudioDevicePropertyHogMode,
+            kAudioDevicePropertyScopeOutput,
+            kAudioObjectPropertyElementMaster};
+    OSStatus result = AudioObjectSetPropertyData(
+            p_device_id,
+            &hog_property,
+            0,
+            nullptr,
+            property_size,
+            &p_hog_pid
+    );
+    if (result != noErr) {
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return;
+    }
+}
+
 
 #endif /* LOWL_DRIVER_CORE_AUDIO */
 

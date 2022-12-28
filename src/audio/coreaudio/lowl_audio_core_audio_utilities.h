@@ -19,6 +19,7 @@ namespace Lowl::Audio {
     public:
         static constexpr AudioUnitElement kOutputBus = 0;
         static constexpr AudioUnitElement kInputBus = 1;
+        static constexpr pid_t freeHogDevice = -1;
 
         static std::vector<AudioObjectID> get_device_ids(Lowl::Error &error);
 
@@ -126,7 +127,18 @@ namespace Lowl::Audio {
                 AudioObjectPropertySelector p_property,
                 AudioObjectPropertyScope p_scope,
                 AudioObjectPropertyListenerProc _Nonnull p_proc,
-                void* _Nullable p_user_data,
+                void *_Nullable p_user_data,
+                Lowl::Error &error
+        );
+
+        static pid_t get_output_hog_pid(
+                AudioObjectID p_device_id,
+                Lowl::Error &error
+        );
+
+        static void set_output_hog_device_pid(
+                AudioObjectID p_device_id,
+                pid_t p_hog_pid,
                 Lowl::Error &error
         );
     };
