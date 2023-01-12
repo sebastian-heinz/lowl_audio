@@ -1,6 +1,8 @@
 #ifndef LOWL_SAMPLE_FORMAT
 #define LOWL_SAMPLE_FORMAT
 
+#include "lowl_typedef.h"
+
 #include <cstddef>
 #include <string>
 
@@ -17,8 +19,8 @@ namespace Lowl::Audio {
         U_INT_8 = 7,
     };
 
-    inline std::string sample_format_to_string(SampleFormat e) noexcept {
-        switch (e) {
+    _INLINE_ std::string sample_format_to_string(SampleFormat p_format) noexcept {
+        switch (p_format) {
             case SampleFormat::Unknown:
                 return "Unknown";
             case SampleFormat::FLOAT_32:
@@ -41,8 +43,8 @@ namespace Lowl::Audio {
     }
 
 
-    inline size_t get_sample_size(SampleFormat format) {
-        switch (format) {
+    _INLINE_ size_t get_sample_size_bytes(SampleFormat p_format) {
+        switch (p_format) {
             case SampleFormat::FLOAT_64:
                 return 8;
             case SampleFormat::FLOAT_32:
@@ -62,30 +64,10 @@ namespace Lowl::Audio {
         }
     }
 
-    inline size_t get_sample_bits(SampleFormat format) {
-        switch (format) {
-            case SampleFormat::FLOAT_64:
-                return 8 * 8;
-            case SampleFormat::FLOAT_32:
-            case SampleFormat::INT_32:
-                return 4 * 8;
-            case SampleFormat::INT_24:
-                return 3 * 8;
-            case SampleFormat::INT_16:
-                return 2 * 8;
-            case SampleFormat::INT_8:
-            case SampleFormat::U_INT_8:
-                return 1 * 8;
-            case SampleFormat::Unknown:
-                return 0;
-            default:
-                return 0;
-        }
+    _INLINE_ size_t get_sample_size_bits(SampleFormat p_format) {
+        return get_sample_size_bytes(p_format) * 8;
     }
 
-    inline size_t samples_to_bytes(size_t samples, SampleFormat sample_format) {
-        return samples * get_sample_size(sample_format);
-    }
 }
 
 #endif

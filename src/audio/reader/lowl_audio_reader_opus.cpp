@@ -23,10 +23,10 @@ Lowl::Audio::AudioReaderOpus::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p
 
     SampleRate sample_rate = OPUS_SAMPLE_RATE;
     SampleFormat sample_format = SampleFormat::FLOAT_32;
-    int channel_count = op_channel_count(ogg_file.get(), -1);
+    uint32_t channel_count = static_cast<uint32_t>(op_channel_count(ogg_file.get(), -1));
     AudioChannel channel = get_channel(channel_count);
     ogg_int64_t sample_count = op_pcm_total(ogg_file.get(), -1);
-    size_t bytes_per_sample = get_sample_size(sample_format);
+    size_t bytes_per_sample = get_sample_size_bytes(sample_format);
     AudioFormat audio_format = AudioFormat::OPUS;
     size_t buffer_size = Lowl::Audio::ms_to_samples(OPUS_BUFFER_SIZE_MS, sample_rate, channel);
     std::vector<float> buffer(buffer_size, 0.0f);
@@ -38,7 +38,7 @@ Lowl::Audio::AudioReaderOpus::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p
             error.set_error(ErrorCode::OpusFileCanNotParseOpusFile);
             return nullptr;
         }
-        uint64_t samples_read = (uint64_t) (samples_read_per_channel * channel_count);
+        uint64_t samples_read = (uint64_t) (static_cast<uint32_t>(samples_read_per_channel) * channel_count);
         for (uint64_t s = 0; s < samples_read; s++) {
             samples.push_back(buffer[s]);
         }

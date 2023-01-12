@@ -41,7 +41,7 @@ Lowl::SpaceId Lowl::Audio::AudioSpace::add_audio(std::unique_ptr<AudioData> p_au
 
     AudioChannel ch = audio->get_channel();
     if (ch != channel) {
-        AudioChannelConverter channel_converter;
+        ChannelConverter channel_converter;
         std::unique_ptr<AudioData> converted = channel_converter.convert(channel, audio, error);
         if (error.has_error()) {
             LOWL_LOG_ERROR("Lowl::Space::load channel_converter.convert() ErrCode:" +

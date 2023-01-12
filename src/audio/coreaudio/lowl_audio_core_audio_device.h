@@ -5,8 +5,12 @@
 
 #include "audio/lowl_audio_device.h"
 
+
+#include "audio/convert/lowl_audio_sample_converter.h"
+
 #include <CoreAudio/AudioHardware.h>
 #include <AudioUnit/AudioUnit.h>
+
 
 namespace Lowl::Audio {
 
@@ -14,21 +18,21 @@ namespace Lowl::Audio {
 
     private:
         AudioObjectID device_id;
-        Lowl::SampleRate default_sample_rate;
-        Lowl::Audio::AudioChannel output_channel;
-        uint32_t input_stream_count;
-        uint32_t output_stream_count;
         AudioUnit _Nullable audio_unit;
         pid_t hog_pid;
-
         AudioDeviceProperties audio_device_properties{};
 
-        SampleCount set_frames_per_buffer(SampleCount p_frames_per_buffer, Lowl::Error &error);
-        SampleRate set_sample_rate(SampleRate p_sample_rate, Lowl::Error &error);
-
         static std::vector<Lowl::Audio::AudioDeviceProperties> create_device_properties(AudioObjectID p_device_id);
+
         static AudioUnit _Nullable create_audio_unit(AudioObjectID p_device_id, Error &error);
+
         static AudioStreamBasicDescription create_description(AudioDeviceProperties p_device_id);
+
+        static bool test_device_properties(
+                AudioObjectID p_device_id,
+                AudioUnit _Nullable p_audio_unit,
+                AudioDeviceProperties p_properties
+        );
 
         void release_hog();
 

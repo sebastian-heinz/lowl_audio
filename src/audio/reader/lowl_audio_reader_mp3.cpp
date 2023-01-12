@@ -14,20 +14,20 @@ Lowl::Audio::AudioReaderMp3::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
     const drmp3_uint8 *mp3_buffer = p_buffer.get();
     SampleFormat sample_format = SampleFormat::FLOAT_32;
     AudioFormat audio_format = AudioFormat::MP3;
-    size_t bytes_per_sample = get_sample_size(sample_format);
+    size_t bytes_per_sample = get_sample_size_bytes(sample_format);
     std::unique_ptr<uint8_t[]> pcm_buffer = std::make_unique<uint8_t[]>(DECODED_BUFFER_SIZE);
     drmp3dec_frame_info frame_info;
     drmp3dec decoder;
 
     // read first frame to get channel & sample rate
     drmp3dec_init(&decoder);
-    size_t pcm_frames_read = (size_t)drmp3dec_decode_frame(
+    size_t pcm_frames_read = (size_t) drmp3dec_decode_frame(
             &decoder, &mp3_buffer[bytes_read], ENCODED_BUFFER_DECODING_STEP, pcm_buffer.get(), &frame_info
     );
-    AudioChannel channel = get_channel(frame_info.channels);
+    AudioChannel channel = get_channel(static_cast<uint32_t>(frame_info.channels));
     size_t bytes_per_frame = bytes_per_sample * get_channel_num(channel);
     SampleRate sample_rate = frame_info.hz;
-    bytes_read += (size_t)frame_info.frame_bytes;
+    bytes_read += (size_t) frame_info.frame_bytes;
     size_t pcm_buffer_size = pcm_frames_read * bytes_per_frame;
 
     std::vector<AudioFrame> audio_frames = read_frames(
@@ -39,10 +39,10 @@ Lowl::Audio::AudioReaderMp3::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
 
     // read remaining frames
     while (bytes_read <= p_size) {
-        pcm_frames_read = (size_t)drmp3dec_decode_frame(
+        pcm_frames_read = (size_t) drmp3dec_decode_frame(
                 &decoder, &mp3_buffer[bytes_read], ENCODED_BUFFER_DECODING_STEP, pcm_buffer.get(), &frame_info
         );
-        bytes_read += (size_t)frame_info.frame_bytes;
+        bytes_read += (size_t) frame_info.frame_bytes;
         pcm_buffer_size = pcm_frames_read * bytes_per_frame;
         std::vector<AudioFrame> frames = read_frames(
                 audio_format, sample_format, channel, pcm_buffer, pcm_buffer_size, error

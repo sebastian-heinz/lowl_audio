@@ -72,14 +72,14 @@ Lowl::Audio::AudioReaderOgg::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
 
     vorbis_info *vi = ov_info(&vf, -1);
 
-    int channel_count = vi->channels;
+    uint32_t channel_count = static_cast<uint32_t>(vi->channels);
     ogg_int64_t sample_count = ov_pcm_total(&vf, -1);
 
     SampleFormat sample_format = SampleFormat::FLOAT_32;
     SampleRate sample_rate = (SampleRate) vi->rate;
     AudioChannel channel = get_channel(channel_count);
 
-    size_t bytes_per_sample = get_sample_size(sample_format);
+    size_t bytes_per_sample = get_sample_size_bytes(sample_format);
     AudioFormat audio_format = AudioFormat::OGG;
 
     int bitstream = 0;

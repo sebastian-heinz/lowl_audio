@@ -523,6 +523,105 @@ void Lowl::Audio::CoreAudioUtilities::set_output_hog_device_pid(AudioObjectID p_
     }
 }
 
+void Lowl::Audio::CoreAudioUtilities::set_input_sample_rate(AudioUnit p_audio_unit, Lowl::SampleRate p_sample_rate,
+                                                            Lowl::Error &error) {
+    Float64 sample_rate = p_sample_rate;
+    OSStatus result = AudioUnitSetProperty(
+            p_audio_unit,
+            kAudioUnitProperty_SampleRate,
+            kAudioUnitScope_Input,
+            0,
+            &sample_rate,
+            sizeof(sample_rate)
+    );
+    if (result != noErr) {
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return;
+    }
+}
+
+Lowl::SampleRate Lowl::Audio::CoreAudioUtilities::get_output_sample_rate(AudioUnit p_audio_unit, Lowl::Error &error) {
+    Float64 sample_rate = 0.0;
+    UInt32 sample_rate_size = sizeof(sample_rate);
+    OSStatus result = AudioUnitGetProperty(
+            p_audio_unit,
+            kAudioUnitProperty_SampleRate,
+            kAudioUnitScope_Output,
+            0,
+            &sample_rate,
+            &sample_rate_size
+    );
+    if (result != noErr) {
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return 0;
+    }
+    return sample_rate;
+}
+
+
+Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::set_frames_per_buffer(
+        AudioObjectID p_device_id, SampleCount p_frames_per_buffer, Lowl::Error &error) {
+
+    SampleCount requested_frames_per_buffer = p_frames_per_buffer;
+    SampleCount actual_frames_per_buffer = 0;
+    CoreAudioUtilities::set_buffer_frame_size(
+            p_device_id,
+            kAudioDevicePropertyScopeOutput,
+            requested_frames_per_buffer,
+            error
+    );
+    actual_frames_per_buffer = CoreAudioUtilities::get_buffer_frame_size(
+            p_device_id,
+            kAudioDevicePropertyScopeOutput,
+            error
+    );
+
+    // Did we get the size we asked for?
+    if (actual_frames_per_buffer != requested_frames_per_buffer) {
+        AudioValueRange range = CoreAudioUtilities::get_buffer_frame_size_range(
+                p_device_id,
+                kAudioDevicePropertyScopeOutput,
+                error
+        );
+        if (requested_frames_per_buffer < range.mMinimum) {
+            requested_frames_per_buffer = static_cast<UInt32>(range.mMinimum);
+        } else if (requested_frames_per_buffer > range.mMaximum) {
+            requested_frames_per_buffer = static_cast<UInt32>(range.mMaximum);
+        }
+        CoreAudioUtilities::set_buffer_frame_size(
+                p_device_id,
+                kAudioDevicePropertyScopeOutput,
+                requested_frames_per_buffer,
+                error
+        );
+        actual_frames_per_buffer = CoreAudioUtilities::get_buffer_frame_size(
+                p_device_id,
+                kAudioDevicePropertyScopeOutput,
+                error
+        );
+    }
+    return actual_frames_per_buffer;
+}
+
+AudioStreamBasicDescription
+Lowl::Audio::CoreAudioUtilities::get_audio_stream_description(AudioUnit p_audio_unit, AudioUnitScope p_scope,
+                                                              Lowl::Error &error) {
+    AudioStreamBasicDescription description = AudioStreamBasicDescription();
+    UInt32 description_size = sizeof(description);
+    OSStatus result = AudioUnitGetProperty(
+            p_audio_unit,
+            kAudioUnitProperty_StreamFormat,
+            p_scope,
+            CoreAudioUtilities::kOutputBus,
+            &description,
+            &description_size
+    );
+    if (result != noErr) {
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return AudioStreamBasicDescription();
+    }
+    return description;
+}
 
 #endif /* LOWL_DRIVER_CORE_AUDIO */
 

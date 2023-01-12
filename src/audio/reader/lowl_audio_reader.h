@@ -14,9 +14,6 @@
 namespace Lowl::Audio {
     class AudioReader {
 
-    protected:
-        std::unique_ptr<Lowl::Audio::SampleConverter> sample_converter;
-
     public:
         static std::unique_ptr<AudioReader> create_reader(FileFormat p_format, Error &error);
 
@@ -52,8 +49,6 @@ namespace Lowl::Audio {
         AudioReader();
 
         std::unique_ptr<AudioData> read_file(const std::string &p_path, Error &error);
-
-        void set_sample_converter(std::unique_ptr<SampleConverter> p_sample_converter);
     };
 }
 

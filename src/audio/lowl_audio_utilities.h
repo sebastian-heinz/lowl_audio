@@ -8,7 +8,7 @@
 
 namespace Lowl::Audio {
 
-    inline size_t ms_to_samples(size_t ms, SampleRate sample_rate, AudioChannel channel) {
+    _INLINE_ size_t ms_to_samples(size_t ms, SampleRate sample_rate, AudioChannel channel) {
         return (ms * (size_t) sample_rate * (size_t) get_channel_num(channel)) / 1000;
     }
 

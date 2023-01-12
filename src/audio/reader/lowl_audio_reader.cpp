@@ -30,12 +30,7 @@ Lowl::Audio::AudioReader::read_file(const std::string &p_path, Lowl::Error &erro
     return audio_data;
 }
 
-void Lowl::Audio::AudioReader::set_sample_converter(std::unique_ptr<Lowl::Audio::SampleConverter> p_sample_converter) {
-    sample_converter = std::move(p_sample_converter);
-}
-
 Lowl::Audio::AudioReader::AudioReader() {
-    sample_converter = std::make_unique<Lowl::Audio::SampleConverter>();
 }
 
 std::vector<Lowl::Audio::AudioFrame>
@@ -43,7 +38,7 @@ Lowl::Audio::AudioReader::read_frames(Lowl::Audio::AudioFormat p_audio_format,
                                       Lowl::Audio::SampleFormat p_sample_format, Lowl::Audio::AudioChannel p_channel,
                                       const std::unique_ptr<uint8_t[]> &p_buffer, size_t p_size, Lowl::Error &error) {
 
-    size_t sample_size = get_sample_size(p_sample_format);
+    size_t sample_size = get_sample_size_bytes(p_sample_format);
     size_t num_samples = p_size / sample_size;
 
     std::vector<float> samples = std::vector<float>();
@@ -62,7 +57,7 @@ Lowl::Audio::AudioReader::read_frames(Lowl::Audio::AudioFormat p_audio_format,
                 int32_t *int32 = reinterpret_cast<int32_t *>(p_buffer.get());
                 for (size_t current_sample = 0; current_sample < num_samples; current_sample++) {
                     int32_t sample_32 = int32[current_sample];
-                    float sample = sample_converter->int32_to_float(sample_32);
+                    float sample = SampleConverter::int32_to_float(sample_32);
                     samples.push_back(sample);
                 }
                 break;
@@ -74,7 +69,7 @@ Lowl::Audio::AudioReader::read_frames(Lowl::Audio::AudioFormat p_audio_format,
                 int16_t *int16 = reinterpret_cast<int16_t *>(p_buffer.get());
                 for (size_t current_sample = 0; current_sample < num_samples; current_sample++) {
                     int16_t sample_16 = int16[current_sample];
-                    float sample = sample_converter->int16_to_float(sample_16);
+                    float sample = SampleConverter::int16_to_float(sample_16);
                     samples.push_back(sample);
                 }
                 break;

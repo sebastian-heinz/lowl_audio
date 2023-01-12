@@ -15,7 +15,7 @@ Lowl::Audio::AudioReaderFlac::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p
 
     SampleFormat sample_format = SampleFormat::INT_32;
     AudioFormat audio_format = AudioFormat::FLAC;
-    size_t bytes_per_sample = get_sample_size(sample_format);
+    size_t bytes_per_sample = get_sample_size_bytes(sample_format);
     AudioChannel channel = get_channel(flac->channels);
     size_t bytes_per_frame = bytes_per_sample * get_channel_num(channel);
     SampleRate sample_rate = flac->sampleRate;

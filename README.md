@@ -4,6 +4,11 @@ LowL Audio
 
 ![workflow](https://github.com/sebastian-heinz/lowl_audio/actions/workflows/main.yaml/badge.svg?branch=master)
 
+
+# TODO
+- display list of available output format configurations, ensure that this list is reduced by not implemented outputs, capabilities and dupes.
+
+
 ## Setup
 1) `git clone https://github.com/sebastian-heinz/lowl_audio.git`
 2) `cd lowl_audio`

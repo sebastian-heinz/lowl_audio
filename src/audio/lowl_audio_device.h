@@ -5,6 +5,8 @@
 
 #include "audio/lowl_audio_source.h"
 #include "audio/lowl_audio_device_properties.h"
+#include "audio/convert/lowl_audio_re_sampler.h"
+#include "audio/convert/lowl_audio_sample_converter.h"
 
 #include <memory>
 #include <vector>
@@ -21,8 +23,15 @@ namespace Lowl::Audio {
         virtual ~AudioDevice() = 0;
 
         std::shared_ptr<AudioSource> audio_source;
+        std::unique_ptr<AudioDeviceProperties> audio_device_properties;
+        std::unique_ptr<ReSampler> re_sampler;
         std::vector<AudioDeviceProperties> properties;
         std::string name;
+
+        void write_frames(void *p_dst,
+                          unsigned long p_frames_per_buffer,
+                          unsigned long p_bytes_per_frame
+        );
 
     public:
         AudioDevice(_constructor_tag);

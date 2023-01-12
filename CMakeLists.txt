@@ -32,6 +32,7 @@ set(LOWL_SOURCES
         src/audio/lowl_audio_device.cpp
         src/audio/lowl_audio_driver.cpp
         src/audio/lowl_audio_mixer.cpp
+        src/audio/lowl_audio_re_sampler_source.cpp
         src/audio/lowl_audio_setting.cpp
         src/audio/lowl_audio_source.cpp
         src/audio/lowl_audio_space.cpp
@@ -40,7 +41,7 @@ set(LOWL_SOURCES
 
         src/audio/convert/lowl_audio_channel_converter.cpp
         src/audio/convert/lowl_audio_re_sampler.cpp
-        src/audio/convert/lowl_audio_sample_converter.cpp
+        src/audio/convert/lowl_audio_re_sampler_r8b.cpp
 
         src/audio/coreaudio/lowl_audio_core_audio_driver.cpp
         src/audio/coreaudio/lowl_audio_core_audio_device.cpp

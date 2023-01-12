@@ -288,7 +288,8 @@ Lowl::Audio::PADevice::create_device_properties(const PaDeviceIndex p_device_ind
     std::vector<double> test_sample_rates = Lowl::Audio::AudioSetting::get_test_sample_rates();
     std::vector<SampleFormat> test_sample_formats = Lowl::Audio::AudioSetting::get_test_sample_formats();
 
-    for (unsigned long sample_format_index = 0; sample_format_index < test_sample_formats.size(); sample_format_index++) {
+    for (unsigned long sample_format_index = 0;
+         sample_format_index < test_sample_formats.size(); sample_format_index++) {
         SampleFormat test_sample_format = test_sample_formats[sample_format_index];
 
         Lowl::Error error;
@@ -309,7 +310,7 @@ Lowl::Audio::PADevice::create_device_properties(const PaDeviceIndex p_device_ind
             PaError err = Pa_IsFormatSupported(nullptr, &outputParameters, test_sample_rate);
             if (err == paFormatIsSupported) {
                 AudioDeviceProperties property = AudioDeviceProperties();
-                property.channel = Lowl::Audio::get_channel(outputParameters.channelCount);
+                property.channel = Lowl::Audio::get_channel(static_cast<uint32_t>(outputParameters.channelCount));
                 property.sample_rate = test_sample_rate;
                 property.sample_format = test_sample_format;
                 property.exclusive_mode = false;

@@ -45,7 +45,21 @@ namespace Lowl::Audio {
                 Lowl::Error &error
         );
 
-        static SampleRate get_device_default_sample_rate(AudioObjectID p_device_id, Lowl::Error &error);
+        static void set_input_sample_rate(
+                AudioUnit _Nonnull p_audio_unit,
+                SampleRate p_sample_rate,
+                Lowl::Error &error
+        );
+
+        static SampleRate get_output_sample_rate(
+                AudioUnit _Nonnull p_audio_unit,
+                Lowl::Error &error
+        );
+
+        static SampleRate get_device_default_sample_rate(
+                AudioObjectID p_device_id,
+                Lowl::Error &error
+        );
 
         static SampleCount get_latency_low(
                 UInt32 desired_size,
@@ -141,6 +155,19 @@ namespace Lowl::Audio {
                 pid_t p_hog_pid,
                 Lowl::Error &error
         );
+
+        static Lowl::SampleCount set_frames_per_buffer(
+                AudioObjectID p_device_id,
+                SampleCount p_frames_per_buffer,
+                Lowl::Error &error
+        );
+
+        static AudioStreamBasicDescription get_audio_stream_description(
+                AudioUnit _Nonnull p_audio_unit,
+                AudioUnitScope p_scope,
+                Lowl::Error &error
+        );
+
     };
 }
 

@@ -10,10 +10,10 @@
 #include <memory>
 
 namespace Lowl::Audio {
-    class AudioChannelConverter {
+    class ChannelConverter {
 
     private:
-        using ConvertFn = AudioFrame (AudioChannelConverter::*)(AudioFrame) const;
+        using ConvertFn = AudioFrame (ChannelConverter::*)(AudioFrame) const;
 
         std::vector<AudioFrame> convert(std::vector<AudioFrame> audio_data, const ConvertFn convert_fn) const;
 
@@ -26,7 +26,7 @@ namespace Lowl::Audio {
 
         std::unique_ptr<Lowl::Audio::AudioData> convert(AudioChannel p_to, std::shared_ptr<Lowl::Audio::AudioData> p_audio_data, Error error) const;
 
-        ~AudioChannelConverter() = default;
+        ~ChannelConverter() = default;
     };
 }
 #endif

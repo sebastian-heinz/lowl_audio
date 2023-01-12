@@ -108,7 +108,7 @@ namespace Lowl::Audio {
         }
     }
 
-    inline AudioChannel get_channel(int channel) {
+    inline AudioChannel get_channel(uint32_t channel) {
         switch (channel) {
             case 1:
                 return AudioChannel::Mono;
