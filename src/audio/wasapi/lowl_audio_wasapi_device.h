@@ -61,7 +61,7 @@ namespace Lowl::Audio {
         HANDLE avrt_handle;
         DWORD avrt_task_index;
 
-        AudioDeviceProperties audio_device_properties{};
+        AudioDeviceProperties audio_device_properties;
         SampleConverter sample_converter;
 
         bool enable_avrt();
