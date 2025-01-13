@@ -58,8 +58,8 @@ bool Lowl::Audio::ReSampler::write(const AudioFrame &p_audio_frame, size_t p_req
     for (size_t sample_num = 0; sample_num < samples_resampled; sample_num++) {
         if (!resample_queue->enqueue(resamples[sample_num])) {
             // TODO error
-            throw "TODO Error";
-            //break;
+            //throw "TODO Error";
+            break;
         }
         sample_available++;
         total_re_sampled_frames++;

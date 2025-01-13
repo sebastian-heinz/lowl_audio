@@ -17,10 +17,6 @@ target_link_libraries(${LOWL_THIRD_PARTY} PUBLIC readerwriterqueue)
 add_subdirectory(concurrentqueue)
 target_link_libraries(${LOWL_THIRD_PARTY} PUBLIC concurrentqueue)
 
-# portaudio
-add_subdirectory(portaudio)
-target_link_libraries(${LOWL_THIRD_PARTY} PUBLIC portaudio_static)
-
 #dr_libs
 set(LOWL_LIB_DR_LIBS lowl_dr_libs_lib)
 add_library(${LOWL_LIB_DR_LIBS} INTERFACE)

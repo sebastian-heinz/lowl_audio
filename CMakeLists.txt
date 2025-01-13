@@ -16,7 +16,6 @@ message([LOWL] CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME})
 set(LOWL_DEBUG TRUE)
 set(LOWL_DRIVER_DUMMY TRUE)
 set(LOWL_DRIVER_CORE_AUDIO TRUE)
-set(LOWL_DRIVER_PORTAUDIO TRUE)
 set(LOWL_DRIVER_WASAPI TRUE)
 set(LOWL_PA_DEFAULT_DRIVER_PRIORITY "ALSA,OSS,JACK,COREAUDIO,WASAPI,WDMKS,DSOUND,WMME,ASIO,ASIHPI")
 # config - end
@@ -48,9 +47,6 @@ set(LOWL_SOURCES
 
         src/audio/dummy/lowl_audio_dummy_driver.cpp
 
-        src/audio/portaudio/lowl_audio_pa_driver.cpp
-        src/audio/portaudio/lowl_audio_pa_device.cpp
-
         src/audio/wasapi/lowl_audio_wasapi_driver.cpp
         src/audio/wasapi/lowl_audio_wasapi_device.cpp
         src/audio/wasapi/lowl_audio_wasapi_com.cpp
@@ -69,11 +65,6 @@ target_include_directories(${LOWL_LIB_MAIN} PUBLIC src/)
 
 IF (LOWL_DRIVER_DUMMY)
     target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_DUMMY)
-ENDIF ()
-
-IF (LOWL_DRIVER_PORTAUDIO)
-    target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_PORTAUDIO)
-    target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE "LOWL_PA_DEFAULT_DRIVER_PRIORITY=\"${LOWL_PA_DEFAULT_DRIVER_PRIORITY}\"")
 ENDIF ()
 
 if (WIN32)

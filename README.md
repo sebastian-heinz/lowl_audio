@@ -11,10 +11,8 @@ LowL Audio
 
 #### Flags
 - LOWL_DRIVER_DUMMY - enable dummy driver
-- LOWL_DRIVER_PORTAUDIO - enable port audio driver
 
 ## Platforms
-- Linux
 - Windows
 - macOS
 
@@ -286,9 +284,6 @@ created with [draw.io](https://draw.io/)
 ---
 
 ## 3rd Party
-- [Port Audio](https://github.com/PortAudio/portaudio)
-  - License: [MIT](https://github.com/PortAudio/portaudio/blob/master/LICENSE.txt)
-  - portable audio I/O library designed for cross-platform support of audio.
 - [readerwriterqueue](https://github.com/cameron314/readerwriterqueue) & [concurrentqueue](https://github.com/cameron314/concurrentqueue)
   - License: [simplified BSD](https://github.com/cameron314/readerwriterqueue/blob/master/LICENSE.md)
   - [Blog Post](https://moodycamel.com/blog/2013/a-fast-lock-free-queue-for-c++.htm) describing the queue is designed for audio sample transfer

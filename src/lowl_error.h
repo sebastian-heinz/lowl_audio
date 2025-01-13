@@ -19,11 +19,6 @@ namespace Lowl {
         UnsupportedAudioFormat = -101,
 
         // Vendor Error
-        PortAudioVendorError = -1000,
-        PortAudioNoDeviceInfo = -1001,
-        PortAudioNoHostApiInfo = -1002,
-        PortAudioUnknownSampleFormat = -1004,
-
         CoreAudioVendorError = -2000,
         CoreAudioNoSuitableComponentFound = -2001,
 
@@ -41,7 +36,6 @@ namespace Lowl {
 
     public:
         enum class VendorError {
-            PortAudioVendorError = static_cast<int>(ErrorCode::PortAudioVendorError),
             CoreAudioVendorError = static_cast<int>(ErrorCode::CoreAudioVendorError),
             WasapiVendorError = static_cast<int>(ErrorCode::WasapiVendorError),
             VorbisFileVendorError = static_cast<int>(ErrorCode::VorbisFileVendorError),

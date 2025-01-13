@@ -94,7 +94,8 @@ namespace Lowl {
             const int status = std::vsnprintf(temp.data(), temp.size(), p_fmt, args);
             va_end(args);
             if (status < 0) {
-                throw std::runtime_error{"string formatting error"};
+				// TODO
+                //throw std::runtime_error{"string formatting error"};
             };
             length = static_cast<std::size_t>(status);
         }
