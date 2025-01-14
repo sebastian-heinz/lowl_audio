@@ -55,8 +55,8 @@ OSStatus Lowl::Audio::CoreAudioDevice::audio_callback(
         AudioSource::ReadResult read_result = audio_source->read(frame);
         if (read_result == AudioSource::ReadResult::Read) {
             for (int current_channel = 0; current_channel < audio_source->get_channel_num(); current_channel++) {
-                std::clamp(frame[current_channel], AudioFrame::MIN_SAMPLE_VALUE, AudioFrame::MAX_SAMPLE_VALUE);
-                *dst++ = (float) frame[current_channel];
+                frame[current_channel] = std::clamp(frame[current_channel], AudioFrame::MIN_SAMPLE_VALUE, AudioFrame::MAX_SAMPLE_VALUE);
+                *dst++ = static_cast<float>(frame[current_channel]);
             }
         } else if (read_result == AudioSource::ReadResult::End) {
             break;

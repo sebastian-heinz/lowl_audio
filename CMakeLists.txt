@@ -7,6 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(LOWL_LIB_MAIN lowl_audio_lib)
 
+message([LOWL] CMake Version: ${CMAKE_VERSION})
 message([LOWL] Project: ${PROJECT_NAME})
 message([LOWL] BuildType: ${CMAKE_BUILD_TYPE})
 message([LOWL] CMAKE_CXX_COMPILER_ID: ${CMAKE_CXX_COMPILER_ID})
@@ -75,7 +76,13 @@ if (WIN32)
     ENDIF ()
 endif ()
 if (APPLE)
-    message([LOWL] APPLE)
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+        message("[LOWL] APPLE arm64")
+        set(CMAKE_OSX_ARCHITECTURES "arm64")
+    else()
+        message("[LOWL] APPLE x86_64")
+        set(CMAKE_OSX_ARCHITECTURES "x86_64")
+    endif()
     IF (LOWL_DRIVER_CORE_AUDIO)
         target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_CORE_AUDIO)
     ENDIF ()
@@ -96,7 +103,6 @@ endif ()
 IF (CMAKE_BUILD_TYPE MATCHES Debug)
     set(LOWL_DEBUG TRUE)
 ENDIF ()
-
 
 IF (LOWL_DEBUG)
     message([LOWL] Debug)
@@ -121,42 +127,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
                 -D_FORTIFY_SOURCE=2
                 )
     ENDIF ()
-    target_compile_options(${LOWL_LIB_MAIN} PRIVATE
-            -Walloca
-            -Wcast-qual
-            -Wconversion
-            -Wformat=2
-            -Wformat-security
-            -Wnull-dereference
-            -Wstack-protector
-            -Wvla
-            -Warray-bounds
-            -Warray-bounds-pointer-arithmetic
-            -Wassign-enum
-            -Wbad-function-cast
-            -Wconditional-uninitialized
-            -Wconversion
-            -Wfloat-equal
-            -Wformat-type-confusion
-            -Widiomatic-parentheses
-            -Wimplicit-fallthrough
-            -Wloop-analysis
-            -Wpointer-arith
-            -Wshift-sign-overflow
-            -Wshorten-64-to-32
-            -Wswitch-enum
-            -Wtautological-constant-in-range-compare
-            -Wunreachable-code-aggressive
-            -Wthread-safety
-            -Wthread-safety-beta
-            -Wcomma
-            )
-    target_link_options(${LOWL_LIB_MAIN} PRIVATE
-            LINKER:-z,relro
-            LINKER:-z,now
-            LINKER:-z,noexecstack
-            LINKER:-z,separate-code
-            )
+
 endif ()
 
 # Third Party
@@ -167,4 +138,16 @@ target_link_libraries(${LOWL_LIB_MAIN} PUBLIC lowl_third_party)
 add_subdirectory(test)
 
 # Example App
-add_subdirectory(demo)
+#add_subdirectory(demo)
+
+
+set(LOWL_DEMO_MAIN lowl_audio_app)
+set(LOWL_DEMO_FILES
+        main.cpp
+)
+
+
+add_executable(${LOWL_DEMO_MAIN} ${LOWL_DEMO_FILES})
+
+# lowl
+target_link_libraries(${LOWL_DEMO_MAIN} ${LOWL_LIB_MAIN})

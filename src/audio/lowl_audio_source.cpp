@@ -48,7 +48,7 @@ Lowl::Volume Lowl::Audio::AudioSource::get_volume() {
 }
 
 void Lowl::Audio::AudioSource::set_panning(Panning p_panning) {
-    std::clamp(p_panning, MIN_PANNING, MAX_PANNING);
+    p_panning = std::clamp(p_panning, MIN_PANNING, MAX_PANNING);
     panning.store(p_panning);
 }
 

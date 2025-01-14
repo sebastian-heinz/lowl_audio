@@ -71,15 +71,6 @@ std::string Lowl::Error::to_error_text(ErrorCode p_error) {
         case ErrorCode::UnsupportedAudioFormat:
             return "UnsupportedAudioFormat";
 
-        case ErrorCode::PortAudioVendorError:
-            return "PortAudioVendorError";
-        case ErrorCode::PortAudioNoDeviceInfo:
-            return "PortAudioNoDeviceInfo";
-        case ErrorCode::PortAudioNoHostApiInfo:
-            return "PortAudioNoHostApiInfo";
-        case ErrorCode::PortAudioUnknownSampleFormat:
-            return "PortAudioUnknownSampleFormat";
-
         case ErrorCode::CoreAudioVendorError:
             return "CoreAudioVendorError";
         case ErrorCode::CoreAudioNoSuitableComponentFound:
