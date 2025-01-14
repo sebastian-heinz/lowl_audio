@@ -7,10 +7,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(LOWL_LIB_MAIN lowl_audio_lib)
 
-message([LOWL] Project: ${PROJECT_NAME})
-message([LOWL] BuildType: ${CMAKE_BUILD_TYPE})
-message([LOWL] CMAKE_CXX_COMPILER_ID: ${CMAKE_CXX_COMPILER_ID})
-message([LOWL] CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME})
+message("[LOWL] Project: ${PROJECT_NAME}")
+message("[LOWL] BuildType: ${CMAKE_BUILD_TYPE}")
+message("[LOWL] CMAKE_CXX_COMPILER_ID: ${CMAKE_CXX_COMPILER_ID}")
+message("[LOWL] CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 
 # config - start
 set(LOWL_DEBUG TRUE)
@@ -59,7 +59,7 @@ set(LOWL_SOURCES
         src/audio/reader/lowl_audio_reader_ogg.cpp
         src/audio/reader/lowl_audio_reader_opus.cpp
         src/audio/reader/lowl_audio_reader_wav.cpp
-        )
+)
 
 add_library(${LOWL_LIB_MAIN} ${LOWL_SOURCES})
 set_target_properties(${LOWL_LIB_MAIN} PROPERTIES PREFIX "")
@@ -75,29 +75,45 @@ IF (LOWL_DRIVER_PORTAUDIO)
 ENDIF ()
 
 if (WIN32)
-    message([LOWL] WIN32)
+    message("[LOWL] WIN32")
     IF (LOWL_DRIVER_WASAPI)
         target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_WASAPI)
         target_link_libraries(${LOWL_LIB_MAIN} PUBLIC avrt)
     ENDIF ()
 endif ()
 if (APPLE)
-    message([LOWL] APPLE)
+    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+        message("[LOWL] APPLE arm64")
+        set(CMAKE_OSX_ARCHITECTURES "arm64")
+    else ()
+        message("[LOWL] APPLE x86_64")
+        set(CMAKE_OSX_ARCHITECTURES "x86_64")
+    endif ()
+
     IF (LOWL_DRIVER_CORE_AUDIO)
+        message("[LOWL] Resolving CoreAudio Frameworks")
+        find_library(CORE_AUDIO CoreAudio REQUIRED)
+        find_library(CORE_FOUNDATION CoreFoundation REQUIRED)
+        find_library(AUDIO_UNIT AudioUnit REQUIRED)
+        target_link_libraries(${LOWL_LIB_MAIN} PRIVATE
+                ${CORE_AUDIO}
+                ${CORE_FOUNDATION}
+                ${AUDIO_UNIT}
+        )
         target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_CORE_AUDIO)
     ENDIF ()
 endif ()
 if (UNIX)
-    message([LOWL] UNIX)
+    message("[LOWL] UNIX")
 endif ()
 if (MSVC)
-    message([LOWL] MSVC)
+    message("[LOWL] MSVC")
 endif ()
 if (MSYS)
-    message([LOWL] MSYS)
+    message("[LOWL] MSYS")
 endif ()
 if (MINGW)
-    message([LOWL] MINGW)
+    message("[LOWL] MINGW")
 endif ()
 
 IF (CMAKE_BUILD_TYPE MATCHES Debug)
@@ -106,27 +122,27 @@ ENDIF ()
 
 
 IF (LOWL_DEBUG)
-    message([LOWL] Debug)
+    message("[LOWL] Debug")
     target_compile_definitions(${LOWL_LIB_MAIN} PUBLIC LOWL_DEBUG)
 ELSE ()
-    message([LOWL] Release)
+    message("[LOWL] Release")
 ENDIF ()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    message([LOWL] Clang)
+    message("[LOWL] Clang")
     IF (LOWL_DEBUG)
-        message([LOWL] Setting Debug Flags)
+        message("[LOWL] Setting Debug Flags")
         target_compile_options(${LOWL_LIB_MAIN} PRIVATE
                 -O0
                 -Werror
-                )
+        )
     ELSE ()
-        message([LOWL] Setting Release Flags)
+        message("[LOWL] Setting Release Flags")
         target_compile_options(${LOWL_LIB_MAIN} PRIVATE
                 -O2
                 -Werror
                 -D_FORTIFY_SOURCE=2
-                )
+        )
     ENDIF ()
     target_compile_options(${LOWL_LIB_MAIN} PRIVATE
             -Walloca
@@ -157,13 +173,13 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
             -Wthread-safety
             -Wthread-safety-beta
             -Wcomma
-            )
+    )
     target_link_options(${LOWL_LIB_MAIN} PRIVATE
             LINKER:-z,relro
             LINKER:-z,now
             LINKER:-z,noexecstack
             LINKER:-z,separate-code
-            )
+    )
 endif ()
 
 # Third Party
