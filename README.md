@@ -16,10 +16,8 @@ LowL Audio
 
 #### Flags
 - LOWL_DRIVER_DUMMY - enable dummy driver
-- LOWL_DRIVER_PORTAUDIO - enable port audio driver
 
 ## Platforms
-- Linux
 - Windows
 - macOS
 

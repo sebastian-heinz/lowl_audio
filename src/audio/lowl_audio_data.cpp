@@ -4,7 +4,7 @@
 
 Lowl::Audio::AudioData::AudioData(std::vector<AudioFrame> p_audio_frames, SampleRate p_sample_rate,
                                   AudioChannel p_channel)
-        : AudioSource(p_sample_rate, p_channel) {
+    : AudioSource(p_sample_rate, p_channel) {
     frames = std::vector<AudioFrame>(p_audio_frames);
     position = 0;
     seek_position = 0;
@@ -39,18 +39,18 @@ std::unique_ptr<Lowl::Audio::AudioData>
 Lowl::Audio::AudioData::create_slice(TimeSeconds p_begin_sec, TimeSeconds p_end_sec) {
     size_t first_frame = static_cast<size_t>(p_begin_sec * sample_rate);
     size_t last_frame = static_cast<size_t>(p_end_sec * sample_rate);
-    std::clamp<size_t>(first_frame, 0, size - 1);
-    std::clamp<size_t>(last_frame, 0, size - 1);
+    first_frame = std::max<size_t>(first_frame, 0);
+    last_frame = std::min<size_t>(last_frame, size - 1);
     std::vector<AudioFrame> slice;
     if (p_end_sec > 0.0) {
         slice = std::vector<AudioFrame>(
-                frames.begin() + static_cast<std::vector<AudioFrame>::difference_type>(first_frame),
-                frames.begin() + static_cast<std::vector<AudioFrame>::difference_type>(last_frame)
+            frames.begin() + static_cast<std::vector<AudioFrame>::difference_type>(first_frame),
+            frames.begin() + static_cast<std::vector<AudioFrame>::difference_type>(last_frame)
         );
     } else {
         slice = std::vector<AudioFrame>(
-                frames.begin() + static_cast<std::vector<AudioFrame>::difference_type>(first_frame),
-                frames.end()
+            frames.begin() + static_cast<std::vector<AudioFrame>::difference_type>(first_frame),
+            frames.end()
         );
     }
     return std::make_unique<AudioData>(slice, sample_rate, channel);
@@ -73,7 +73,7 @@ void Lowl::Audio::AudioData::reset() {
 }
 
 void Lowl::Audio::AudioData::seek_frame(size_t p_frame) {
-    std::clamp<size_t>(p_frame, 0, size - 1);
+    p_frame = std::clamp<size_t>(p_frame, 0, size - 1);
     seek_position = p_frame;
     is_not_reset.clear();
 }

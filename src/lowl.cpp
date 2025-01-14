@@ -1,23 +1,16 @@
 #include "lowl.h"
 
 #ifdef LOWL_DRIVER_DUMMY
-
 #include "audio/dummy/lowl_audio_dummy_driver.h"
-
 #endif
-#ifdef LOWL_DRIVER_PORTAUDIO
 
-#include "audio/portaudio/lowl_audio_pa_driver.h"
-
-#endif
 #ifdef LOWL_DRIVER_CORE_AUDIO
 #include "audio/coreaudio/lowl_audio_core_audio_driver.h"
 #endif
-#ifdef LOWL_DRIVER_WASAPI
 
+#ifdef LOWL_DRIVER_WASAPI
 #include "audio/wasapi/lowl_audio_wasapi_driver.h"
 #include "audio/wasapi/lowl_audio_wasapi_com.h"
-
 #endif
 
 #include <memory>
@@ -34,14 +27,6 @@ void Lowl::Lib::initialize(Lowl::Error &error) {
 #ifdef LOWL_DRIVER_DUMMY
         drivers.push_back(std::make_shared<Lowl::Audio::AudioDriverDummy>());
 #endif
-#ifdef LOWL_DRIVER_PORTAUDIO
-        PaError pa_error = Pa_Initialize();
-        if (pa_error == PaErrorCode::paNoError) {
-            drivers.push_back(std::make_shared<Lowl::Audio::PADriver>());
-        } else {
-            LOWL_LOG_ERROR_F("PortAudio failed Pa_Initialize (PaError:%d)", pa_error);
-        }
-#endif
 #ifdef LOWL_DRIVER_CORE_AUDIO
         drivers.push_back(std::make_shared<Lowl::Audio::CoreAudioDriver>());
 #endif
@@ -56,13 +41,6 @@ void Lowl::Lib::initialize(Lowl::Error &error) {
 }
 
 void Lowl::Lib::terminate(Error &error) {
-#ifdef LOWL_DRIVER_PORTAUDIO
-    PaError pa_error = Pa_Terminate();
-    if (pa_error != PaErrorCode::paNoError) {
-        LOWL_LOG_ERROR_F("PortAudio failed Pa_Terminate (PaError:%d)", pa_error);
-        return;
-    }
-#endif
 #ifdef LOWL_DRIVER_WASAPI
     Lowl::Audio::WasapiCom::wasapi_com->terminate();
 #endif

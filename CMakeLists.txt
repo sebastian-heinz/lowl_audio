@@ -49,9 +49,6 @@ set(LOWL_SOURCES
 
         src/audio/dummy/lowl_audio_dummy_driver.cpp
 
-        src/audio/portaudio/lowl_audio_pa_driver.cpp
-        src/audio/portaudio/lowl_audio_pa_device.cpp
-
         src/audio/wasapi/lowl_audio_wasapi_driver.cpp
         src/audio/wasapi/lowl_audio_wasapi_device.cpp
         src/audio/wasapi/lowl_audio_wasapi_com.cpp
