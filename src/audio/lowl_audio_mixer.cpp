@@ -4,14 +4,16 @@
 
 #include <string>
 
-Lowl::Audio::AudioMixer::AudioMixer(SampleRate p_sample_rate, AudioChannel p_channel) : AudioSource(p_sample_rate,
-                                                                                                    p_channel) {
-    sources = std::vector<std::shared_ptr<AudioSource>>();
-    events = std::make_unique<moodycamel::ConcurrentQueue<AudioMixerEvent>>();
+Lowl::Audio::AudioMixer::AudioMixer(
+    SampleRate p_sample_rate,
+    AudioChannel p_channel
+) : AudioSource(p_sample_rate, p_channel) {
+    sources = std::vector<std::shared_ptr<AudioSource> >();
+    events = std::make_unique<moodycamel::ConcurrentQueue<AudioMixerEvent> >();
     read_frame = {};
 }
 
-Lowl::Audio::AudioSource::ReadResult Lowl::Audio::AudioMixer::read(Audio::AudioFrame &audio_frame) {
+Lowl::Audio::AudioSource::ReadResult Lowl::Audio::AudioMixer::read(AudioFrame &audio_frame) {
     AudioMixerEvent event;
     while (events->try_dequeue(event)) {
         switch (event.type) {
@@ -36,7 +38,7 @@ Lowl::Audio::AudioSource::ReadResult Lowl::Audio::AudioMixer::read(Audio::AudioF
     ReadResult read_result;
     audio_frame = {};
 
-    for (const std::shared_ptr<AudioSource> &source : sources) {
+    for (const std::shared_ptr<AudioSource> &source: sources) {
         read_result = source->read(read_frame);
         if (read_result == ReadResult::Read) {
             audio_frame += read_frame;
@@ -80,7 +82,7 @@ void Lowl::Audio::AudioMixer::mix(std::shared_ptr<AudioSource> p_audio_source) {
     if (p_audio_source->get_sample_rate() != sample_rate) {
 #pragma clang diagnostic pop
         LOWL_LOG_WARN("Lowl::AudioMixer::mix: p_audio_source(" + std::to_string(p_audio_source->get_sample_rate()) +
-                      ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate.");
+            ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate.");
     }
     AudioMixerEvent event = {};
     event.type = AudioMixerEvent::Mix;

@@ -1,6 +1,9 @@
 #ifndef LOWL_AUDIO_READER_H
 #define LOWL_AUDIO_READER_H
 
+
+#include <lowl_error.h>
+
 #include "lowl_file_format.h"
 
 #include "audio/lowl_audio_stream.h"
@@ -13,7 +16,6 @@
 
 namespace Lowl::Audio {
     class AudioReader {
-
     public:
         static std::unique_ptr<AudioReader> create_reader(FileFormat p_format, Error &error);
 
@@ -43,7 +45,7 @@ namespace Lowl::Audio {
                     const std::unique_ptr<uint8_t[]> &p_buffer, size_t p_size, Error &error);
 
         virtual std::vector<AudioFrame>
-        read_frames(AudioChannel p_channel, std::vector<float> samples, Lowl::Error &error);
+        read_frames(AudioChannel p_channel, std::vector<float> samples, Error &error);
 
     public:
         AudioReader();

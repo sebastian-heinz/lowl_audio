@@ -1,29 +1,26 @@
 #ifndef LOWL_AUDIO_DEVICE_PROPERTIES_H
 #define LOWL_AUDIO_DEVICE_PROPERTIES_H
 
-#include "audio/lowl_audio_source.h"
-
 #include <string>
 
 namespace Lowl::Audio {
-
     struct AudioDevicePropertiesWasapi {
         uint16_t valid_bits_per_sample;
     };
 
     struct AudioDeviceProperties {
-
         bool is_supported;
         SampleRate sample_rate;
         AudioChannel channel;
         SampleFormat sample_format;
         AudioChannelMask channel_map;
         bool exclusive_mode;
+
         union {
             AudioDevicePropertiesWasapi wasapi;
         };
 
-        std::string to_string() {
+        std::string to_string() const {
             return "{channel:" + std::to_string(get_channel_num(channel)) + "," +
                    "sample_rate:" + std::to_string(sample_rate) + "," +
                    "sample_format:" + sample_format_to_string(sample_format) + "," +
@@ -34,15 +31,14 @@ namespace Lowl::Audio {
 
         bool operator==(const AudioDeviceProperties &rhs) const {
             return is_supported == rhs.is_supported &&
-                   #pragma clang diagnostic push
-                   #pragma clang diagnostic ignored "-Wfloat-equal"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wfloat-equal"
                    sample_rate == rhs.sample_rate &&
-                   #pragma clang diagnostic pop
+#pragma clang diagnostic pop
                    channel == rhs.channel &&
                    sample_format == rhs.sample_format &&
                    channel_map == rhs.channel_map &&
                    exclusive_mode == rhs.exclusive_mode;
-
         }
 
         bool operator!=(const AudioDeviceProperties &rhs) const {
@@ -94,7 +90,6 @@ namespace Lowl::Audio {
         bool operator>=(const AudioDeviceProperties &rhs) const {
             return !(*this < rhs);
         }
-
     };
 }
 

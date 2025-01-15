@@ -8,13 +8,10 @@
 #include "audio/lowl_audio_sample_format.h"
 #include "audio/lowl_audio_device_properties.h"
 
-#include <atomic>
 #include <string>
 
 namespace Lowl::Audio {
-
     class AudioSource {
-
     public:
         enum class ReadResult {
             Read = 0,
@@ -24,14 +21,14 @@ namespace Lowl::Audio {
         };
 
     private:
-        std::atomic<Volume> volume;
-        std::atomic<Volume> panning;
+        std::atomic<Volume> volume{};
+        std::atomic<Volume> panning{};
         std::string name;
 
     protected:
         SampleRate sample_rate;
         AudioChannel channel;
-        std::atomic<bool> is_playing;
+        std::atomic<bool> is_playing{};
 
         void process_volume(AudioFrame &audio_frame);
 
@@ -74,7 +71,7 @@ namespace Lowl::Audio {
 
         void pause();
 
-        bool is_pause();
+        bool is_pause() const;
 
         void play();
 

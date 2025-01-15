@@ -11,7 +11,6 @@
 #include <map>
 
 namespace Lowl::Audio {
-
     /**
      * A "Space" represents a set of audio files that are managed by an Id.
      *
@@ -35,20 +34,20 @@ namespace Lowl::Audio {
         static const SpaceId FirstSpaceId = 1;
         static const int LookupGrowth = 100;
 
-        std::vector<std::shared_ptr<AudioData>> audio_data_lookup;
+        std::vector<std::shared_ptr<AudioData> > audio_data_lookup;
         std::unique_ptr<AudioMixer> mixer;
         SpaceId current_id;
 
-        Lowl::SpaceId insert_audio_data(std::shared_ptr<AudioData> p_audio_data);
+        SpaceId insert_audio_data(std::shared_ptr<AudioData> p_audio_data);
 
     public:
-        virtual size_l get_frames_remaining() const override;
+        size_l get_frames_remaining() const override;
 
-        virtual size_l get_frame_position() const override;
+        size_l get_frame_position() const override;
 
-        virtual size_l get_frame_count() const override;
+        size_l get_frame_count() const override;
 
-        virtual ReadResult read(AudioFrame &audio_frame) override;
+        ReadResult read(AudioFrame &audio_frame) override;
 
         void play(SpaceId p_id, Volume p_volume, Panning p_panning) const;
 
@@ -84,7 +83,7 @@ namespace Lowl::Audio {
 
         AudioSpace(SampleRate p_sample_rate, AudioChannel p_channel);
 
-        ~AudioSpace();
+        ~AudioSpace() override;
 
     private:
         std::shared_ptr<AudioData> get_audio_data(SpaceId p_id) const;

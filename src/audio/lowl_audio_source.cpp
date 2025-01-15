@@ -3,7 +3,7 @@
 #include <cmath>
 #include <algorithm>
 
-Lowl::Audio::AudioSource::AudioSource(SampleRate p_sample_rate, AudioChannel p_channel) {
+Lowl::Audio::AudioSource::AudioSource(const SampleRate p_sample_rate, const AudioChannel p_channel) {
     sample_rate = p_sample_rate;
     channel = p_channel;
     volume.store(DEFAULT_VOLUME);
@@ -36,7 +36,7 @@ Lowl::Audio::AudioDeviceProperties Lowl::Audio::AudioSource::get_properties() co
 
 
 size_t Lowl::Audio::AudioSource::get_channel_num() const {
-    return Lowl::Audio::get_channel_num(channel);
+    return Audio::get_channel_num(channel);
 }
 
 void Lowl::Audio::AudioSource::set_volume(Volume p_volume) {
@@ -88,7 +88,7 @@ void Lowl::Audio::AudioSource::pause() {
     is_playing = false;
 }
 
-bool Lowl::Audio::AudioSource::is_pause() {
+bool Lowl::Audio::AudioSource::is_pause() const {
     return !is_playing;
 }
 

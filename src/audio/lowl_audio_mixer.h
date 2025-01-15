@@ -11,25 +11,23 @@
 #include <vector>
 
 namespace Lowl::Audio {
-
     class AudioMixer : public AudioSource {
-
     private:
-        std::vector<std::shared_ptr<AudioSource>> sources;
-        std::unique_ptr<moodycamel::ConcurrentQueue<AudioMixerEvent>> events;
+        std::vector<std::shared_ptr<AudioSource> > sources;
+        std::unique_ptr<moodycamel::ConcurrentQueue<AudioMixerEvent> > events;
         AudioFrame read_frame;
 
     public:
-        virtual size_l get_frames_remaining() const override;
+        size_l get_frames_remaining() const override;
 
-        virtual size_l get_frame_position() const override;
+        size_l get_frame_position() const override;
 
-        virtual size_l get_frame_count() const override;
+        size_l get_frame_count() const override;
 
         /**
          * mixes a single frame from all sources
          */
-        virtual ReadResult read(AudioFrame &audio_frame) override;
+        ReadResult read(AudioFrame &audio_frame) override;
 
         /**
          * adds a audio source to mix
@@ -43,7 +41,7 @@ namespace Lowl::Audio {
 
         AudioMixer(SampleRate p_sample_rate, AudioChannel p_channel);
 
-        virtual ~AudioMixer() = default;
+        ~AudioMixer() override = default;
     };
 }
 

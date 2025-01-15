@@ -120,7 +120,6 @@ namespace Lowl::Audio {
                 return AudioChannel::None;
         }
     }
-
 }
 
 #endif

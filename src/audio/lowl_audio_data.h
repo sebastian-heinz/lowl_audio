@@ -1,32 +1,27 @@
 #ifndef LOWL_AUDIO_DATA_H
 #define LOWL_AUDIO_DATA_H
 
-#include "lowl_error.h"
 
-#include "audio/lowl_audio_sample_format.h"
 #include "audio/lowl_audio_frame.h"
 #include "audio/lowl_audio_channel.h"
 #include "audio/lowl_audio_source.h"
 
 #include <vector>
-#include <memory>
 #include <atomic>
 
 
 namespace Lowl::Audio {
-
     /**
      * represents a collection of frames that can be pushed into a stream repeatedly.
      * ex. sound effects, or any sound that should not be drained like a stream.
      */
     class AudioData : public AudioSource {
-
     private:
         std::vector<AudioFrame> frames;
-        std::atomic<size_t> position;
-        std::atomic<size_t> seek_position;
+        std::atomic<size_t> position{};
+        std::atomic<size_t> seek_position{};
         size_t size;
-        std::atomic_flag is_not_reset;
+        std::atomic_flag is_not_reset{};
 
     public:
         /**
@@ -61,17 +56,17 @@ namespace Lowl::Audio {
          *  - false will be returned indicating that the read frame is invalid.
          *  - position will be reset to the beginning, next call to read() will return the first frame again.
          */
-        virtual ReadResult read(AudioFrame &audio_frame) override;
+        ReadResult read(AudioFrame &audio_frame) override;
 
-        virtual size_l get_frames_remaining() const override;
+        size_l get_frames_remaining() const override;
 
-        virtual size_l get_frame_position() const override;
+        size_l get_frame_position() const override;
 
-        virtual size_l get_frame_count() const override;
+        size_l get_frame_count() const override;
 
         AudioData(std::vector<AudioFrame> p_audio_frames, SampleRate p_sample_rate, AudioChannel p_channel);
 
-        virtual ~AudioData();
+        ~AudioData() override;
     };
 }
 
