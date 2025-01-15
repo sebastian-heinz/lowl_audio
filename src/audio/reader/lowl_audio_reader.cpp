@@ -24,7 +24,7 @@ Lowl::Audio::AudioReader::read_file(const std::string &p_path, Lowl::Error &erro
         return nullptr;
     }
     if (!audio_data) {
-        error.set_error(Lowl::ErrorCode::Error);
+        error.set_error(Lowl::ErrorCode::AudioReaderNoData);
         return nullptr;
     }
     return audio_data;
@@ -149,7 +149,7 @@ Lowl::Audio::AudioReader::create_reader(Lowl::FileFormat format, Lowl::Error &er
     std::unique_ptr<AudioReader> reader = std::unique_ptr<AudioReader>();
     switch (format) {
         case Lowl::FileFormat::UNKNOWN: {
-            error.set_error(Lowl::ErrorCode::Error);
+            error.set_error(Lowl::ErrorCode::ReaderUnsupportedFormat);
             break;
         }
         case Lowl::FileFormat::WAV: {
@@ -194,14 +194,14 @@ Lowl::FileFormat Lowl::Audio::AudioReader::detect_format(const std::string &p_pa
             return Lowl::FileFormat::OPUS;
         }
     }
-    error.set_error(Lowl::ErrorCode::Error);
+    error.set_error(Lowl::ErrorCode::ReaderUndetectedFormat);
     return Lowl::FileFormat::UNKNOWN;
 }
 
 std::unique_ptr<Lowl::Audio::AudioData>
 Lowl::Audio::AudioReader::create_data(const std::string &p_path, Lowl::Error &error) {
     if (p_path.empty()) {
-        error.set_error(Lowl::ErrorCode::Error);
+        error.set_error(Lowl::ErrorCode::ReaderEmptyPath);
         return nullptr;
     }
     FileFormat format = detect_format(p_path, error);
@@ -213,7 +213,7 @@ Lowl::Audio::AudioReader::create_data(const std::string &p_path, Lowl::Error &er
         return nullptr;
     }
     if (!reader) {
-        error.set_error(Lowl::ErrorCode::Error);
+        error.set_error(Lowl::ErrorCode::ReaderNotFound);
         return nullptr;
     }
     std::unique_ptr<Lowl::Audio::AudioData> audio_data = reader->read_file(p_path, error);
@@ -221,7 +221,7 @@ Lowl::Audio::AudioReader::create_data(const std::string &p_path, Lowl::Error &er
         return nullptr;
     }
     if (!audio_data) {
-        error.set_error(Lowl::ErrorCode::Error);
+        error.set_error(Lowl::ErrorCode::ReaderNoAudioData);
         return nullptr;
     }
     audio_data->set_name(p_path);

@@ -9,7 +9,7 @@ Lowl::Audio::AudioReaderFlac::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p
 
     drflac *flac = drflac_open_memory(p_buffer.get(), p_size, nullptr);
     if (!flac) {
-        error.set_error(ErrorCode::Error);
+        error.set_error(ErrorCode::ReaderNotFound);
         return nullptr;
     }
 

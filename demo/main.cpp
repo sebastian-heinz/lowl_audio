@@ -32,6 +32,7 @@ void space(std::shared_ptr<Lowl::Audio::AudioDevice> device, Lowl::Audio::AudioD
         space->add_audio(music_path, error);
         if (error.has_error()) {
             std::cout << "Err: space->add_audio (" << music_path << ")\n";
+            error.clear();
             continue;
         }
     }

@@ -131,7 +131,7 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
                                          Error &error) {
 
     if (!p_audio_device_properties.is_supported) {
-        error.set_error(Lowl::ErrorCode::Error);
+        error.set_error(Lowl::ErrorCode::DevicePropertiesNotSupported);
         return;
     }
     audio_device_properties = p_audio_device_properties;
@@ -412,7 +412,7 @@ bool Lowl::Audio::CoreAudioDevice::test_device_properties(AudioObjectID p_device
 
     SampleRate output_sample_rate = CoreAudioUtilities::get_output_sample_rate(p_audio_unit, error);
     if (error.has_error()) {
-        LOWL_LOG_ERROR_F("failed to set input sample rate (device:%u)", p_device_id);
+        LOWL_LOG_ERROR_F("failed to get output sample rate (device:%u)", p_device_id);
         return false;
     }
 

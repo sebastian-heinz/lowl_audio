@@ -70,15 +70,32 @@ std::string Lowl::Error::to_error_text(ErrorCode p_error) {
             return "NoAudioOutput";
         case ErrorCode::UnsupportedAudioFormat:
             return "UnsupportedAudioFormat";
+        case ErrorCode::DevicePropertiesNotSupported:
+            return "DevicePropertiesNotSupported";
 
-        case ErrorCode::PortAudioVendorError:
-            return "PortAudioVendorError";
-        case ErrorCode::PortAudioNoDeviceInfo:
-            return "PortAudioNoDeviceInfo";
-        case ErrorCode::PortAudioNoHostApiInfo:
-            return "PortAudioNoHostApiInfo";
-        case ErrorCode::PortAudioUnknownSampleFormat:
-            return "PortAudioUnknownSampleFormat";
+        case ErrorCode::FileStreamOpenFailed:
+            return "FileStreamOpenFailed";
+        case ErrorCode::AudioReaderNoData:
+            return "AudioReaderNoData";
+        case ErrorCode::ReaderUnsupportedFormat:
+            return "ReaderUnsupportedFormat";
+        case ErrorCode::ReaderUndetectedFormat:
+            return "ReaderUndetectedFormat";
+        case ErrorCode::ReaderEmptyPath:
+            return "ReaderEmptyPath";
+        case ErrorCode::ReaderNotFound:
+            return "ReaderNotFound";
+        case ErrorCode::ReaderNoAudioData:
+            return "ReaderNoAudioData";
+
+        case ErrorCode::DeviceHasNoAudioProperties:
+            return "DeviceHasNoAudioProperties";
+
+        case ErrorCode::ConvertAudioChannelInvalid:
+            return "ConvertAudioChannelInvalid";
+        case ErrorCode::ConvertAudioChannelNotSupported:
+            return "ConvertAudioChannelNotSupported";
+
 
         case ErrorCode::CoreAudioVendorError:
             return "CoreAudioVendorError";

@@ -20,7 +20,7 @@ Lowl::Audio::AudioDeviceProperties
 Lowl::Audio::AudioDevice::get_closest_properties(Lowl::Audio::AudioDeviceProperties p_audio_device_properties,
                                                  Error &error) const {
     if (properties.empty()) {
-        error.set_error(Lowl::ErrorCode::Error);
+        error.set_error(Lowl::ErrorCode::DeviceHasNoAudioProperties);
         return AudioDeviceProperties();
     }
     for (AudioDeviceProperties property: properties) {

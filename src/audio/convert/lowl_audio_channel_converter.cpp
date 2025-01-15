@@ -26,11 +26,11 @@ std::vector<Lowl::Audio::AudioFrame>
 Lowl::Audio::ChannelConverter::convert(Lowl::Audio::AudioChannel p_from, Lowl::Audio::AudioChannel p_to, std::vector<AudioFrame> audio_data,
                                        Error error) const {
     if (p_from == p_to) {
-        error.set_error(ErrorCode::Error);
+        // error.set_error(ErrorCode::Error);
         return audio_data;
     }
     if (p_from == AudioChannel::None || p_to == AudioChannel::None) {
-        error.set_error(ErrorCode::Error);
+        error.set_error(ErrorCode::ConvertAudioChannelInvalid);
         return audio_data;
     }
     if (p_from == AudioChannel::Mono && p_to == AudioChannel::Stereo) {
@@ -39,7 +39,7 @@ Lowl::Audio::ChannelConverter::convert(Lowl::Audio::AudioChannel p_from, Lowl::A
     if (p_from == AudioChannel::Stereo && p_to == AudioChannel::Mono) {
         return convert(audio_data, &ChannelConverter::to_mono);
     }
-    error.set_error(ErrorCode::Error);
+    error.set_error(ErrorCode::ConvertAudioChannelNotSupported);
     return audio_data;
 }
 
