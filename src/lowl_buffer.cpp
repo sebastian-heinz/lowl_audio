@@ -25,9 +25,9 @@ static inline uint64_t BSWAP64(uint64_t x) {
 }
 #endif
 
-const size_t GROW_SIZE = 1024;
+constexpr size_t GROW_SIZE = 1024;
 
-void Lowl::Buffer::write_data(void *p_src, size_t p_length) {
+void Lowl::Buffer::write_data(const void *p_src, size_t p_length) {
     if (p_length <= 0) {
         return;
     }
@@ -52,12 +52,12 @@ uint8_t Lowl::Buffer::read_u8() {
 }
 
 uint16_t Lowl::Buffer::read_u16() {
-    uint16_t value = (uint16_t) (read_u8() | read_u8() << 8);
+    uint16_t value = static_cast<uint16_t>(read_u8() | read_u8() << 8);
     return value;
 }
 
 uint32_t Lowl::Buffer::read_u32() {
-    uint32_t value = (uint32_t) (read_u8() | (read_u8() << 8) | (read_u8() << 16) | (read_u8() << 24));
+    uint32_t value = static_cast<uint32_t>(read_u8() | (read_u8() << 8) | (read_u8() << 16) | (read_u8() << 24));
     return value;
 }
 
@@ -131,24 +131,24 @@ size_t Lowl::Buffer::get_available() const {
     return virtual_length - position;
 }
 
-Lowl::Buffer *Lowl::Buffer::slice(size_t p_length) {
+Lowl::Buffer *Lowl::Buffer::slice(size_t p_length) const {
     Buffer *buffer = new Buffer(&data[position], p_length);
     return buffer;
 }
 
-void Lowl::Buffer::grow(size_t p_length) {
+void Lowl::Buffer::grow(const size_t p_length) {
     size_t new_real_length = real_length + p_length;
     void *newloc = realloc(data, new_real_length);
     if (!newloc) {
         return;
     }
-    data = (uint8_t *) newloc;
+    data = static_cast<uint8_t *>(newloc);
     real_length = new_real_length;
 }
 
-Lowl::Buffer::Buffer(void *p_data, size_t p_length) {
+Lowl::Buffer::Buffer(const void *p_data, const size_t p_length) {
     real_length = p_length;
-    data = (uint8_t *) malloc(real_length);
+    data = static_cast<uint8_t *>(malloc(real_length));
     position = 0;
     virtual_length = 0;
     write_data(p_data, p_length);
@@ -156,7 +156,7 @@ Lowl::Buffer::Buffer(void *p_data, size_t p_length) {
 
 Lowl::Buffer::Buffer() {
     real_length = GROW_SIZE;
-    data = (uint8_t *) malloc(real_length);
+    data = static_cast<uint8_t *>(malloc(real_length));
     position = 0;
     virtual_length = 0;
 }
@@ -164,4 +164,3 @@ Lowl::Buffer::Buffer() {
 Lowl::Buffer::~Buffer() {
     free(data);
 }
-

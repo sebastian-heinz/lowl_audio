@@ -3,10 +3,8 @@
 
 #include <string>
 #include <chrono>
-#include <ctime>
 
 namespace Lowl {
-
     class Logger {
     public:
         enum class Level {
@@ -52,11 +50,11 @@ namespace Lowl {
         static void write(const Log &p_log);
 
         static void write(
-                const char *p_file_name,
-                const char *p_file_function,
-                int p_file_line,
-                Level p_level,
-                const std::string &p_message
+            const char *p_file_name,
+            const char *p_file_function,
+            int p_file_line,
+            Level p_level,
+            const std::string &p_message
         );
 
         static std::string format_log(const Log &p_log);

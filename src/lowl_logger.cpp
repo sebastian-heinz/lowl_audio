@@ -10,16 +10,15 @@
 #define LOGGER_PREFIX "LOWL"
 
 namespace Lowl {
-
     Logger::LogMessageReceiver Logger::receiver = nullptr;
     void *Logger::user_data = nullptr;
     Logger::Level Logger::log_level = Level::Info;
 
-    void Logger::set_log_level(Logger::Level p_level) {
+    void Logger::set_log_level(const Level p_level) {
         log_level = p_level;
     }
 
-    void Logger::register_log_receiver(Logger::LogMessageReceiver p_receiver, void *p_user_data) {
+    void Logger::register_log_receiver(LogMessageReceiver p_receiver, void *p_user_data) {
         receiver = p_receiver;
         user_data = p_user_data;
     }
@@ -50,11 +49,11 @@ namespace Lowl {
                        Level p_level,
                        const std::string &p_message) {
         Log log{
-                std::string(p_file_name),
-                p_file_line,
-                std::string(p_file_function),
-                p_level,
-                p_message
+            std::string(p_file_name),
+            p_file_line,
+            std::string(p_file_function),
+            p_level,
+            p_message
         };
         write(log);
     }
@@ -72,14 +71,14 @@ namespace Lowl {
         std::tm *time_info = std::localtime(&current_time);
         char buffer[128];
         size_t string_size = strftime(
-                buffer, sizeof(buffer),
-                LOGGER_PRETTY_TIME_FORMAT,
-                time_info
+            buffer, sizeof(buffer),
+            LOGGER_PRETTY_TIME_FORMAT,
+            time_info
         );
         int ms = to_ms(tp) % 1000;
         string_size += (size_t) std::snprintf(
-                buffer + string_size, sizeof(buffer) - string_size,
-                LOGGER_PRETTY_MS_FORMAT, ms
+            buffer + string_size, sizeof(buffer) - string_size,
+            LOGGER_PRETTY_MS_FORMAT, ms
         );
         return std::string(buffer, buffer + string_size);
     }
@@ -115,36 +114,34 @@ namespace Lowl {
         return "";
     }
 
-    std::string Logger::format_log(const Logger::Log &p_log) {
+    std::string Logger::format_log(const Log &p_log) {
         std::string now = pretty_time();
         std::string level = format_level(p_log.level);
         int size = std::snprintf(
-                nullptr,
-                0,
-                LOGGER_FORMAT,
-                now.c_str(),
-                LOGGER_PREFIX,
-                level.c_str(),
-                p_log.function_name.c_str(),
-                p_log.message.c_str(),
-                p_log.file_name.c_str(),
-                p_log.line
+            nullptr,
+            0,
+            LOGGER_FORMAT,
+            now.c_str(),
+            LOGGER_PREFIX,
+            level.c_str(),
+            p_log.function_name.c_str(),
+            p_log.message.c_str(),
+            p_log.file_name.c_str(),
+            p_log.line
         );
         std::vector<char> buf(static_cast<size_t>(size + 1)); // note +1 for null terminator
         std::snprintf(
-                &buf[0],
-                buf.size(),
-                LOGGER_FORMAT,
-                now.c_str(),
-                LOGGER_PREFIX,
-                level.c_str(),
-                p_log.message.c_str(),
-                p_log.function_name.c_str(),
-                p_log.file_name.c_str(),
-                p_log.line
+            &buf[0],
+            buf.size(),
+            LOGGER_FORMAT,
+            now.c_str(),
+            LOGGER_PREFIX,
+            level.c_str(),
+            p_log.message.c_str(),
+            p_log.function_name.c_str(),
+            p_log.file_name.c_str(),
+            p_log.line
         );
         return std::string{buf.data(), buf.size()};
     }
-
-
 }

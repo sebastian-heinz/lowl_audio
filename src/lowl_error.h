@@ -81,11 +81,11 @@ namespace Lowl {
 
         std::string get_error_text() const;
 
-        bool has_error();
+        bool has_error() const;
 
-        bool ok();
+        bool ok() const;
 
-        bool has_vendor_error();
+        bool has_vendor_error() const;
 
         Error();
     };

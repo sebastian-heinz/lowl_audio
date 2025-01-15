@@ -16,17 +16,14 @@
 #include <vector>
 
 namespace Lowl {
-
     // TODO move this to lowl_audio as it only audio related
     class Lib {
-
     private:
         static std::atomic_flag initialized;
-        static std::vector<std::shared_ptr<Audio::AudioDriver>> drivers;
+        static std::vector<std::shared_ptr<Audio::AudioDriver> > drivers;
 
     public:
-
-        static std::vector<std::shared_ptr<Audio::AudioDriver>> get_drivers(Error &error);
+        static std::vector<std::shared_ptr<Audio::AudioDriver> > get_drivers(Error &error);
 
         static void initialize(Error &error);
 

@@ -14,7 +14,7 @@ void Lowl::File::open(const std::string &p_path, Error &error) {
         return;
     }
     std::ifstream::pos_type size = file_stream->tellg();
-    file_size = (size_t)size;
+    file_size = static_cast<size_t>(size);
     file_stream->seekg(0, std::ios::beg);
     path = p_path;
 }
@@ -28,7 +28,7 @@ void Lowl::File::close() {
     file_size = 0;
 }
 
-bool Lowl::File::seek(size_t p_position) {
+bool Lowl::File::seek(size_t p_position) const {
     if (!file_stream) {
         return false;
     }
@@ -103,4 +103,3 @@ Lowl::File::File() {
     file_stream = nullptr;
     file_size = 0;
 }
-

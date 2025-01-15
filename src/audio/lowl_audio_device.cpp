@@ -14,15 +14,16 @@ Lowl::Audio::AudioDevice::AudioDevice(_constructor_tag) {
     properties_list = std::vector<AudioDeviceProperties>();
     name = std::string();
     audio_source = std::shared_ptr<AudioSource>();
-    re_sampler = std::unique_ptr<ReSampler>();
     audio_device_properties = AudioDeviceProperties{};
 }
 
 Lowl::Audio::AudioDeviceProperties
-Lowl::Audio::AudioDevice::get_closest_properties(Lowl::Audio::AudioDeviceProperties p_audio_device_properties,
-                                                 Error &error) const {
+Lowl::Audio::AudioDevice::get_closest_properties(
+    AudioDeviceProperties p_audio_device_properties,
+    Error &error
+) const {
     if (properties_list.empty()) {
-        error.set_error(Lowl::ErrorCode::DeviceHasNoAudioProperties);
+        error.set_error(ErrorCode::DeviceHasNoAudioProperties);
         return AudioDeviceProperties();
     }
     for (AudioDeviceProperties property: properties_list) {

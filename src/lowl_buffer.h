@@ -6,7 +6,6 @@
 
 namespace Lowl {
     class Buffer {
-
     private:
         size_t position;
         size_t virtual_length;
@@ -16,7 +15,7 @@ namespace Lowl {
         void grow(size_t p_length);
 
     public:
-        void write_data(void *p_src, size_t p_length);
+        void write_data(const void *p_src, size_t p_length);
 
         uint8_t read_u8();
 
@@ -40,9 +39,9 @@ namespace Lowl {
 
         size_t get_available() const;
 
-        Buffer *slice(size_t p_length);
+        Buffer *slice(size_t p_length) const;
 
-        Buffer(void *p_data, size_t p_length);
+        Buffer(const void *p_data, size_t p_length);
 
         Buffer();
 

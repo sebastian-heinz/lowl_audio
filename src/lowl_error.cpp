@@ -5,12 +5,12 @@ Lowl::Error::Error() {
     vendor_error_code = NoVendorError;
 }
 
-void Lowl::Error::set_error(ErrorCode p_error) {
+void Lowl::Error::set_error(const ErrorCode p_error) {
     error = p_error;
     vendor_error_code = NoVendorError;
 }
 
-void Lowl::Error::set_vendor_error(long p_vendor_error_code, Lowl::Error::VendorError p_vendor_error) {
+void Lowl::Error::set_vendor_error(const long p_vendor_error_code, VendorError p_vendor_error) {
     error = static_cast<ErrorCode>(p_vendor_error);
     vendor_error_code = p_vendor_error_code;
 }
@@ -36,15 +36,15 @@ std::string Lowl::Error::get_error_text() const {
     return to_error_text(error);
 }
 
-bool Lowl::Error::ok() {
+bool Lowl::Error::ok() const {
     return error == ErrorCode::NoError;
 }
 
-bool Lowl::Error::has_error() {
+bool Lowl::Error::has_error() const {
     return error != ErrorCode::NoError;
 }
 
-bool Lowl::Error::has_vendor_error() {
+bool Lowl::Error::has_vendor_error() const {
     return vendor_error_code != NoVendorError;
 }
 

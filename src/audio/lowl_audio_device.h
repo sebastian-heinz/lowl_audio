@@ -10,9 +10,7 @@
 #include <vector>
 
 namespace Lowl::Audio {
-
     class AudioDevice {
-
     protected:
         struct _constructor_tag {
             explicit _constructor_tag() = default;
@@ -26,9 +24,10 @@ namespace Lowl::Audio {
         std::vector<AudioDeviceProperties> properties_list;
         std::string name;
 
-        void write_frames(void *p_dst,
-                          unsigned long p_frames_per_buffer,
-                          unsigned long p_bytes_per_frame
+        void write_frames(
+            void *p_dst,
+            unsigned long p_frames_per_buffer,
+            unsigned long p_bytes_per_frame
         ) const;
 
     public:
@@ -36,9 +35,11 @@ namespace Lowl::Audio {
 
         void set_name(const std::string &p_name);
 
-        virtual void start(AudioDeviceProperties p_audio_device_properties,
-                           std::shared_ptr<AudioSource> p_audio_source,
-                           Error &error) = 0;
+        virtual void start(
+            AudioDeviceProperties p_audio_device_properties,
+            std::shared_ptr<AudioSource> p_audio_source,
+            Error &error
+        ) = 0;
 
         virtual void stop(Error &error) = 0;
 

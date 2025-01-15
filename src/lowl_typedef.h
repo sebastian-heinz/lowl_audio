@@ -16,7 +16,6 @@
 #endif
 
 namespace Lowl {
-
     typedef std::uint16_t uint16_l;
     typedef std::uint32_t uint32_l;
     typedef std::size_t size_l;
