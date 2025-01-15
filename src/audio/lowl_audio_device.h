@@ -6,9 +6,7 @@
 #include "audio/lowl_audio_source.h"
 #include "audio/lowl_audio_device_properties.h"
 #include "audio/convert/lowl_audio_re_sampler.h"
-#include "audio/convert/lowl_audio_sample_converter.h"
 
-#include <memory>
 #include <vector>
 
 namespace Lowl::Audio {
@@ -23,15 +21,15 @@ namespace Lowl::Audio {
         virtual ~AudioDevice() = 0;
 
         std::shared_ptr<AudioSource> audio_source;
-        std::unique_ptr<AudioDeviceProperties> audio_device_properties;
+        AudioDeviceProperties audio_device_properties{};
         std::unique_ptr<ReSampler> re_sampler;
-        std::vector<AudioDeviceProperties> properties;
+        std::vector<AudioDeviceProperties> properties_list;
         std::string name;
 
         void write_frames(void *p_dst,
                           unsigned long p_frames_per_buffer,
                           unsigned long p_bytes_per_frame
-        );
+        ) const;
 
     public:
         AudioDevice(_constructor_tag);
@@ -44,7 +42,7 @@ namespace Lowl::Audio {
 
         virtual void stop(Error &error) = 0;
 
-        std::vector<AudioDeviceProperties> get_properties() const;
+        std::vector<AudioDeviceProperties> get_properties_list() const;
 
         AudioDeviceProperties
         get_closest_properties(AudioDeviceProperties p_audio_device_properties, Error &error) const;

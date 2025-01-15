@@ -8,43 +8,43 @@
 #include "audio/coreaudio/lowl_audio_core_audio_utilities.h"
 
 static OSStatus osx_audio_callback(
-        void *inRefCon,
-        AudioUnitRenderActionFlags *ioActionFlags,
-        const AudioTimeStamp *inTimeStamp,
-        UInt32 inBusNumber,
-        UInt32 inNumberFrames,
-        AudioBufferList *_Nullable ioData
+    void *inRefCon,
+    AudioUnitRenderActionFlags *ioActionFlags,
+    const AudioTimeStamp *inTimeStamp,
+    UInt32 inBusNumber,
+    UInt32 inNumberFrames,
+    AudioBufferList *_Nullable ioData
 ) {
     Lowl::Audio::CoreAudioDevice *device = (Lowl::Audio::CoreAudioDevice *) inRefCon;
     return device->audio_callback(ioActionFlags, inTimeStamp, inBusNumber, inNumberFrames, ioData);
 }
 
 static void osx_start_stop_callback(
-        void *inRefCon,
-        AudioUnit inUnit,
-        AudioUnitPropertyID inID,
-        AudioUnitScope inScope,
-        AudioUnitElement inElement
+    void *inRefCon,
+    AudioUnit inUnit,
+    AudioUnitPropertyID inID,
+    AudioUnitScope inScope,
+    AudioUnitElement inElement
 ) {
     Lowl::Audio::CoreAudioDevice *device = (Lowl::Audio::CoreAudioDevice *) inRefCon;
     device->start_stop_callback(inUnit, inID, inScope, inElement);
 }
 
 OSStatus osx_property_callback(
-        AudioObjectID inObjectID,
-        UInt32 inNumberAddresses,
-        const AudioObjectPropertyAddress *inAddresses,
-        void *_Nullable inClientData) {
+    AudioObjectID inObjectID,
+    UInt32 inNumberAddresses,
+    const AudioObjectPropertyAddress *inAddresses,
+    void *_Nullable inClientData) {
     Lowl::Audio::CoreAudioDevice *device = (Lowl::Audio::CoreAudioDevice *) inClientData;
     return device->property_callback(inObjectID, inNumberAddresses, inAddresses);
 }
 
 OSStatus Lowl::Audio::CoreAudioDevice::audio_callback(
-        AudioUnitRenderActionFlags *ioActionFlags,
-        const AudioTimeStamp *inTimeStamp,
-        UInt32 inBusNumber,
-        UInt32 inNumberFrames,
-        AudioBufferList *ioData
+    AudioUnitRenderActionFlags *ioActionFlags,
+    const AudioTimeStamp *inTimeStamp,
+    UInt32 inBusNumber,
+    UInt32 inNumberFrames,
+    AudioBufferList *ioData
 ) {
     unsigned long bytes_per_frame =
             get_sample_size_bytes(audio_device_properties.sample_format) *
@@ -57,7 +57,6 @@ OSStatus Lowl::Audio::CoreAudioDevice::audio_callback(
 
 void Lowl::Audio::CoreAudioDevice::start_stop_callback(AudioUnit inUnit, AudioUnitPropertyID inID,
                                                        AudioUnitScope inScope, AudioUnitElement inElement) {
-
 }
 
 OSStatus Lowl::Audio::CoreAudioDevice::property_callback(AudioObjectID inObjectID, UInt32 inNumberAddresses,
@@ -71,16 +70,15 @@ OSStatus Lowl::Audio::CoreAudioDevice::property_callback(AudioObjectID inObjectI
 }
 
 Lowl::Audio::CoreAudioDevice::CoreAudioDevice(_constructor_tag ct) : AudioDevice(ct) {
-    audio_device_properties = AudioDeviceProperties();
     device_id = 0;
     audio_unit = nullptr;
     hog_pid = -1;
 }
 
 std::unique_ptr<Lowl::Audio::CoreAudioDevice> Lowl::Audio::CoreAudioDevice::construct(
-        const std::string &p_driver_name,
-        AudioObjectID p_device_id,
-        Error &error
+    const std::string &p_driver_name,
+    AudioObjectID p_device_id,
+    Error &error
 ) {
     LOWL_LOG_DEBUG_F("construct->%u - enter", p_device_id);
 
@@ -92,9 +90,9 @@ std::unique_ptr<Lowl::Audio::CoreAudioDevice> Lowl::Audio::CoreAudioDevice::cons
     LOWL_LOG_DEBUG_F("construct->%u (%s) - get_device_name::OK", p_device_id, device_name.c_str());
 
     uint32_t output_stream_count = Lowl::Audio::CoreAudioUtilities::get_num_stream(
-            p_device_id,
-            kAudioDevicePropertyScopeOutput,
-            error
+        p_device_id,
+        kAudioDevicePropertyScopeOutput,
+        error
     );
     if (error.has_error()) {
         return nullptr;
@@ -106,21 +104,21 @@ std::unique_ptr<Lowl::Audio::CoreAudioDevice> Lowl::Audio::CoreAudioDevice::cons
     }
 
     std::vector<AudioObjectID> output_streams = Lowl::Audio::CoreAudioUtilities::get_stream_ids(
-            p_device_id,
-            kAudioDevicePropertyScopeOutput,
-            error
+        p_device_id,
+        kAudioDevicePropertyScopeOutput,
+        error
     );
     if (error.has_error()) {
         return nullptr;
     }
     LOWL_LOG_DEBUG_F("Device:%u - output_streams count: %zu", p_device_id, output_streams.size());
 
-    std::vector<AudioDeviceProperties> audio_device_properties = create_device_properties(p_device_id);
+    std::vector<AudioDeviceProperties> audio_device_properties_list = create_device_properties(p_device_id);
 
     std::unique_ptr<CoreAudioDevice> device = std::make_unique<CoreAudioDevice>(_constructor_tag{});
     device->name = "[" + p_driver_name + "] " + device_name;
     device->device_id = p_device_id;
-    device->properties = audio_device_properties;
+    device->properties_list = audio_device_properties_list;
     LOWL_LOG_DEBUG_F("Device:%u - created", p_device_id);
 
     return device;
@@ -129,7 +127,6 @@ std::unique_ptr<Lowl::Audio::CoreAudioDevice> Lowl::Audio::CoreAudioDevice::cons
 void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_properties,
                                          std::shared_ptr<AudioSource> p_audio_source,
                                          Error &error) {
-
     if (!p_audio_device_properties.is_supported) {
         error.set_error(Lowl::ErrorCode::DevicePropertiesNotSupported);
         return;
@@ -145,12 +142,12 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
     }
 
     CoreAudioUtilities::add_property_listener(
-            device_id,
-            kAudioDeviceProcessorOverload,
-            kAudioDevicePropertyScopeOutput,
-            osx_property_callback,
-            this,
-            error
+        device_id,
+        kAudioDeviceProcessorOverload,
+        kAudioDevicePropertyScopeOutput,
+        osx_property_callback,
+        this,
+        error
     );
     if (error.has_error()) {
         LOWL_LOG_ERROR_F("failed to add property listener (device:%u)", device_id);
@@ -158,10 +155,10 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
     }
 
     OSStatus result = AudioUnitAddPropertyListener(
-            audio_unit,
-            kAudioOutputUnitProperty_IsRunning,
-            &osx_start_stop_callback,
-            this
+        audio_unit,
+        kAudioOutputUnitProperty_IsRunning,
+        &osx_start_stop_callback,
+        this
     );
     if (result != noErr) {
         LOWL_LOG_ERROR_F("failed to add isRunning listener (device:%u, OSStatus:%u)", device_id, result);
@@ -176,11 +173,11 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
     }
 
     CoreAudioUtilities::set_render_quality(
-            audio_unit,
-            kAudioUnitScope_Global,
-            CoreAudioUtilities::kOutputBus,
-            kRenderQuality_High,
-            error
+        audio_unit,
+        kAudioUnitScope_Global,
+        CoreAudioUtilities::kOutputBus,
+        kRenderQuality_High,
+        error
     );
     if (error.has_error()) {
         LOWL_LOG_ERROR_F("failed to set_render_quality (device:%u)", device_id);
@@ -189,12 +186,12 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
 
     AudioStreamBasicDescription description = create_description(audio_device_properties);
     result = AudioUnitSetProperty(
-            audio_unit,
-            kAudioUnitProperty_StreamFormat,
-            kAudioUnitScope_Input,
-            CoreAudioUtilities::kOutputBus,
-            &description,
-            sizeof(AudioStreamBasicDescription)
+        audio_unit,
+        kAudioUnitProperty_StreamFormat,
+        kAudioUnitScope_Input,
+        CoreAudioUtilities::kOutputBus,
+        &description,
+        sizeof(AudioStreamBasicDescription)
     );
     if (result != noErr) {
         LOWL_LOG_ERROR_F("failed to set AudioStreamBasicDescription (device:%u, OSStatus:%u)", device_id, result);
@@ -223,11 +220,11 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
     // }
 
     CoreAudioUtilities::set_maximum_frames_per_slice(
-            audio_unit,
-            kAudioUnitScope_Input,
-            CoreAudioUtilities::kOutputBus,
-            frames_per_buffer,
-            error
+        audio_unit,
+        kAudioUnitScope_Input,
+        CoreAudioUtilities::kOutputBus,
+        frames_per_buffer,
+        error
     );
     if (error.has_error()) {
         LOWL_LOG_ERROR_F("failed to set_maximum_frames_per_slice (device:%u)", device_id);
@@ -235,10 +232,10 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
     }
 
     SampleCount max_frames_per_buffer = CoreAudioUtilities::get_maximum_frames_per_slice(
-            audio_unit,
-            kAudioUnitScope_Global,
-            CoreAudioUtilities::kOutputBus,
-            error
+        audio_unit,
+        kAudioUnitScope_Global,
+        CoreAudioUtilities::kOutputBus,
+        error
     );
     if (error.has_error()) {
         LOWL_LOG_ERROR_F("failed to get_maximum_frames_per_slice (device:%u)", device_id);
@@ -251,12 +248,12 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
     render_callback.inputProc = &osx_audio_callback;
     render_callback.inputProcRefCon = this;
     result = AudioUnitSetProperty(
-            audio_unit,
-            kAudioUnitProperty_SetRenderCallback,
-            kAudioUnitScope_Output,
-            CoreAudioUtilities::kOutputBus,
-            &render_callback,
-            sizeof(render_callback)
+        audio_unit,
+        kAudioUnitProperty_SetRenderCallback,
+        kAudioUnitScope_Output,
+        CoreAudioUtilities::kOutputBus,
+        &render_callback,
+        sizeof(render_callback)
     );
     if (result != noErr) {
         LOWL_LOG_ERROR_F("failed to set render callback (device:%u, OSStatus:%u)", device_id, result);
@@ -299,7 +296,6 @@ Lowl::Audio::CoreAudioDevice::~CoreAudioDevice() {
 
 std::vector<Lowl::Audio::AudioDeviceProperties>
 Lowl::Audio::CoreAudioDevice::create_device_properties(AudioObjectID p_device_id) {
-
     std::vector<Lowl::Audio::AudioDeviceProperties> properties_list = std::vector<Lowl::Audio::AudioDeviceProperties>();
 
     Error error;
@@ -310,8 +306,8 @@ Lowl::Audio::CoreAudioDevice::create_device_properties(AudioObjectID p_device_id
     }
 
     Lowl::SampleRate default_sample_rate = Lowl::Audio::CoreAudioUtilities::get_device_default_sample_rate(
-            p_device_id,
-            error
+        p_device_id,
+        error
     );
     if (error.has_error()) {
         return properties_list;
@@ -319,9 +315,9 @@ Lowl::Audio::CoreAudioDevice::create_device_properties(AudioObjectID p_device_id
     LOWL_LOG_DEBUG_F("Device:%u - default_sample_rate: %f", p_device_id, default_sample_rate);
 
     uint32_t output_channel_count = Lowl::Audio::CoreAudioUtilities::get_num_channel(
-            p_device_id,
-            kAudioDevicePropertyScopeOutput,
-            error
+        p_device_id,
+        kAudioDevicePropertyScopeOutput,
+        error
     );
     if (error.has_error()) {
         return properties_list;
@@ -330,13 +326,13 @@ Lowl::Audio::CoreAudioDevice::create_device_properties(AudioObjectID p_device_id
 
     // device default properties
     AudioStreamBasicDescription descriptionA = CoreAudioUtilities::get_audio_stream_description(
-            test_audio_unit,
-            kAudioUnitScope_Output,
-            error);
+        test_audio_unit,
+        kAudioUnitScope_Output,
+        error);
     AudioStreamBasicDescription descriptionB = CoreAudioUtilities::get_audio_stream_description(
-            test_audio_unit,
-            kAudioUnitScope_Input,
-            error);
+        test_audio_unit,
+        kAudioUnitScope_Input,
+        error);
 
 
     AudioDeviceProperties default_properties = AudioDeviceProperties();
@@ -361,7 +357,6 @@ Lowl::Audio::CoreAudioDevice::create_device_properties(AudioObjectID p_device_id
     for (unsigned long sample_format_index = 0;
          sample_format_index < test_sample_formats.size(); sample_format_index++) {
         for (unsigned long sample_rate_index = 0; sample_rate_index < test_sample_rates.size(); sample_rate_index++) {
-
             AudioDeviceProperties test_properties = AudioDeviceProperties();
             test_properties.sample_format = test_sample_formats[sample_format_index];
             test_properties.sample_rate = test_sample_rates[sample_rate_index];
@@ -386,15 +381,14 @@ Lowl::Audio::CoreAudioDevice::create_device_properties(AudioObjectID p_device_id
 
 bool Lowl::Audio::CoreAudioDevice::test_device_properties(AudioObjectID p_device_id, AudioUnit p_audio_unit,
                                                           AudioDeviceProperties p_properties) {
-
     AudioStreamBasicDescription description = create_description(p_properties);
     OSStatus result = AudioUnitSetProperty(
-            p_audio_unit,
-            kAudioUnitProperty_StreamFormat,
-            kAudioUnitScope_Input,
-            CoreAudioUtilities::kOutputBus,
-            &description,
-            sizeof(AudioStreamBasicDescription)
+        p_audio_unit,
+        kAudioUnitProperty_StreamFormat,
+        kAudioUnitScope_Input,
+        CoreAudioUtilities::kOutputBus,
+        &description,
+        sizeof(AudioStreamBasicDescription)
     );
     if (result != noErr) {
         LOWL_LOG_ERROR_F("failed to set AudioStreamBasicDescription (device:%u, OSStatus:%u)",
@@ -474,7 +468,6 @@ AudioUnit _Nullable Lowl::Audio::CoreAudioDevice::create_audio_unit(AudioObjectI
 
 AudioStreamBasicDescription
 Lowl::Audio::CoreAudioDevice::create_description(Lowl::Audio::AudioDeviceProperties p_device_properties) {
-
     unsigned long channel_num = Lowl::Audio::get_channel_num(p_device_properties.channel);
 
     AudioStreamBasicDescription description;
@@ -548,7 +541,6 @@ void Lowl::Audio::CoreAudioDevice::release_hog() {
         CoreAudioUtilities::set_output_hog_device_pid(device_id, CoreAudioUtilities::freeHogDevice, error);
         LOWL_LOG_DEBUG_F("Device:%u - un-hogged (hog_pid:%u,getpid():%u)", device_id, hog_pid, getpid());
     }
-
 }
 
 

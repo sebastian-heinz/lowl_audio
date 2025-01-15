@@ -6,21 +6,16 @@
 #include "audio/lowl_audio_device.h"
 
 
-#include "audio/convert/lowl_audio_sample_converter.h"
-
 #include <CoreAudio/AudioHardware.h>
 #include <AudioUnit/AudioUnit.h>
 
 
 namespace Lowl::Audio {
-
     class CoreAudioDevice : public AudioDevice {
-
     private:
         AudioObjectID device_id;
         AudioUnit _Nullable audio_unit;
         pid_t hog_pid;
-        AudioDeviceProperties audio_device_properties{};
 
         static std::vector<Lowl::Audio::AudioDeviceProperties> create_device_properties(AudioObjectID p_device_id);
 
@@ -29,39 +24,39 @@ namespace Lowl::Audio {
         static AudioStreamBasicDescription create_description(AudioDeviceProperties p_device_id);
 
         static bool test_device_properties(
-                AudioObjectID p_device_id,
-                AudioUnit _Nullable p_audio_unit,
-                AudioDeviceProperties p_properties
+            AudioObjectID p_device_id,
+            AudioUnit _Nullable p_audio_unit,
+            AudioDeviceProperties p_properties
         );
 
         void release_hog();
 
     public:
         static std::unique_ptr<CoreAudioDevice> construct(
-                const std::string &p_driver_name,
-                AudioObjectID p_device_id,
-                Error &error
+            const std::string &p_driver_name,
+            AudioObjectID p_device_id,
+            Error &error
         );
 
         OSStatus audio_callback(
-                AudioUnitRenderActionFlags *_Nonnull ioActionFlags,
-                const AudioTimeStamp *_Nonnull inTimeStamp,
-                UInt32 inBusNumber,
-                UInt32 inNumberFrames,
-                AudioBufferList *_Nullable ioData
+            AudioUnitRenderActionFlags *_Nonnull ioActionFlags,
+            const AudioTimeStamp *_Nonnull inTimeStamp,
+            UInt32 inBusNumber,
+            UInt32 inNumberFrames,
+            AudioBufferList *_Nullable ioData
         );
 
         void start_stop_callback(
-                AudioUnit _Nonnull inUnit,
-                AudioUnitPropertyID inID,
-                AudioUnitScope inScope,
-                AudioUnitElement inElement
+            AudioUnit _Nonnull inUnit,
+            AudioUnitPropertyID inID,
+            AudioUnitScope inScope,
+            AudioUnitElement inElement
         );
 
         OSStatus property_callback(
-                AudioObjectID inObjectID,
-                UInt32 inNumberAddresses,
-                const AudioObjectPropertyAddress *_Nonnull inAddresses
+            AudioObjectID inObjectID,
+            UInt32 inNumberAddresses,
+            const AudioObjectPropertyAddress *_Nonnull inAddresses
         );
 
         virtual void start(AudioDeviceProperties p_audio_device_properties,

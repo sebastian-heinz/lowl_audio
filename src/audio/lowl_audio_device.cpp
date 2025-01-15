@@ -1,5 +1,7 @@
 #include "lowl_audio_device.h"
 
+#include "convert/lowl_audio_sample_converter.h"
+
 std::string Lowl::Audio::AudioDevice::get_name() const {
     return name;
 }
@@ -9,40 +11,37 @@ void Lowl::Audio::AudioDevice::set_name(const std::string &p_name) {
 }
 
 Lowl::Audio::AudioDevice::AudioDevice(_constructor_tag) {
-    properties = std::vector<AudioDeviceProperties>();
+    properties_list = std::vector<AudioDeviceProperties>();
     name = std::string();
     audio_source = std::shared_ptr<AudioSource>();
     re_sampler = std::unique_ptr<ReSampler>();
-    audio_device_properties = std::unique_ptr<AudioDeviceProperties>();
+    audio_device_properties = AudioDeviceProperties{};
 }
 
 Lowl::Audio::AudioDeviceProperties
 Lowl::Audio::AudioDevice::get_closest_properties(Lowl::Audio::AudioDeviceProperties p_audio_device_properties,
                                                  Error &error) const {
-    if (properties.empty()) {
+    if (properties_list.empty()) {
         error.set_error(Lowl::ErrorCode::DeviceHasNoAudioProperties);
         return AudioDeviceProperties();
     }
-    for (AudioDeviceProperties property: properties) {
-
+    for (AudioDeviceProperties property: properties_list) {
     }
     // TODO find best match between `property` and `p_audio_device_properties`
-    return properties[0];
+    return properties_list[0];
 }
 
-std::vector<Lowl::Audio::AudioDeviceProperties> Lowl::Audio::AudioDevice::get_properties() const {
-    return properties;
+std::vector<Lowl::Audio::AudioDeviceProperties> Lowl::Audio::AudioDevice::get_properties_list() const {
+    return properties_list;
 }
 
 Lowl::Audio::AudioDevice::~AudioDevice() {
-
 }
 
 void Lowl::Audio::AudioDevice::write_frames(
-        void *p_dst,
-        unsigned long p_frames_per_buffer,
-        unsigned long p_bytes_per_frame) {
-
+    void *p_dst,
+    unsigned long p_frames_per_buffer,
+    unsigned long p_bytes_per_frame) const {
     unsigned long current_frame = 0;
     AudioFrame frame{};
     for (; current_frame < p_frames_per_buffer; current_frame++) {
@@ -51,14 +50,14 @@ void Lowl::Audio::AudioDevice::write_frames(
             for (int current_channel = 0; current_channel < audio_source->get_channel_num(); current_channel++) {
                 // TODO asset mNumberChannels == audio_device_properties-channels
                 Sample sample = std::clamp(
-                        frame[current_channel],
-                        AudioFrame::MIN_SAMPLE_VALUE,
-                        AudioFrame::MAX_SAMPLE_VALUE
+                    frame[current_channel],
+                    AudioFrame::MIN_SAMPLE_VALUE,
+                    AudioFrame::MAX_SAMPLE_VALUE
                 );
                 SampleConverter::write_sample(
-                        audio_device_properties->sample_format,
-                        sample,
-                        &p_dst
+                    audio_device_properties.sample_format,
+                    sample,
+                    &p_dst
                 );
             }
         } else if (read_result == AudioSource::ReadResult::End) {
@@ -83,6 +82,4 @@ void Lowl::Audio::AudioDevice::write_frames(
             }
         }
     }
-
-
 }

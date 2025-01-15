@@ -6,12 +6,13 @@
 
 #include "audio/convert/lowl_audio_re_sampler.h"
 #include "audio/convert/lowl_audio_channel_converter.h"
+#include "convert/lowl_audio_re_sampler_r8b.h"
 
 Lowl::Audio::AudioSpace::AudioSpace(SampleRate p_sample_rate, AudioChannel p_channel) : AudioSource(p_sample_rate,
-                                                                                                    p_channel) {
+    p_channel) {
     mixer = std::make_unique<AudioMixer>(sample_rate, channel);
     current_id = FirstSpaceId;
-    audio_data_lookup = std::vector<std::shared_ptr<AudioData>>();
+    audio_data_lookup = std::vector<std::shared_ptr<AudioData> >();
 }
 
 Lowl::Audio::AudioSpace::~AudioSpace() {
@@ -28,15 +29,14 @@ Lowl::SpaceId Lowl::Audio::AudioSpace::insert_audio_data(std::shared_ptr<AudioDa
 }
 
 Lowl::SpaceId Lowl::Audio::AudioSpace::add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error) {
-
     std::shared_ptr<AudioData> audio = std::move(p_audio_data);
     SampleRate rate = audio->get_sample_rate();
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wfloat-equal"
     if (rate != sample_rate) {
 #pragma clang diagnostic pop
-       // std::unique_ptr<AudioData> resampled = ReSampler::resample(audio, sample_rate);
-       // audio = std::move(resampled);
+        std::unique_ptr<AudioData> resampled = ReSamplerR8b::resample(audio, sample_rate);
+        audio = std::move(resampled);
     }
 
     AudioChannel ch = audio->get_channel();
@@ -45,10 +45,10 @@ Lowl::SpaceId Lowl::Audio::AudioSpace::add_audio(std::unique_ptr<AudioData> p_au
         std::unique_ptr<AudioData> converted = channel_converter.convert(channel, audio, error);
         if (error.has_error()) {
             LOWL_LOG_ERROR("Lowl::Space::load channel_converter.convert() ErrCode:" +
-                           std::to_string(error.get_error_code()) +
-                           " ErrText:" + error.get_error_text() + ". Could not convert channels from " +
-                           std::to_string((int) ch) + " to " +
-                           std::to_string((int) channel) + " channel.");
+                std::to_string(error.get_error_code()) +
+                " ErrText:" + error.get_error_text() + ". Could not convert channels from " +
+                std::to_string((int) ch) + " to " +
+                std::to_string((int) channel) + " channel.");
             return InvalidSpaceId;
         }
         audio = std::move(converted);
