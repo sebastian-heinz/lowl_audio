@@ -3,9 +3,9 @@
 
 #ifdef LOWL_DRIVER_CORE_AUDIO
 
-#include "audio/lowl_audio_driver.h"
+#include "audio/backend/lowl_audio_driver.h"
 
-#include "audio/coreaudio/lowl_audio_core_audio_device.h"
+#include "audio/backend/coreaudio/lowl_audio_core_audio_device.h"
 
 #include <memory>
 

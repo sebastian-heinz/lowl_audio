@@ -1,16 +1,16 @@
 #include "lowl.h"
 
 #ifdef LOWL_DRIVER_DUMMY
-#include "audio/dummy/lowl_audio_dummy_driver.h"
+#include "audio/backend/dummy/lowl_audio_dummy_driver.h"
 #endif
 
 #ifdef LOWL_DRIVER_CORE_AUDIO
-#include "audio/coreaudio/lowl_audio_core_audio_driver.h"
+#include "audio/backend/coreaudio/lowl_audio_core_audio_driver.h"
 #endif
 
 #ifdef LOWL_DRIVER_WASAPI
-#include "audio/wasapi/lowl_audio_wasapi_driver.h"
-#include "audio/wasapi/lowl_audio_wasapi_com.h"
+#include "audio/backend/wasapi/lowl_audio_wasapi_driver.h"
+#include "audio/backend/wasapi/lowl_audio_wasapi_com.h"
 #endif
 
 

@@ -6,3 +6,5 @@ cmake-build-debug/
 .vs/
 CMakeSettings.json
 out/
+Doxyfile.in
+/doc/html

@@ -6,11 +6,15 @@
 #include "audio/lowl_audio_channel.h"
 #include "audio/lowl_audio_frame.h"
 #include "audio/lowl_audio_sample_format.h"
-#include "audio/lowl_audio_device_properties.h"
+#include "audio/backend/lowl_audio_device_properties.h"
 
 #include <string>
 
 namespace Lowl::Audio {
+
+    /**
+     *  A test class. A more elaborate class description.
+     */
     class AudioSource {
     public:
         enum class ReadResult {

@@ -1,6 +1,6 @@
 #include "lowl_audio_device.h"
 
-#include "convert/lowl_audio_sample_converter.h"
+#include "audio/convert/lowl_audio_sample_converter.h"
 
 std::string Lowl::Audio::AudioDevice::get_name() const {
     return name;
@@ -48,6 +48,7 @@ void Lowl::Audio::AudioDevice::write_frames(
     for (; current_frame < p_frames_per_buffer; current_frame++) {
         AudioSource::ReadResult read_result = audio_source->read(frame);
         if (read_result == AudioSource::ReadResult::Read) {
+
             for (int current_channel = 0; current_channel < audio_source->get_channel_num(); current_channel++) {
                 // TODO asset mNumberChannels == audio_device_properties-channels
                 Sample sample = std::clamp(

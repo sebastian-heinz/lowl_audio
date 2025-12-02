@@ -3,8 +3,8 @@
 
 #include "lowl_error.h"
 
-#include "audio/lowl_audio_source.h"
-#include "audio/lowl_audio_device_properties.h"
+#include "audio/source/lowl_audio_source.h"
+#include "audio/backend/lowl_audio_device_properties.h"
 #include "audio/convert/lowl_audio_re_sampler.h"
 
 #include <vector>

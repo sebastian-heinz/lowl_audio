@@ -1,8 +1,8 @@
 #ifndef LOWL_AUDIO_UTIL_H
 #define LOWL_AUDIO_UTIL_H
 
-#include "audio/lowl_audio_stream.h"
-#include "audio/lowl_audio_data.h"
+#include "audio/source/lowl_audio_stream.h"
+#include "audio/source/lowl_audio_data.h"
 
 
 namespace Lowl::Audio {

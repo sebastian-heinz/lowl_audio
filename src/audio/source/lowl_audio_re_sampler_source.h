@@ -1,7 +1,7 @@
 #ifndef LOWL_AUDIO_RE_SAMPLER_SOURCE_H
 #define LOWL_AUDIO_RE_SAMPLER_SOURCE_H
 
-#include "audio/lowl_audio_source.h"
+#include "audio/source/lowl_audio_source.h"
 #include "audio/convert/lowl_audio_re_sampler.h"
 
 

@@ -6,9 +6,9 @@
 
 #include "lowl_file_format.h"
 
-#include "audio/lowl_audio_stream.h"
+#include "audio/source/lowl_audio_stream.h"
 #include "audio/lowl_audio_format.h"
-#include "audio/lowl_audio_data.h"
+#include "audio/source/lowl_audio_data.h"
 
 #include "audio/convert/lowl_audio_sample_converter.h"
 

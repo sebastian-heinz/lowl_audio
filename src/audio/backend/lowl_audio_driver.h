@@ -1,7 +1,7 @@
 #ifndef LOWL_AUDIO_DRIVER_H
 #define LOWL_AUDIO_DRIVER_H
 
-#include "audio/lowl_audio_device.h"
+#include "audio/backend/lowl_audio_device.h"
 
 #include <vector>
 

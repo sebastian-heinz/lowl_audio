@@ -3,8 +3,8 @@
 
 #include "lowl_typedef.h"
 
-#include "audio/lowl_audio_mixer_event.h"
-#include "audio/lowl_audio_source.h"
+#include "audio/source/lowl_audio_mixer_event.h"
+#include "audio/source/lowl_audio_source.h"
 
 #include <concurrentqueue.h>
 

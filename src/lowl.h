@@ -4,12 +4,12 @@
 #include "lowl_logger.h"
 #include "lowl_file_format.h"
 
-#include "audio/lowl_audio_driver.h"
-#include "audio/lowl_audio_device.h"
-#include "audio/lowl_audio_data.h"
-#include "audio/lowl_audio_stream.h"
-#include "audio/lowl_audio_mixer.h"
-#include "audio/lowl_audio_space.h"
+#include "audio/backend/lowl_audio_driver.h"
+#include "audio/backend/lowl_audio_device.h"
+#include "audio/source/lowl_audio_data.h"
+#include "audio/source/lowl_audio_stream.h"
+#include "audio/source/lowl_audio_mixer.h"
+#include "audio/source/lowl_audio_space.h"
 
 #include "audio/reader/lowl_audio_reader.h"
 

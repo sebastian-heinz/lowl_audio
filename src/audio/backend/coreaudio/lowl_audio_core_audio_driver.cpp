@@ -4,7 +4,7 @@
 
 #include "lowl_logger.h"
 
-#include "audio/coreaudio/lowl_audio_core_audio_utilities.h"
+#include "audio/backend/coreaudio/lowl_audio_core_audio_utilities.h"
 
 void Lowl::Audio::CoreAudioDriver::initialize(Lowl::Error &error) {
     create_devices(error);

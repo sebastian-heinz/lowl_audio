@@ -26,7 +26,7 @@ Lowl::Audio::AudioReaderMp3::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
     );
     AudioChannel channel = get_channel(static_cast<uint32_t>(frame_info.channels));
     size_t bytes_per_frame = bytes_per_sample * get_channel_num(channel);
-    SampleRate sample_rate = frame_info.hz;
+    SampleRate sample_rate = frame_info.sample_rate;
     bytes_read += (size_t) frame_info.frame_bytes;
     size_t pcm_buffer_size = pcm_frames_read * bytes_per_frame;
 

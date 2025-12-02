@@ -4,7 +4,7 @@
 
 #include "audio/lowl_audio_frame.h"
 #include "audio/lowl_audio_channel.h"
-#include "audio/lowl_audio_source.h"
+#include "audio/source/lowl_audio_source.h"
 
 #include <vector>
 #include <atomic>

@@ -1,7 +1,7 @@
 #ifndef LOWL_AUDIO_MIXER_EVENT_H
 #define LOWL_AUDIO_MIXER_EVENT_H
 
-#include "audio/lowl_audio_source.h"
+#include "audio/source/lowl_audio_source.h"
 
 #include <memory>
 

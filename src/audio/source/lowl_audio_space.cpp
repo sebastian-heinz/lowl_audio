@@ -5,7 +5,7 @@
 #include "audio/reader/lowl_audio_reader.h"
 
 #include "audio/convert/lowl_audio_channel_converter.h"
-#include "convert/lowl_audio_re_sampler_r8b.h"
+#include "audio/convert/lowl_audio_re_sampler_r8b.h"
 
 Lowl::Audio::AudioSpace::AudioSpace(
     SampleRate p_sample_rate,
