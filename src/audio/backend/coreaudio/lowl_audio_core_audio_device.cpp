@@ -4,8 +4,9 @@
 
 #include "lowl_logger.h"
 #include "audio/lowl_audio_setting.h"
-
 #include "audio/backend/coreaudio/lowl_audio_core_audio_utilities.h"
+
+#include <algorithm>
 
 static OSStatus osx_audio_callback(
     void *inRefCon,

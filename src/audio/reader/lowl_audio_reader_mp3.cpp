@@ -2,7 +2,34 @@
 
 #include "audio/lowl_audio_format.h"
 
-#include <lowl_dr_imp.h>
+#define drmp3dec_decode_frame                     lowl_drmp3dec_decode_frame
+#define drmp3_get_mp3_frame_count                 lowl_drmp3_get_mp3_frame_count
+#define drmp3dec_init                             lowl_drmp3dec_init
+#define drmp3_free                                lowl_drmp3_free
+#define drmp3_init_memory                         lowl_drmp3_init_memory
+#define drmp3_uninit                              lowl_drmp3_uninit
+#define drmp3_init                                lowl_drmp3_init
+#define drmp3dec_f32_to_s16                       lowl_drmp3dec_f32_to_s16
+#define drmp3_bind_seek_table                     lowl_drmp3_bind_seek_table
+#define drmp3_seek_to_pcm_frame                   lowl_drmp3_seek_to_pcm_frame
+#define drmp3_open_memory_and_read_pcm_frames_s16 lowl_drmp3_open_memory_and_read_pcm_frames_s16
+#define drmp3_calculate_seek_points               lowl_drmp3_calculate_seek_points
+#define drmp3_init_memory_with_metadata           lowl_drmp3_init_memory_with_metadata
+#define drmp3_get_mp3_and_pcm_frame_count         lowl_drmp3_get_mp3_and_pcm_frame_count
+#define drmp3_open_and_read_pcm_frames_s16        lowl_drmp3_open_and_read_pcm_frames_s16
+#define drmp3_read_pcm_frames_s16                 lowl_drmp3_read_pcm_frames_s16
+#define drmp3_open_memory_and_read_pcm_frames_f32 lowl_drmp3_open_memory_and_read_pcm_frames_f32
+#define drmp3_malloc                              lowl_drmp3_malloc
+#define drmp3_version_string                      lowl_drmp3_version_string
+#define drmp3_read_pcm_frames_f32                 lowl_drmp3_read_pcm_frames_f32
+#define drmp3_get_pcm_frame_count                 lowl_drmp3_get_pcm_frame_count
+#define drmp3_open_and_read_pcm_frames_f32        lowl_drmp3_open_and_read_pcm_frames_f32
+#define drmp3_version                             lowl_drmp3_version
+
+#define DR_MP3_IMPLEMENTATION
+#define DR_MP3_FLOAT_OUTPUT
+#define DR_MP3_NO_STDIO
+#include <dr_mp3.h>
 
 #define ENCODED_BUFFER_DECODING_STEP (16384)
 #define DECODED_BUFFER_SIZE (ENCODED_BUFFER_DECODING_STEP*32*8)

@@ -2,6 +2,8 @@
 
 #include "audio/convert/lowl_audio_sample_converter.h"
 
+#include <algorithm>
+
 std::string Lowl::Audio::AudioDevice::get_name() const {
     return name;
 }

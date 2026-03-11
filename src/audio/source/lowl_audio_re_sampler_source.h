@@ -4,6 +4,7 @@
 #include "audio/source/lowl_audio_source.h"
 #include "audio/convert/lowl_audio_re_sampler.h"
 
+#include <memory>
 
 namespace Lowl::Audio {
     class ReSamplerSource : AudioSource {

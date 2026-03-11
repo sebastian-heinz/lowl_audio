@@ -4,10 +4,13 @@ set(LOWL_THIRD_PARTY lowl_third_party)
 project(${LOWL_THIRD_PARTY} VERSION 1.0.0)
 
 set(LOWL_THIRD_PARTY_SOURCES
-        src/lowl_dr_imp.cpp
+        src/dummy.cpp
         )
 add_library(${LOWL_THIRD_PARTY} STATIC ${LOWL_THIRD_PARTY_SOURCES})
-target_include_directories(${LOWL_THIRD_PARTY} PUBLIC include/)
+#target_include_directories(${LOWL_THIRD_PARTY} PUBLIC include/)
+
+#add_library(${LOWL_THIRD_PARTY} INTERFACE)
+#target_include_directories(${LOWL_THIRD_PARTY} INTERFACE )
 
 # readerwriterqueue
 add_subdirectory(readerwriterqueue)
@@ -20,7 +23,7 @@ target_link_libraries(${LOWL_THIRD_PARTY} PUBLIC concurrentqueue)
 #dr_libs
 set(LOWL_LIB_DR_LIBS lowl_dr_libs_lib)
 add_library(${LOWL_LIB_DR_LIBS} INTERFACE)
-target_include_directories(${LOWL_LIB_DR_LIBS} INTERFACE dr_libs)
+target_include_directories(${LOWL_LIB_DR_LIBS} SYSTEM INTERFACE dr_libs)
 target_link_libraries(${LOWL_THIRD_PARTY} PUBLIC ${LOWL_LIB_DR_LIBS})
 
 #ogg

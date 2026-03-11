@@ -2,7 +2,10 @@
 
 #include "audio/lowl_audio_format.h"
 
-#include <lowl_dr_imp.h>
+#define DR_FLAC_IMPLEMENTATION
+#define DR_FLAC_NO_STDIO
+#define DR_FLAC_NO_CRC
+#include <dr_flac.h>
 
 std::unique_ptr<Lowl::Audio::AudioData>
 Lowl::Audio::AudioReaderFlac::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Error &error) {
@@ -23,9 +26,11 @@ Lowl::Audio::AudioReaderFlac::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p
     /* Don't try to read more samples than can potentially fit in the output buffer. */
     /* Intentionally uint64 instead of size_t so we can do a check that we're not reading too much on 32-bit builds. */
     uint64_t bytes_to_read_test = flac->totalPCMFrameCount * bytes_per_frame;
-    if (bytes_to_read_test > LowlThirdParty::DrLib::lowl_drwav_size_max()) {
+    //if (bytes_to_read_test > LowlThirdParty::DrLib::lowl_drwav_size_max()) {
+    if (bytes_to_read_test > DRFLAC_SIZE_MAX) {
         /* Round the number of bytes to read to a clean frame boundary. */
-        bytes_to_read_test = (LowlThirdParty::DrLib::lowl_drwav_size_max() / bytes_per_frame) * bytes_per_frame;
+       // bytes_to_read_test = (LowlThirdParty::DrLib::lowl_drwav_size_max() / bytes_per_frame) * bytes_per_frame;
+       bytes_to_read_test = (DRFLAC_SIZE_MAX / bytes_per_frame) * bytes_per_frame;
     }
 
     /*

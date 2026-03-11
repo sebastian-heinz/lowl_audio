@@ -9,6 +9,7 @@
 #include "audio/backend/lowl_audio_device_properties.h"
 
 #include <string>
+#include <atomic>
 
 namespace Lowl::Audio {
 
