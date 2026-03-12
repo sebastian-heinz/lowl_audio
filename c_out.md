@@ -84,7 +84,7 @@ The callback uses `inNumberFrames` (the OS-provided frame count) directly instea
 
 `Sample` now defaults to `float` with an opt-in `LOWL_TYPE_SAMPLE_64` define for `double`. `Volume` and `Panning` are also tied to `Sample` instead of being independently `double`. Explicit `static_cast<Sample>(...)` is used throughout (panning, resampler output, channel conversion) to ensure clean compilation under either mode.
 
-**Remaining concern:** `SampleRate` and `TimeSeconds` are still `double_l` regardless of sample type — this is correct since sample rates need full precision for resampling math. However, `std::atomic<Sample>` should be verified as lock-free on target platforms when using `float` (it typically is on x86/ARM64, but worth a `static_assert`).
+**Note:** `SampleRate` and `TimeSeconds` remain `double_l` regardless of sample type — correct since sample rates need full precision for resampling math. A `static_assert(std::atomic<Sample>::is_always_lock_free, ...)` in `lowl_typedef.h` now guarantees at compile time that atomic volume/panning operations are lock-free.
 
 ### 2. `AudioFrame` is hardcoded to stereo
 

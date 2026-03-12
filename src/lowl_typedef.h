@@ -1,6 +1,7 @@
 #ifndef LOWL_TYPEDEF_H
 #define LOWL_TYPEDEF_H
 
+#include <atomic>
 #include <cstdint>
 #include <cstddef>
 
@@ -27,6 +28,11 @@ namespace Lowl {
 #else
     typedef float_l Sample;
 #endif /* LOWL_TYPE_SAMPLE_64 */
+
+    static_assert(
+        std::atomic<Sample>::is_always_lock_free,
+        "std::atomic<Sample> must be lock-free for real-time audio safety"
+    );
 
     typedef uint16_l SpaceId;
     typedef double_l TimeSeconds;
