@@ -33,7 +33,7 @@ namespace Lowl::Audio {
     protected:
         SampleRate sample_rate;
         AudioChannel channel;
-        std::atomic<bool> is_playing{};
+        std::atomic<bool> is_playing{true};
 
         void process_volume(AudioFrame &audio_frame);
 

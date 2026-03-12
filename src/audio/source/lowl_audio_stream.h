@@ -12,6 +12,7 @@
 namespace Lowl::Audio {
     class AudioStream : public AudioSource {
     private:
+        static constexpr size_t DEFAULT_STREAM_SIZE = 375000; // ~ 7 Seconds(3 MB) of stereo 32-bit float audio
         std::unique_ptr<moodycamel::ReaderWriterQueue<AudioFrame> > frame_queue;
 
     public:
@@ -25,9 +26,9 @@ namespace Lowl::Audio {
 
         bool write(const AudioFrame &p_audio_frame);
 
-        void write(const std::vector<AudioFrame> &p_audio_frames);
+        size_l write(const std::vector<AudioFrame> &p_audio_frames);
 
-        AudioStream(SampleRate p_sample_rate, AudioChannel p_channel);
+        AudioStream(SampleRate p_sample_rate, AudioChannel p_channel, size_t size = DEFAULT_STREAM_SIZE);
 
         ~AudioStream() override = default;
     };

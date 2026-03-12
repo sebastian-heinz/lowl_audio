@@ -3,6 +3,7 @@
 #include "audio/convert/lowl_audio_sample_converter.h"
 
 #include <algorithm>
+#include <cstring>
 
 std::string Lowl::Audio::AudioDevice::get_name() const {
     return name;
@@ -76,14 +77,6 @@ void Lowl::Audio::AudioDevice::write_frames(
     if (current_frame < p_frames_per_buffer) {
         // fill buffer with silence if not enough samples available.
         unsigned long missing_frames = p_frames_per_buffer - current_frame;
-        unsigned long missing_samples = missing_frames * (unsigned long) audio_source->get_channel_num();
-        unsigned long current_sample = 0;
-
-        uint8_t *remaining = static_cast<uint8_t *>(p_dst);
-        for (; current_sample < missing_samples; current_sample++) {
-            for (unsigned long frame_byte = 0; frame_byte < p_bytes_per_frame; frame_byte++) {
-                *remaining++ = 0;
-            }
-        }
+        std::memset(p_dst, 0, missing_frames * p_bytes_per_frame);
     }
 }

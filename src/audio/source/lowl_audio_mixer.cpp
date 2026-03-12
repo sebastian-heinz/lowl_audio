@@ -2,6 +2,8 @@
 
 #include "lowl_logger.h"
 
+#include <algorithm>
+#include <cmath>
 #include <string>
 
 Lowl::Audio::AudioMixer::AudioMixer(
@@ -67,6 +69,15 @@ Lowl::Audio::AudioSource::ReadResult Lowl::Audio::AudioMixer::read(AudioFrame &a
         return ReadResult::End;
     }
 
+    if (normalize_output.load(std::memory_order_relaxed)) {
+        Sample peak = std::max(std::abs(audio_frame.left), std::abs(audio_frame.right));
+        if (peak > AudioFrame::MAX_SAMPLE_VALUE) {
+            Sample attenuation = AudioFrame::MAX_SAMPLE_VALUE / peak;
+            audio_frame.left *= attenuation;
+            audio_frame.right *= attenuation;
+        }
+    }
+
     process_volume(audio_frame);
     process_panning(audio_frame);
 
@@ -98,6 +109,10 @@ void Lowl::Audio::AudioMixer::remove(std::shared_ptr<AudioSource> p_audio_source
     event.type = AudioMixerEvent::Remove;
     event.audio_source = p_audio_source;
     events->enqueue(event);
+}
+
+void Lowl::Audio::AudioMixer::set_normalize_output(bool p_normalize) {
+    normalize_output.store(p_normalize, std::memory_order_relaxed);
 }
 
 Lowl::size_l Lowl::Audio::AudioMixer::get_frames_remaining() const {

@@ -16,6 +16,7 @@ namespace Lowl::Audio {
         std::vector<std::shared_ptr<AudioSource> > sources;
         std::unique_ptr<moodycamel::ConcurrentQueue<AudioMixerEvent> > events;
         AudioFrame read_frame;
+        std::atomic<bool> normalize_output{true};
 
     public:
         size_l get_frames_remaining() const override;
@@ -38,6 +39,8 @@ namespace Lowl::Audio {
          * removes a audio source from the mix
          */
         virtual void remove(std::shared_ptr<AudioSource> p_audio_source);
+
+        void set_normalize_output(bool p_normalize);
 
         AudioMixer(SampleRate p_sample_rate, AudioChannel p_channel);
 

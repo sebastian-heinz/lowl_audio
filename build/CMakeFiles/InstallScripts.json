@@ -1,0 +1,19 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/cmake_install.cmake",
+		"/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/third_party/cmake_install.cmake",
+		"/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/third_party/readerwriterqueue/cmake_install.cmake",
+		"/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/third_party/concurrentqueue/cmake_install.cmake",
+		"/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/third_party/ogg/cmake_install.cmake",
+		"/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/third_party/opus/cmake_install.cmake",
+		"/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/third_party/opusfile/cmake_install.cmake",
+		"/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/third_party/vorbis/cmake_install.cmake",
+		"/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/third_party/vorbis/lib/cmake_install.cmake",
+		"/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/third_party/vorbis/test/cmake_install.cmake",
+		"/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/test/cmake_install.cmake",
+		"/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/third_party/doctest/cmake_install.cmake",
+		"/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/demo/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

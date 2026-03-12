@@ -1,0 +1,16 @@
+# CMake generated Testfile for 
+# Source directory: /Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/third_party/opus
+# Build directory: /Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/third_party/opus
+# 
+# This file includes the relevant testing commands required for 
+# testing this directory and lists subdirectories to be tested as well.
+add_test(test_opus_decode "/opt/homebrew/bin/cmake" "-DTEST_EXECUTABLE=/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/third_party/opus/test_opus_decode" "-DCMAKE_SYSTEM_NAME=Darwin" "-P" "/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/third_party/opus/cmake/RunTest.cmake")
+set_tests_properties(test_opus_decode PROPERTIES  _BACKTRACE_TRIPLES "/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/third_party/opus/CMakeLists.txt;701;add_test;/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/third_party/opus/CMakeLists.txt;0;")
+add_test(test_opus_padding "/opt/homebrew/bin/cmake" "-DTEST_EXECUTABLE=/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/third_party/opus/test_opus_padding" "-DCMAKE_SYSTEM_NAME=Darwin" "-P" "/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/third_party/opus/cmake/RunTest.cmake")
+set_tests_properties(test_opus_padding PROPERTIES  _BACKTRACE_TRIPLES "/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/third_party/opus/CMakeLists.txt;710;add_test;/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/third_party/opus/CMakeLists.txt;0;")
+add_test(test_opus_api "/opt/homebrew/bin/cmake" "-DTEST_EXECUTABLE=/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/third_party/opus/test_opus_api" "-DCMAKE_SYSTEM_NAME=Darwin" "-P" "/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/third_party/opus/cmake/RunTest.cmake")
+set_tests_properties(test_opus_api PROPERTIES  _BACKTRACE_TRIPLES "/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/third_party/opus/CMakeLists.txt;723;add_test;/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/third_party/opus/CMakeLists.txt;0;")
+add_test(test_opus_encode "/opt/homebrew/bin/cmake" "-DTEST_EXECUTABLE=/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/third_party/opus/test_opus_encode" "-DCMAKE_SYSTEM_NAME=Darwin" "-P" "/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/third_party/opus/cmake/RunTest.cmake")
+set_tests_properties(test_opus_encode PROPERTIES  _BACKTRACE_TRIPLES "/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/third_party/opus/CMakeLists.txt;733;add_test;/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/third_party/opus/CMakeLists.txt;0;")
+add_test(test_opus_extensions "/opt/homebrew/bin/cmake" "-DTEST_EXECUTABLE=/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/build/third_party/opus/test_opus_extensions" "-DCMAKE_SYSTEM_NAME=Darwin" "-P" "/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/third_party/opus/cmake/RunTest.cmake")
+set_tests_properties(test_opus_extensions PROPERTIES  _BACKTRACE_TRIPLES "/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/third_party/opus/CMakeLists.txt;743;add_test;/Users/shiba/dev/godot/modules/gd_lowl_audio/lowl_audio/third_party/opus/CMakeLists.txt;0;")

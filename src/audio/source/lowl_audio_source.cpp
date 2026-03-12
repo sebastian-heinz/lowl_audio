@@ -8,7 +8,6 @@ Lowl::Audio::AudioSource::AudioSource(const SampleRate p_sample_rate, const Audi
     channel = p_channel;
     volume.store(DEFAULT_VOLUME);
     panning.store(DEFAULT_PANNING);
-    is_playing = true;
     name = std::string();
 }
 
@@ -40,11 +39,11 @@ size_t Lowl::Audio::AudioSource::get_channel_num() const {
 }
 
 void Lowl::Audio::AudioSource::set_volume(Volume p_volume) {
-    volume.store(p_volume);
+    volume.store(p_volume, std::memory_order_seq_cst);
 }
 
 Lowl::Volume Lowl::Audio::AudioSource::get_volume() {
-    return volume.load();
+    return volume.load(std::memory_order_seq_cst);
 }
 
 void Lowl::Audio::AudioSource::set_panning(Panning p_panning) {
@@ -53,18 +52,18 @@ void Lowl::Audio::AudioSource::set_panning(Panning p_panning) {
 }
 
 Lowl::Panning Lowl::Audio::AudioSource::get_panning() {
-    return panning.load();
+    return panning.load(std::memory_order_seq_cst);
 }
 
 void Lowl::Audio::AudioSource::process_volume(AudioFrame &audio_frame) {
-    Volume vol = volume.load();
+    const Volume vol = volume.load(std::memory_order_relaxed);
     for (int current_channel = 0; current_channel < Audio::get_channel_num(channel); current_channel++) {
         audio_frame[current_channel] *= vol;
     }
 }
 
 void Lowl::Audio::AudioSource::process_panning(AudioFrame &audio_frame) {
-    Panning pan = panning.load();
+    const Panning pan = panning.load(std::memory_order_relaxed);
     switch (channel) {
         case AudioChannel::Quadraphonic:
             // TODO
@@ -85,19 +84,19 @@ void Lowl::Audio::AudioSource::process_panning(AudioFrame &audio_frame) {
 }
 
 void Lowl::Audio::AudioSource::pause() {
-    is_playing = false;
+    is_playing.store(false, std::memory_order_seq_cst);
 }
 
 bool Lowl::Audio::AudioSource::is_pause() const {
-    return !is_playing;
+    return !is_playing.load(std::memory_order_seq_cst);
 }
 
 void Lowl::Audio::AudioSource::play() {
-    is_playing = true;
+    is_playing.store(true, std::memory_order_seq_cst);
 }
 
 bool Lowl::Audio::AudioSource::is_play() {
-    return is_playing;
+    return is_playing.load(std::memory_order_seq_cst);
 }
 
 std::string Lowl::Audio::AudioSource::get_name() const {

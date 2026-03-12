@@ -24,13 +24,15 @@ namespace Lowl {
         ReaderUnsupportedFormat = - 202,
         ReaderUndetectedFormat = -203,
         ReaderEmptyPath = -204,
-        ReaderNotFound = 205,
-        ReaderNoAudioData = 206,
+        ReaderNotFound = -205,
+        ReaderNoAudioData = -206,
 
         DeviceHasNoAudioProperties = -300,
 
         ConvertAudioChannelInvalid = -400,
         ConvertAudioChannelNotSupported = -401,
+
+        StreamWriteFailed = -500,
 
         // Vendor Error
         CoreAudioVendorError = -2000,

@@ -96,6 +96,8 @@ std::string Lowl::Error::to_error_text(ErrorCode p_error) {
         case ErrorCode::ConvertAudioChannelNotSupported:
             return "ConvertAudioChannelNotSupported";
 
+        case ErrorCode::StreamWriteFailed:
+            return "StreamWriteFailed";
 
         case ErrorCode::CoreAudioVendorError:
             return "CoreAudioVendorError";
