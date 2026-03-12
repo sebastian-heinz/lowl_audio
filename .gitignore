@@ -8,3 +8,4 @@ CMakeSettings.json
 out/
 Doxyfile.in
 /doc/html
+/build
