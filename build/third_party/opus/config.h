@@ -1,1 +1,0 @@
-#define PACKAGE_VERSION "1.5.2-344-g57a2042d"

@@ -1,2 +1,0 @@
-/usr/bin/ar qc liblowl_r8brain_lib.a "CMakeFiles/lowl_r8brain_lib.dir/r8brain-free-src/pffft.cpp.o" "CMakeFiles/lowl_r8brain_lib.dir/r8brain-free-src/r8bbase.cpp.o"
-/usr/bin/ranlib liblowl_r8brain_lib.a
