@@ -47,12 +47,20 @@ OSStatus Lowl::Audio::CoreAudioDevice::audio_callback(
     UInt32 inNumberFrames,
     AudioBufferList *ioData
 ) {
-    unsigned long bytes_per_frame =
-            get_sample_size_bytes(audio_device_properties.sample_format) *
-            ioData->mBuffers[0].mNumberChannels; // TODO asset mNumberChannels == audio_device_properties-channels
-    unsigned long frames_per_buffer = static_cast<unsigned long>(ioData->mBuffers[0].mDataByteSize / bytes_per_frame);
+    const uint32_l sample_size_bytes = static_cast<uint32_l>(get_sample_size_bytes(
+        audio_device_properties.sample_format
+    ));
+    const uint32_l channels = static_cast<uint32_l>(get_channel_num(audio_device_properties.channel));
+    const uint32_l bytes_per_frame = sample_size_bytes * channels;
+
+    const uint32_l actual_bytes_needed = inNumberFrames * bytes_per_frame;
+    if (actual_bytes_needed > ioData->mBuffers[0].mDataByteSize) {
+        // Handle error: buffer provided by system is too small for requested frames
+        return kAudio_ParamError;
+    }
+
     void *dst = ioData->mBuffers[0].mData;
-    write_frames(dst, frames_per_buffer, bytes_per_frame);
+    write_frames(dst, inNumberFrames, bytes_per_frame);
     return noErr;
 }
 

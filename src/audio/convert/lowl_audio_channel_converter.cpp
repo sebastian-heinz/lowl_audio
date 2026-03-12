@@ -7,7 +7,7 @@ Lowl::Audio::AudioFrame Lowl::Audio::ChannelConverter::to_stereo(AudioFrame p_au
 }
 
 Lowl::Audio::AudioFrame Lowl::Audio::ChannelConverter::to_mono(AudioFrame p_audio_frame) const {
-    p_audio_frame[0] = (p_audio_frame[0] + p_audio_frame[1]) * 0.5;
+    p_audio_frame[0] = static_cast<Sample>((p_audio_frame[0] + p_audio_frame[1]) * 0.5);
     p_audio_frame[1] = p_audio_frame[0];
     return p_audio_frame;
 }
@@ -15,7 +15,7 @@ Lowl::Audio::AudioFrame Lowl::Audio::ChannelConverter::to_mono(AudioFrame p_audi
 std::vector<Lowl::Audio::AudioFrame>
 Lowl::Audio::ChannelConverter::convert(std::vector<AudioFrame> p_audio_frames, const ConvertFn p_convert_fn) const {
     std::vector<AudioFrame> converted_audio_frames = std::vector<AudioFrame>();
-    for (AudioFrame audio_frame : p_audio_frames) {
+    for (AudioFrame audio_frame: p_audio_frames) {
         AudioFrame converted_frame = (this->*p_convert_fn)(audio_frame);
         converted_audio_frames.push_back(converted_frame);
     }
@@ -23,7 +23,8 @@ Lowl::Audio::ChannelConverter::convert(std::vector<AudioFrame> p_audio_frames, c
 }
 
 std::vector<Lowl::Audio::AudioFrame>
-Lowl::Audio::ChannelConverter::convert(Lowl::Audio::AudioChannel p_from, Lowl::Audio::AudioChannel p_to, std::vector<AudioFrame> audio_data,
+Lowl::Audio::ChannelConverter::convert(Lowl::Audio::AudioChannel p_from, Lowl::Audio::AudioChannel p_to,
+                                       std::vector<AudioFrame> audio_data,
                                        Error error) const {
     if (p_from == p_to) {
         // error.set_error(ErrorCode::Error);
@@ -50,9 +51,9 @@ Lowl::Audio::ChannelConverter::convert(AudioChannel p_to, std::shared_ptr<AudioD
         return nullptr;
     }
     std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(
-            frames,
-            p_audio_data->get_sample_rate(),
-            p_to
+        frames,
+        p_audio_data->get_sample_rate(),
+        p_to
     );
     audio_data->set_name(p_audio_data->get_name());
     return audio_data;

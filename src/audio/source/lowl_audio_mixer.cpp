@@ -49,7 +49,7 @@ Lowl::Audio::AudioSource::ReadResult Lowl::Audio::AudioMixer::read(AudioFrame &a
             continue;
         } else if (read_result == ReadResult::Remove) {
             long idx = &source - &sources[0];
-            if (idx < 0 && idx >= sources.size()) {
+            if (idx < 0 || idx >= sources.size()) {
                 continue;
             }
             unsigned long ul_idx = static_cast<unsigned long>(idx);

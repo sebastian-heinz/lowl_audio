@@ -6,8 +6,9 @@ Lowl::Audio::AudioData::AudioData(
     std::vector<AudioFrame> p_audio_frames,
     SampleRate p_sample_rate,
     AudioChannel p_channel
-) : AudioSource(p_sample_rate, p_channel) {
-    frames = std::vector<AudioFrame>(p_audio_frames);
+) : AudioSource(p_sample_rate, p_channel),
+    frames(std::move(p_audio_frames))
+{
     position = 0;
     seek_position = 0;
     size = frames.size();

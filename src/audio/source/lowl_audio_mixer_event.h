@@ -7,8 +7,8 @@
 
 namespace Lowl::Audio {
     struct AudioMixerEvent {
-        static const uint8_t Mix = 0;
-        static const uint8_t Remove = 1;
+        static constexpr uint8_t Mix = 0;
+        static constexpr uint8_t Remove = 1;
 
         uint8_t type;
         std::shared_ptr<AudioSource> audio_source;
