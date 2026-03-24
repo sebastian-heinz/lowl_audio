@@ -60,6 +60,7 @@ set(LOWL_SOURCES
         src/audio/source/lowl_audio_source.cpp
         src/audio/source/lowl_audio_space.cpp
         src/audio/source/lowl_audio_stream.cpp
+        src/audio/lowl_audio_block.h
 )
 
 add_library(${LOWL_LIB_MAIN} ${LOWL_SOURCES})

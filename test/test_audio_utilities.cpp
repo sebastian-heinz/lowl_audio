@@ -6,6 +6,13 @@
 #include <vector>
 
 TEST_CASE("AudioUtilities") {
+    SUBCASE("AudioChannel helpers map 6 and 8 channel modes") {
+        REQUIRE_EQ(Lowl::Audio::get_channel_num(Lowl::Audio::AudioChannel::Surround5_1), 6);
+        REQUIRE_EQ(Lowl::Audio::get_channel_num(Lowl::Audio::AudioChannel::Surround7_1), 8);
+        REQUIRE_EQ(Lowl::Audio::get_channel(6), Lowl::Audio::AudioChannel::Surround5_1);
+        REQUIRE_EQ(Lowl::Audio::get_channel(8), Lowl::Audio::AudioChannel::Surround7_1);
+    }
+
     SUBCASE("AudioUtilities - to_stream preserves more than 100 frames") {
         std::vector<Lowl::Audio::AudioFrame> frames;
         for (size_t frame_index = 0; frame_index < 150; frame_index++) {

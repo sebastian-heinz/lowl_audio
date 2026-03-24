@@ -66,6 +66,8 @@ void Lowl::Audio::AudioSource::process_panning(AudioFrame &audio_frame) {
     const Panning pan = panning.load(std::memory_order_relaxed);
     switch (channel) {
         case AudioChannel::Quadraphonic:
+        case AudioChannel::Surround5_1:
+        case AudioChannel::Surround7_1:
             // TODO
             audio_frame.left *= static_cast<Sample>(std::sqrt(1.0 - pan));
             audio_frame.right *= static_cast<Sample>(std::sqrt(1.0 + pan));

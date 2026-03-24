@@ -1,14 +1,17 @@
 #ifndef LOWL_AUDIO_CHANNEL
 #define LOWL_AUDIO_CHANNEL
 
+#include <cstdint>
 #include <string>
 
 namespace Lowl::Audio {
-    enum class AudioChannel {
+    enum class AudioChannel : uint8_t {
         None = 0,
         Mono = 1,
         Stereo = 2,
         Quadraphonic = 4, // Surround
+        Surround5_1 = 6,
+        Surround7_1 = 8,
     };
 
     enum class AudioChannelMask : uint32_t {
@@ -103,6 +106,10 @@ namespace Lowl::Audio {
                 return 2;
             case AudioChannel::Quadraphonic:
                 return 4;
+            case AudioChannel::Surround5_1:
+                return 6;
+            case AudioChannel::Surround7_1:
+                return 8;
             default:
                 return 0;
         }
@@ -116,6 +123,10 @@ namespace Lowl::Audio {
                 return AudioChannel::Stereo;
             case 4:
                 return AudioChannel::Quadraphonic;
+            case 6:
+                return AudioChannel::Surround5_1;
+            case 8:
+                return AudioChannel::Surround7_1;
             default:
                 return AudioChannel::None;
         }
