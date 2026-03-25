@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 
+#include "audio/lowl_audio_buffer.h"
 #include "audio/backend/lowl_audio_device.h"
 
 #include <array>
@@ -8,19 +9,33 @@
 #include <vector>
 
 namespace {
+    struct StereoSample {
+        Lowl::Sample left;
+        Lowl::Sample right;
+    };
+
     class ShortReadAudioSource final : public Lowl::Audio::AudioSource {
     public:
-        explicit ShortReadAudioSource(std::vector<Lowl::Audio::AudioFrame> p_frames)
+        explicit ShortReadAudioSource(std::vector<StereoSample> p_frames)
             : AudioSource(44100.0, Lowl::Audio::AudioChannel::Stereo), frames(std::move(p_frames)) {
         }
 
-        ReadResult read(Lowl::Audio::AudioFrame &p_audio_frame) override {
-            if (next_frame >= frames.size()) {
-                return ReadResult::End;
+        RenderResult render(Lowl::Audio::AudioBlockView p_block) override {
+            if (next_frame >= frames.size() || p_block.frame_count == 0) {
+                return {0, RenderState::Finished};
             }
 
-            p_audio_frame = frames[next_frame++];
-            return ReadResult::Read;
+            const uint32_t frames_to_copy = static_cast<uint32_t>(std::min<size_t>(frames.size() - next_frame, p_block.frame_count));
+            for (uint32_t frame_index = 0; frame_index < frames_to_copy; frame_index++) {
+                const StereoSample &frame = frames[next_frame + frame_index];
+                p_block.channel(0)[frame_index] = frame.left;
+                p_block.channel(1)[frame_index] = frame.right;
+            }
+            next_frame += frames_to_copy;
+            if (next_frame >= frames.size()) {
+                return {frames_to_copy, RenderState::Finished};
+            }
+            return {frames_to_copy, RenderState::Ok};
         }
 
         Lowl::size_l get_frames_remaining() const override {
@@ -36,7 +51,7 @@ namespace {
         }
 
     private:
-        std::vector<Lowl::Audio::AudioFrame> frames;
+        std::vector<StereoSample> frames;
         Lowl::size_l next_frame = 0;
     };
 
@@ -53,8 +68,9 @@ namespace {
             audio_source = std::move(p_audio_source);
         }
 
-        void write(void *p_dst, unsigned long p_frames_per_buffer, unsigned long p_bytes_per_frame) const {
-            write_frames(p_dst, p_frames_per_buffer, p_bytes_per_frame);
+        void write(void *p_dst, unsigned long p_frames_per_buffer, unsigned long p_bytes_per_frame) {
+            allocate_render_buffer(p_frames_per_buffer);
+            render_to_device_buffer(p_dst, p_frames_per_buffer, p_bytes_per_frame);
         }
 
         void start(
@@ -81,7 +97,7 @@ TEST_CASE("AudioDevice") {
         buffer.fill(0x7F);
 
         auto source = std::make_shared<ShortReadAudioSource>(
-            std::vector<Lowl::Audio::AudioFrame>{Lowl::Audio::AudioFrame(0.25f, -0.25f)}
+            std::vector<StereoSample>{StereoSample{0.25f, -0.25f}}
         );
 
         Lowl::Audio::AudioDeviceProperties properties{};

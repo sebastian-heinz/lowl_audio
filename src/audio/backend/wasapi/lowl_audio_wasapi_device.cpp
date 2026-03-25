@@ -55,12 +55,10 @@ Lowl::Audio::WasapiDevice::WasapiDevice(_constructor_tag ct) :
 	wasapi_audio_thread_handle = nullptr;
 	wasapi_audio_event_handle = nullptr;
 	wasapi_audio_stop_handle = nullptr;
-	audio_render_client = nullptr;
-	audio_device_properties = {};
-	sample_converter = {};
-	avrt_handle = nullptr;
-	avrt_task_index = 0;
-}
+		audio_render_client = nullptr;
+		avrt_handle = nullptr;
+		avrt_task_index = 0;
+	}
 
 void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_properties,
 		std::shared_ptr<AudioSource> p_audio_source,
@@ -261,6 +259,15 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
 	}
 	LOWL_LOG_DEBUG_F("start->%s - audio_client->GetService:OK", name.c_str());
 
+	UINT32 total_frames_in_buffer = 0;
+	result = audio_client->GetBufferSize(&total_frames_in_buffer);
+	if (result != S_OK) {
+		LOWL_LOG_DEBUG_F("start->%s - audio_client->GetBufferSize:FAILED", name.c_str());
+		error.set_error(Lowl::ErrorCode::Error);
+		return;
+	}
+	allocate_render_buffer(total_frames_in_buffer);
+
 	wasapi_audio_stop_handle = CreateEvent(nullptr, false, false, nullptr);
 	if (wasapi_audio_stop_handle == INVALID_HANDLE_VALUE || wasapi_audio_stop_handle == nullptr) {
 		wasapi_audio_stop_handle = nullptr;
@@ -428,40 +435,16 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
 			break;
 		}
 
-		void *audio_buffer_ptr = (void *)audio_buffer_byte_ptr;
-		unsigned long current_frame = 0;
-		AudioFrame frame{};
-		for (; current_frame < available_frames_in_buffer; current_frame++) {
-			AudioSource::ReadResult read_result = audio_source->read(frame);
-			if (read_result == AudioSource::ReadResult::Read) {
-				for (int current_channel = 0; current_channel < audio_source->get_channel_num(); current_channel++) {
-					Sample sample = std::clamp(
-							frame[current_channel],
-							AudioFrame::MIN_SAMPLE_VALUE,
-							AudioFrame::MAX_SAMPLE_VALUE);
-					sample_converter.write_sample(
-							audio_device_properties.sample_format,
-							sample,
-							&audio_buffer_ptr);
-				}
-			} else if (read_result == AudioSource::ReadResult::End) {
-				break;
-			} else if (read_result == AudioSource::ReadResult::Pause) {
-				break;
-			} else if (read_result == AudioSource::ReadResult::Remove) {
-				break;
-			}
-		}
+			const uint32_t bytes_per_frame = static_cast<uint32_t>(
+					get_sample_size_bytes(audio_device_properties.sample_format) *
+					get_channel_num(audio_device_properties.channel)
+			);
+			render_to_device_buffer(audio_buffer_byte_ptr, available_frames_in_buffer, bytes_per_frame);
 
-		DWORD flags = 0;
-		if (current_frame < available_frames_in_buffer) {
-			flags |= AUDCLNT_BUFFERFLAGS_SILENT;
-		}
-
-		result = audio_render_client->ReleaseBuffer(available_frames_in_buffer, flags);
-		if (FAILED(result)) {
-			LOWL_LOG_DEBUG_F("audio_callback->%s - ReleaseBuffer failed", name.c_str());
-			break;
+			result = audio_render_client->ReleaseBuffer(available_frames_in_buffer, 0);
+			if (FAILED(result)) {
+				LOWL_LOG_DEBUG_F("audio_callback->%s - ReleaseBuffer failed", name.c_str());
+				break;
 		}
 	}
 

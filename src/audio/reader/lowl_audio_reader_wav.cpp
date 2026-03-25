@@ -108,15 +108,15 @@ Lowl::Audio::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
             break;
     }
 
-    std::vector<AudioFrame> audio_frames =
-            read_frames(audio_format, sample_format, channel, pcm_frames, bytes_read, error);
-    if (error.has_error()) {
-        return nullptr;
-    }
-
-    std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(audio_frames, sample_rate, channel);
-
-
+    std::unique_ptr<AudioData> audio_data = create_audio_data(
+        audio_format,
+        sample_format,
+        channel,
+        sample_rate,
+        pcm_frames,
+        bytes_read,
+        error
+    );
     drwav_uninit(&wav);
     return audio_data;
 }

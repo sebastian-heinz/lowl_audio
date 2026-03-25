@@ -36,51 +36,68 @@
 
 std::unique_ptr<Lowl::Audio::AudioData>
 Lowl::Audio::AudioReaderMp3::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Error &error) {
-
-    size_t bytes_read = 0;
-    const drmp3_uint8 *mp3_buffer = p_buffer.get();
-    SampleFormat sample_format = SampleFormat::FLOAT_32;
-    AudioFormat audio_format = AudioFormat::MP3;
-    size_t bytes_per_sample = get_sample_size_bytes(sample_format);
-    std::unique_ptr<uint8_t[]> pcm_buffer = std::make_unique<uint8_t[]>(DECODED_BUFFER_SIZE);
-    drmp3dec_frame_info frame_info;
-    drmp3dec decoder;
-
-    // read first frame to get channel & sample rate
-    drmp3dec_init(&decoder);
-    size_t pcm_frames_read = (size_t) drmp3dec_decode_frame(
-            &decoder, &mp3_buffer[bytes_read], ENCODED_BUFFER_DECODING_STEP, pcm_buffer.get(), &frame_info
-    );
-    AudioChannel channel = get_channel(static_cast<uint32_t>(frame_info.channels));
-    size_t bytes_per_frame = bytes_per_sample * get_channel_num(channel);
-    SampleRate sample_rate = frame_info.sample_rate;
-    bytes_read += (size_t) frame_info.frame_bytes;
-    size_t pcm_buffer_size = pcm_frames_read * bytes_per_frame;
-
-    std::vector<AudioFrame> audio_frames = read_frames(
-            audio_format, sample_format, channel, pcm_buffer, pcm_buffer_size, error
-    );
-    if (error.has_error()) {
+    drmp3 mp3;
+    if (!drmp3_init_memory(&mp3, p_buffer.get(), p_size, nullptr)) {
+        error.set_error(ErrorCode::ReaderNoAudioData);
         return nullptr;
     }
 
-    // read remaining frames
-    while (bytes_read <= p_size) {
-        pcm_frames_read = (size_t) drmp3dec_decode_frame(
-                &decoder, &mp3_buffer[bytes_read], ENCODED_BUFFER_DECODING_STEP, pcm_buffer.get(), &frame_info
-        );
-        bytes_read += (size_t) frame_info.frame_bytes;
-        pcm_buffer_size = pcm_frames_read * bytes_per_frame;
-        std::vector<AudioFrame> frames = read_frames(
-                audio_format, sample_format, channel, pcm_buffer, pcm_buffer_size, error
-        );
-        if (error.has_error()) {
-            return nullptr;
-        }
-        audio_frames.insert(audio_frames.end(), frames.begin(), frames.end());
+    const AudioChannel channel = get_channel(mp3.channels);
+    const SampleRate sample_rate = mp3.sampleRate;
+    const size_t channel_count = get_channel_num(channel);
+    const drmp3_uint64 total_frames = drmp3_get_pcm_frame_count(&mp3);
+
+    std::unique_ptr<Sample[]> storage;
+    if (total_frames > 0 && channel_count > 0) {
+        storage = std::make_unique<Sample[]>(static_cast<size_t>(total_frames) * channel_count);
     }
 
-    std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(audio_frames, sample_rate, channel);
+    size_t decoded_frame_count = static_cast<size_t>(total_frames);
+    if (storage != nullptr) {
+        std::vector<float> pcm_frames(DECODED_BUFFER_SIZE, 0.0f);
+        size_t frames_written = 0;
+        while (frames_written < static_cast<size_t>(total_frames)) {
+            const drmp3_uint64 frames_to_read = std::min<drmp3_uint64>(
+                static_cast<drmp3_uint64>(DECODED_BUFFER_SIZE / channel_count),
+                total_frames - frames_written
+            );
+            const drmp3_uint64 frames_read = drmp3_read_pcm_frames_f32(&mp3, frames_to_read, pcm_frames.data());
+            if (frames_read == 0) {
+                break;
+            }
+            for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
+                Sample *dst = storage.get() + channel_index * static_cast<size_t>(total_frames) + frames_written;
+                for (size_t frame_index = 0; frame_index < static_cast<size_t>(frames_read); frame_index++) {
+                    dst[frame_index] = pcm_frames[frame_index * channel_count + channel_index];
+                }
+            }
+            frames_written += static_cast<size_t>(frames_read);
+        }
+        decoded_frame_count = frames_written;
+
+        if (frames_written < static_cast<size_t>(total_frames)) {
+            std::unique_ptr<Sample[]> trimmed_storage;
+            if (frames_written > 0) {
+                trimmed_storage = std::make_unique<Sample[]>(frames_written * channel_count);
+                for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
+                    std::copy_n(
+                        storage.get() + channel_index * static_cast<size_t>(total_frames),
+                        frames_written,
+                        trimmed_storage.get() + channel_index * frames_written
+                    );
+                }
+            }
+            storage = std::move(trimmed_storage);
+        }
+    }
+
+    drmp3_uninit(&mp3);
+    std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(
+        std::move(storage),
+        decoded_frame_count,
+        sample_rate,
+        channel
+    );
     return audio_data;
 }
 

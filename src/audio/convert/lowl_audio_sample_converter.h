@@ -18,7 +18,10 @@ namespace Lowl::Audio {
 
     public:
         static _INLINE_ float uint8_to_float(uint8_t p_sample) {
-            return 0;
+            if (p_sample >= 128) {
+                return static_cast<float>(static_cast<int>(p_sample) - 128) / 127.0f;
+            }
+            return static_cast<float>(static_cast<int>(p_sample) - 128) / 128.0f;
         }
 
         static _INLINE_ float int8_to_float(int8_t p_sample) {

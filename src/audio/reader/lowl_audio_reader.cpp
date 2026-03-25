@@ -9,6 +9,7 @@
 #include "audio/reader/lowl_audio_reader_opus.h"
 
 #include <algorithm>
+#include <memory>
 
 std::unique_ptr<Lowl::Audio::AudioData>
 Lowl::Audio::AudioReader::read_file(const std::string &p_path, Lowl::Error &error) {
@@ -33,117 +34,160 @@ Lowl::Audio::AudioReader::read_file(const std::string &p_path, Lowl::Error &erro
 Lowl::Audio::AudioReader::AudioReader() {
 }
 
-std::vector<Lowl::Audio::AudioFrame>
-Lowl::Audio::AudioReader::read_frames(Lowl::Audio::AudioFormat p_audio_format,
-                                      Lowl::Audio::SampleFormat p_sample_format, Lowl::Audio::AudioChannel p_channel,
-                                      const std::unique_ptr<uint8_t[]> &p_buffer, size_t p_size, Lowl::Error &error) {
+std::unique_ptr<Lowl::Audio::AudioData>
+Lowl::Audio::AudioReader::create_audio_data(Lowl::Audio::AudioFormat p_audio_format,
+                                            Lowl::Audio::SampleFormat p_sample_format,
+                                            Lowl::Audio::AudioChannel p_channel,
+                                            SampleRate p_sample_rate,
+                                            const std::unique_ptr<uint8_t[]> &p_buffer,
+                                            size_t p_size,
+                                            Lowl::Error &error) {
+    const size_t sample_size = get_sample_size_bytes(p_sample_format);
+    const size_t channel_count = get_channel_num(p_channel);
+    if (sample_size == 0 || channel_count == 0 || p_buffer == nullptr) {
+        return std::make_unique<AudioData>(std::unique_ptr<Sample[]>(), 0, p_sample_rate, p_channel);
+    }
 
-    size_t sample_size = get_sample_size_bytes(p_sample_format);
-    size_t num_samples = p_size / sample_size;
+    const size_t num_samples = p_size / sample_size;
+    const size_t frame_count = num_samples / channel_count;
+    std::unique_ptr<Sample[]> storage;
+    if (frame_count > 0) {
+        storage = std::make_unique<Sample[]>(frame_count * channel_count);
+    }
 
-    std::vector<float> samples = std::vector<float>();
+    auto write_channel_samples = [&](auto *p_src, auto p_convert) {
+        for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
+            Sample *dst = storage.get() + channel_index * frame_count;
+            for (size_t frame_index = 0; frame_index < frame_count; frame_index++) {
+                const size_t sample_index = frame_index * channel_count + channel_index;
+                dst[frame_index] = p_convert(p_src[sample_index]);
+            }
+        }
+    };
+
+    auto int24_to_float = [](const uint8_t *p_bytes) -> float {
+        int32_t sample = static_cast<int32_t>(p_bytes[0])
+            | (static_cast<int32_t>(p_bytes[1]) << 8)
+            | (static_cast<int32_t>(p_bytes[2]) << 16);
+        if ((sample & 0x00800000) != 0) {
+            sample |= ~0x00FFFFFF;
+        }
+        if (sample > 0) {
+            return static_cast<float>(sample) / 0x7FFFFF;
+        }
+        return static_cast<float>(sample) / 0x800000;
+    };
 
     if (p_audio_format == Lowl::Audio::AudioFormat::WAVE_FORMAT_PCM
         || p_audio_format == Lowl::Audio::AudioFormat::WAVE_FORMAT_IEEE_FLOAT
         || p_audio_format == Lowl::Audio::AudioFormat::MP3
         || p_audio_format == Lowl::Audio::AudioFormat::FLAC
             ) {
-        // formats can be just read based on sample format, no special handling required
         switch (p_sample_format) {
             case Lowl::Audio::SampleFormat::INT_32: {
-                if (p_size < sizeof(int32_t)) {
-                    break;
-                }
-                int32_t *int32 = reinterpret_cast<int32_t *>(p_buffer.get());
-                for (size_t current_sample = 0; current_sample < num_samples; current_sample++) {
-                    int32_t sample_32 = int32[current_sample];
-                    float sample = SampleConverter::int32_to_float(sample_32);
-                    samples.push_back(sample);
+                if (p_size >= sizeof(int32_t) && storage) {
+                    write_channel_samples(
+                        reinterpret_cast<const int32_t *>(p_buffer.get()),
+                        [](const int32_t p_sample) { return SampleConverter::int32_to_float(p_sample); }
+                    );
                 }
                 break;
             }
             case Lowl::Audio::SampleFormat::INT_16: {
-                if (p_size < sizeof(int16_t)) {
-                    break;
-                }
-                int16_t *int16 = reinterpret_cast<int16_t *>(p_buffer.get());
-                for (size_t current_sample = 0; current_sample < num_samples; current_sample++) {
-                    int16_t sample_16 = int16[current_sample];
-                    float sample = SampleConverter::int16_to_float(sample_16);
-                    samples.push_back(sample);
+                if (p_size >= sizeof(int16_t) && storage) {
+                    write_channel_samples(
+                        reinterpret_cast<const int16_t *>(p_buffer.get()),
+                        [](const int16_t p_sample) { return SampleConverter::int16_to_float(p_sample); }
+                    );
                 }
                 break;
             }
             case Lowl::Audio::SampleFormat::FLOAT_32: {
-                if (p_size < sizeof(float)) {
-                    break;
+                if (p_size >= sizeof(float) && storage) {
+                    write_channel_samples(
+                        reinterpret_cast<const float *>(p_buffer.get()),
+                        [](const float p_sample) { return p_sample; }
+                    );
                 }
-                float *sample_float = reinterpret_cast<float *>(p_buffer.get());
-                for (size_t current_sample = 0; current_sample < num_samples; current_sample++) {
-                    float sample = sample_float[current_sample];
-                    samples.push_back(sample);
+                break;
+            }
+            case Lowl::Audio::SampleFormat::FLOAT_64: {
+                if (p_size >= sizeof(double) && storage) {
+                    write_channel_samples(
+                        reinterpret_cast<const double *>(p_buffer.get()),
+                        [](const double p_sample) { return static_cast<Sample>(p_sample); }
+                    );
+                }
+                break;
+            }
+            case Lowl::Audio::SampleFormat::INT_8: {
+                if (p_size >= sizeof(int8_t) && storage) {
+                    write_channel_samples(
+                        reinterpret_cast<const int8_t *>(p_buffer.get()),
+                        [](const int8_t p_sample) { return SampleConverter::int8_to_float(p_sample); }
+                    );
+                }
+                break;
+            }
+            case Lowl::Audio::SampleFormat::U_INT_8: {
+                if (p_size >= sizeof(uint8_t) && storage) {
+                    write_channel_samples(
+                        reinterpret_cast<const uint8_t *>(p_buffer.get()),
+                        [](const uint8_t p_sample) { return SampleConverter::uint8_to_float(p_sample); }
+                    );
+                }
+                break;
+            }
+            case Lowl::Audio::SampleFormat::INT_24: {
+                if (p_size >= 3 && storage) {
+                    const uint8_t *src = p_buffer.get();
+                    for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
+                        Sample *dst = storage.get() + channel_index * frame_count;
+                        for (size_t frame_index = 0; frame_index < frame_count; frame_index++) {
+                            const size_t sample_index = frame_index * channel_count + channel_index;
+                            dst[frame_index] = int24_to_float(src + sample_index * 3);
+                        }
+                    }
                 }
                 break;
             }
             case SampleFormat::Unknown:
-            case SampleFormat::FLOAT_64:
-            case SampleFormat::INT_24:
-            case SampleFormat::INT_8:
-            case SampleFormat::U_INT_8:
             default: {
-                // error SampleFormat not supported for AudioFormat
-                break;
+                error.set_error(ErrorCode::UnsupportedAudioFormat);
+                return nullptr;
             }
         }
     } else {
-        // audio format not supported
+        error.set_error(ErrorCode::UnsupportedAudioFormat);
+        return nullptr;
     }
 
-    return read_frames(p_channel, samples, error);
+    return std::make_unique<AudioData>(std::move(storage), frame_count, p_sample_rate, p_channel);
 }
 
-std::vector<Lowl::Audio::AudioFrame>
-Lowl::Audio::AudioReader::read_frames(Lowl::Audio::AudioChannel p_channel, std::vector<float> samples,
-                                      Lowl::Error &error) {
+std::unique_ptr<Lowl::Audio::AudioData>
+Lowl::Audio::AudioReader::create_audio_data(Lowl::Audio::AudioChannel p_channel,
+                                            const std::vector<float> &p_samples,
+                                            SampleRate p_sample_rate,
+                                            Lowl::Error &error) {
+    const size_t channel_count = get_channel_num(p_channel);
+    if (channel_count == 0) {
+        error.set_error(ErrorCode::UnsupportedAudioFormat);
+        return nullptr;
+    }
 
-    std::vector<AudioFrame> frames = std::vector<AudioFrame>();
-    if (samples.empty()) {
-        // no data
-        return frames;
-    }
-    switch (p_channel) {
-        case AudioChannel::Mono: {
-            for (float sample: samples) {
-                AudioFrame frame{};
-                frame.left = sample;
-                frame.right = sample;
-                frames.push_back(frame);
+    const size_t frame_count = p_samples.size() / channel_count;
+    std::unique_ptr<Sample[]> storage;
+    if (frame_count > 0) {
+        storage = std::make_unique<Sample[]>(frame_count * channel_count);
+        for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
+            Sample *dst = storage.get() + channel_index * frame_count;
+            for (size_t frame_index = 0; frame_index < frame_count; frame_index++) {
+                dst[frame_index] = static_cast<Sample>(p_samples[frame_index * channel_count + channel_index]);
             }
-            break;
-        }
-        case AudioChannel::Stereo: {
-            size_t num_samples = samples.size();
-            size_t num_channels = get_channel_num(AudioChannel::Stereo);
-            size_t num_frames = num_samples / num_channels;
-            for (size_t current_frame = 0; current_frame < num_frames; current_frame++) {
-                AudioFrame frame{};
-                size_t sample_index = current_frame * 2;
-                frame.left = samples[sample_index];
-                frame.right = samples[sample_index + 1];
-                frames.push_back(frame);
-            }
-            break;
-        }
-        case AudioChannel::None:
-        case AudioChannel::Quadraphonic:
-        case AudioChannel::Surround5_1:
-        case AudioChannel::Surround7_1:
-        default: {
-            // channels not supported
-            break;
         }
     }
-    return frames;
+    return std::make_unique<AudioData>(std::move(storage), frame_count, p_sample_rate, p_channel);
 }
 
 std::unique_ptr<Lowl::Audio::AudioReader>

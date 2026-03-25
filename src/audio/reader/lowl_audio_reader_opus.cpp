@@ -22,36 +22,55 @@ Lowl::Audio::AudioReaderOpus::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p
     }
 
     SampleRate sample_rate = OPUS_SAMPLE_RATE;
-    SampleFormat sample_format = SampleFormat::FLOAT_32;
     uint32_t channel_count = static_cast<uint32_t>(op_channel_count(ogg_file.get(), -1));
     AudioChannel channel = get_channel(channel_count);
     ogg_int64_t sample_count = op_pcm_total(ogg_file.get(), -1);
-    size_t bytes_per_sample = get_sample_size_bytes(sample_format);
-    AudioFormat audio_format = AudioFormat::OPUS;
+    const size_t frame_count = sample_count > 0 ? static_cast<size_t>(sample_count) : 0;
     size_t buffer_size = Lowl::Audio::ms_to_samples(OPUS_BUFFER_SIZE_MS, sample_rate, channel);
     std::vector<float> buffer(buffer_size, 0.0f);
-    std::vector<float> samples = std::vector<float>();
+    std::unique_ptr<Sample[]> storage;
+    if (frame_count > 0 && channel_count > 0) {
+        storage = std::make_unique<Sample[]>(frame_count * channel_count);
+    }
+    size_t frames_read_total = 0;
 
-    for (long total_samples_read = 0; total_samples_read < sample_count;) {
+    while (frames_read_total < frame_count) {
         int samples_read_per_channel = op_read_float(ogg_file.get(), buffer.data(), (int) buffer.size(), nullptr);
         if (samples_read_per_channel < 0) {
             error.set_error(ErrorCode::OpusFileCanNotParseOpusFile);
             return nullptr;
         }
-        uint64_t samples_read = (uint64_t) (static_cast<uint32_t>(samples_read_per_channel) * channel_count);
-        for (uint64_t s = 0; s < samples_read; s++) {
-            samples.push_back(buffer[s]);
+        if (samples_read_per_channel == 0) {
+            break;
         }
-        total_samples_read += samples_read;
+        const size_t frames_read = static_cast<size_t>(samples_read_per_channel);
+        for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
+            Sample *dst = storage ? storage.get() + channel_index * frame_count + frames_read_total : nullptr;
+            if (dst != nullptr) {
+                for (size_t frame_index = 0; frame_index < frames_read; frame_index++) {
+                    dst[frame_index] = buffer[frame_index * channel_count + channel_index];
+                }
+            }
+        }
+        frames_read_total += frames_read;
     }
 
-    std::vector<AudioFrame> audio_frames = read_frames(channel, samples, error);
-    if (error.has_error()) {
-        return nullptr;
+    if (frames_read_total < frame_count) {
+        std::unique_ptr<Sample[]> trimmed_storage;
+        if (frames_read_total > 0 && channel_count > 0) {
+            trimmed_storage = std::make_unique<Sample[]>(frames_read_total * channel_count);
+            for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
+                std::copy_n(
+                    storage.get() + channel_index * frame_count,
+                    frames_read_total,
+                    trimmed_storage.get() + channel_index * frames_read_total
+                );
+            }
+        }
+        storage = std::move(trimmed_storage);
     }
 
-    std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(audio_frames, sample_rate, channel);
-    return audio_data;
+    return std::make_unique<AudioData>(std::move(storage), frames_read_total, sample_rate, channel);
 }
 
 bool Lowl::Audio::AudioReaderOpus::support(Lowl::FileFormat p_file_format) const {

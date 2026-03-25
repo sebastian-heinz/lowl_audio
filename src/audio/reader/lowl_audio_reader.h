@@ -40,12 +40,20 @@ namespace Lowl::Audio {
 
         virtual ~AudioReader() = default;
 
-        virtual std::vector<AudioFrame>
-        read_frames(AudioFormat p_audio_format, SampleFormat p_sample_format, AudioChannel p_channel,
-                    const std::unique_ptr<uint8_t[]> &p_buffer, size_t p_size, Error &error);
+        std::unique_ptr<AudioData>
+        create_audio_data(AudioFormat p_audio_format,
+                          SampleFormat p_sample_format,
+                          AudioChannel p_channel,
+                          SampleRate p_sample_rate,
+                          const std::unique_ptr<uint8_t[]> &p_buffer,
+                          size_t p_size,
+                          Error &error);
 
-        virtual std::vector<AudioFrame>
-        read_frames(AudioChannel p_channel, std::vector<float> samples, Error &error);
+        std::unique_ptr<AudioData>
+        create_audio_data(AudioChannel p_channel,
+                          const std::vector<float> &p_samples,
+                          SampleRate p_sample_rate,
+                          Error &error);
 
     public:
         AudioReader();

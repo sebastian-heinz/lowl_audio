@@ -47,14 +47,15 @@ Lowl::Audio::AudioReaderFlac::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p
     size_t pcm_frames_read = drflac_read_pcm_frames_s32(flac, flac->totalPCMFrameCount, buffer);
     size_t pcm_buffer_size = pcm_frames_read * bytes_per_frame;
 
-    std::vector<AudioFrame> audio_frames =
-            read_frames(audio_format, sample_format, channel, pcm_frames, pcm_buffer_size, error);
-    if (error.has_error()) {
-        return nullptr;
-    }
-
-    std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(audio_frames, sample_rate, channel);
-    return audio_data;
+    return create_audio_data(
+        audio_format,
+        sample_format,
+        channel,
+        sample_rate,
+        pcm_frames,
+        pcm_buffer_size,
+        error
+    );
 }
 
 bool Lowl::Audio::AudioReaderFlac::support(Lowl::FileFormat p_file_format) const {

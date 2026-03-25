@@ -3,15 +3,15 @@
 
 #include "audio/source/lowl_audio_source.h"
 
-#include <memory>
-
 namespace Lowl::Audio {
     struct AudioMixerEvent {
-        static constexpr uint8_t Mix = 0;
-        static constexpr uint8_t Remove = 1;
+        enum class Type : uint8_t {
+            Mix = 0,
+            Remove = 1,
+        };
 
-        uint8_t type;
-        std::shared_ptr<AudioSource> audio_source;
+        Type type = Type::Mix;
+        AudioSource *audio_source = nullptr;
     };
 }
 

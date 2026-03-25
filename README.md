@@ -271,16 +271,16 @@ void main()
 ---
 
 ## Requirements
-- all operations are performed over float32 audio frames
-  - input files via the `AudioReader` are converted to float32 audio frames
-  - `AudioFrame`s that have been generated through algorithms require to be in float32 format
+- all operations are performed over float32 samples
+  - input files via the `AudioReader` are converted to float32 sample data
+  - generated or streamed audio data should be provided as float32 samples
 
 ## Info
 - Pa+Win: if the sample rate of `AudioSource` that is passed to `LowlDevice` does not match the devices sample rate, it will not open the stream.
 
 ## Definitions
 - Audio Sample = smallest audio unit, depends on bit depth
-- Audio Frame = contains Audio Samples (2Channel/Stereo audio at 16bit depth contains two samples, each 2bytes. The Frame would be 4byte)
+- Audio Frame = one time slice across all channels
 
 ## System
 ![](./doc/system.jpg)

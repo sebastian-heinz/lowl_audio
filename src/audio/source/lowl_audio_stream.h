@@ -1,19 +1,26 @@
 #ifndef LOWL_AUDIO_STREAM_H
 #define LOWL_AUDIO_STREAM_H
 
-#include "audio/lowl_audio_frame.h"
 #include "audio/lowl_audio_channel.h"
 #include "audio/source/lowl_audio_source.h"
 
-#include <readerwriterqueue.h>
-
+#include <atomic>
 #include <vector>
 
 namespace Lowl::Audio {
     class AudioStream : public AudioSource {
     private:
         static constexpr size_t DEFAULT_STREAM_SIZE = 375000; // ~ 7 Seconds(3 MB) of stereo 32-bit float audio
-        std::unique_ptr<moodycamel::ReaderWriterQueue<AudioFrame> > frame_queue;
+        std::vector<std::vector<Sample> > channels;
+        std::atomic<size_t> read_position{0};
+        std::atomic<size_t> write_position{0};
+        size_t frame_capacity = 0;
+
+        size_t get_available_frames_to_read() const;
+        size_t get_available_frames_to_write() const;
+        void copy_from_ring(AudioBlockView p_block, uint32_t p_frames_to_read, size_t p_read_position);
+        void copy_interleaved_to_ring(const Sample *p_interleaved, size_t p_frame_count, size_t p_write_position);
+        void copy_planar_to_ring(const std::vector<const Sample *> &p_channels, size_t p_frame_count, size_t p_write_position);
 
     public:
         size_l get_frames_remaining() const override;
@@ -22,11 +29,11 @@ namespace Lowl::Audio {
 
         size_l get_frame_count() const override;
 
-        ReadResult read(AudioFrame &audio_frame) override;
+        RenderResult render(AudioBlockView p_block) override;
 
-        bool write(const AudioFrame &p_audio_frame);
+        size_l write_interleaved(const Sample *p_interleaved, size_t p_frame_count);
 
-        size_l write(const std::vector<AudioFrame> &p_audio_frames);
+        size_l write_planar(const std::vector<const Sample *> &p_channels, size_t p_frame_count);
 
         AudioStream(SampleRate p_sample_rate, AudioChannel p_channel, size_t size = DEFAULT_STREAM_SIZE);
 

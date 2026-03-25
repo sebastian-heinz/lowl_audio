@@ -28,6 +28,7 @@ set(LOWL_SOURCES
         src/lowl_logger.cpp
 
         src/audio/lowl_audio_setting.cpp
+        src/audio/lowl_audio_buffer.cpp
         src/audio/lowl_audio_utilities.cpp
 
         src/audio/backend/lowl_audio_device.cpp
@@ -44,7 +45,6 @@ set(LOWL_SOURCES
         src/audio/backend/wasapi/lowl_audio_wasapi_com.cpp
 
         src/audio/convert/lowl_audio_channel_converter.cpp
-        src/audio/convert/lowl_audio_re_sampler.cpp
         src/audio/convert/lowl_audio_re_sampler_r8b.cpp
 
         src/audio/reader/lowl_audio_reader.cpp
@@ -56,11 +56,10 @@ set(LOWL_SOURCES
 
         src/audio/source/lowl_audio_data.cpp
         src/audio/source/lowl_audio_mixer.cpp
-        src/audio/source/lowl_audio_re_sampler_source.cpp
         src/audio/source/lowl_audio_source.cpp
         src/audio/source/lowl_audio_space.cpp
         src/audio/source/lowl_audio_stream.cpp
-        src/audio/lowl_audio_block.h
+        src/audio/source/lowl_audio_voice.cpp
 )
 
 add_library(${LOWL_LIB_MAIN} ${LOWL_SOURCES})

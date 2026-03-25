@@ -2,6 +2,7 @@
 
 #include "audio/lowl_audio_format.h"
 
+#include <cassert>
 #include <vorbis/vorbisfile.h>
 
 struct OggData {
@@ -75,39 +76,53 @@ Lowl::Audio::AudioReaderOgg::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
     uint32_t channel_count = static_cast<uint32_t>(vi->channels);
     ogg_int64_t sample_count = ov_pcm_total(&vf, -1);
 
-    SampleFormat sample_format = SampleFormat::FLOAT_32;
     SampleRate sample_rate = (SampleRate) vi->rate;
     AudioChannel channel = get_channel(channel_count);
-
-    size_t bytes_per_sample = get_sample_size_bytes(sample_format);
-    AudioFormat audio_format = AudioFormat::OGG;
+    const size_t frame_count = sample_count > 0 ? static_cast<size_t>(sample_count) : 0;
+    std::unique_ptr<Sample[]> storage;
+    if (frame_count > 0 && channel_count > 0) {
+        storage = std::make_unique<Sample[]>(frame_count * channel_count);
+    }
 
     int bitstream = 0;
-    std::vector<float> samples = std::vector<float>();
-    for (long readTotal = 0; readTotal < sample_count;) {
+    size_t frames_read_total = 0;
+    for (size_t read_total = 0; read_total < frame_count;) {
         float **pcm{};
-        auto samples_read = ov_read_float(&vf, &pcm, (int) sample_count, &bitstream);
+        const auto samples_read = ov_read_float(&vf, &pcm, static_cast<int>(frame_count - read_total), &bitstream);
         if (samples_read < 0) {
             ov_clear(&vf);
             error.set_error(ErrorCode::VorbisFileCanNotParseOggFile);
             return nullptr;
         }
-        for (int s = 0; s < samples_read; s++) {
-            for (int c = 0; c < channel_count; c++) {
-                samples.push_back(pcm[c][s]);
+        if (samples_read == 0) {
+            break;
+        }
+        for (uint32_t channel_index = 0; channel_index < channel_count; channel_index++) {
+            Sample *dst = storage ? storage.get() + static_cast<size_t>(channel_index) * frame_count + read_total : nullptr;
+            if (dst != nullptr) {
+                std::copy_n(pcm[channel_index], static_cast<size_t>(samples_read), dst);
             }
         }
-        readTotal += samples_read;
+        read_total += static_cast<size_t>(samples_read);
+        frames_read_total = read_total;
     }
     ov_clear(&vf);
-
-    std::vector<AudioFrame> audio_frames = read_frames(channel, samples, error);
-    if (error.has_error()) {
-        return nullptr;
+    if (frames_read_total < frame_count) {
+        std::unique_ptr<Sample[]> trimmed_storage;
+        if (frames_read_total > 0 && channel_count > 0) {
+            trimmed_storage = std::make_unique<Sample[]>(frames_read_total * channel_count);
+            for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
+                std::copy_n(
+                    storage.get() + channel_index * frame_count,
+                    frames_read_total,
+                    trimmed_storage.get() + channel_index * frames_read_total
+                );
+            }
+        }
+        storage = std::move(trimmed_storage);
     }
 
-    std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(audio_frames, sample_rate, channel);
-    return audio_data;
+    return std::make_unique<AudioData>(std::move(storage), frames_read_total, sample_rate, channel);
 }
 
 bool Lowl::Audio::AudioReaderOgg::support(Lowl::FileFormat p_file_format) const {

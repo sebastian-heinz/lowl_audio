@@ -60,7 +60,7 @@ OSStatus Lowl::Audio::CoreAudioDevice::audio_callback(
     }
 
     void *dst = ioData->mBuffers[0].mData;
-    write_frames(dst, inNumberFrames, bytes_per_frame);
+    render_to_device_buffer(dst, inNumberFrames, bytes_per_frame);
     return noErr;
 }
 
@@ -250,6 +250,8 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
         LOWL_LOG_ERROR_F("failed to get_maximum_frames_per_slice (device:%u)", device_id);
         return;
     }
+
+    allocate_render_buffer(static_cast<unsigned long>(max_frames_per_buffer));
 
     // todo compare set with get, to verify
 

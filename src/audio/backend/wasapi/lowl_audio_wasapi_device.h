@@ -3,8 +3,7 @@
 
 #ifdef LOWL_DRIVER_WASAPI
 
-#include "audio/lowl_audio_device.h"
-#include "audio/convert/lowl_audio_sample_converter.h"
+#include "audio/backend/lowl_audio_device.h"
 
 #include <mmdeviceapi.h>
 #include <audioclient.h>
@@ -60,9 +59,6 @@ namespace Lowl::Audio {
         HANDLE wasapi_audio_stop_handle;
         HANDLE avrt_handle;
         DWORD avrt_task_index;
-
-        AudioDeviceProperties audio_device_properties;
-        SampleConverter sample_converter;
 
         bool enable_avrt();
 

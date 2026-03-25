@@ -3,8 +3,8 @@
 
 #include "lowl_typedef.h"
 
+#include "audio/lowl_audio_buffer.h"
 #include "audio/lowl_audio_channel.h"
-#include "audio/lowl_audio_frame.h"
 #include "audio/lowl_audio_sample_format.h"
 #include "audio/backend/lowl_audio_device_properties.h"
 
@@ -18,11 +18,16 @@ namespace Lowl::Audio {
      */
     class AudioSource {
     public:
-        enum class ReadResult {
-            Read = 0,
-            Pause = 1,
-            End = 2,
+        enum class RenderState {
+            Ok = 0,
+            Starved = 1,
+            Finished = 2,
             Remove = 3,
+        };
+
+        struct RenderResult {
+            uint32_t frames_produced = 0;
+            RenderState state = RenderState::Ok;
         };
 
     private:
@@ -35,16 +40,18 @@ namespace Lowl::Audio {
         AudioChannel channel;
         std::atomic<bool> is_playing{true};
 
-        void process_volume(AudioFrame &audio_frame);
+        void process_volume(AudioBlockView p_block);
 
-        void process_panning(AudioFrame &audio_frame);
+        void process_panning(AudioBlockView p_block);
 
     public:
         AudioSource(SampleRate p_sample_rate, AudioChannel p_channel);
 
         virtual ~AudioSource() = default;
 
-        virtual ReadResult read(AudioFrame &audio_frame) = 0;
+        virtual RenderResult render(AudioBlockView p_block) = 0;
+
+        virtual void on_removed_from_mixer();
 
         virtual size_l get_frames_remaining() const = 0;
 

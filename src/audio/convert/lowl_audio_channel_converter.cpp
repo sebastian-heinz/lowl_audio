@@ -1,57 +1,73 @@
 #include "lowl_audio_channel_converter.h"
 
-Lowl::Audio::AudioFrame Lowl::Audio::ChannelConverter::to_stereo(AudioFrame p_audio_frame) const {
-    p_audio_frame[0] = p_audio_frame[0];
-    p_audio_frame[1] = p_audio_frame[0];
-    return p_audio_frame;
-}
-
-Lowl::Audio::AudioFrame Lowl::Audio::ChannelConverter::to_mono(AudioFrame p_audio_frame) const {
-    p_audio_frame[0] = static_cast<Sample>((p_audio_frame[0] + p_audio_frame[1]) * 0.5);
-    p_audio_frame[1] = p_audio_frame[0];
-    return p_audio_frame;
-}
-
-std::vector<Lowl::Audio::AudioFrame>
-Lowl::Audio::ChannelConverter::convert(std::vector<AudioFrame> p_audio_frames, const ConvertFn p_convert_fn) const {
-    std::vector<AudioFrame> converted_audio_frames = std::vector<AudioFrame>();
-    for (AudioFrame audio_frame: p_audio_frames) {
-        AudioFrame converted_frame = (this->*p_convert_fn)(audio_frame);
-        converted_audio_frames.push_back(converted_frame);
+std::unique_ptr<Lowl::Audio::AudioData>
+Lowl::Audio::ChannelConverter::convert(AudioChannel p_to, std::shared_ptr<AudioData> p_audio_data, Error &error) const {
+    if (!p_audio_data) {
+        error.set_error(ErrorCode::ConvertAudioChannelInvalid);
+        return nullptr;
     }
-    return converted_audio_frames;
-}
 
-std::vector<Lowl::Audio::AudioFrame>
-Lowl::Audio::ChannelConverter::convert(Lowl::Audio::AudioChannel p_from, Lowl::Audio::AudioChannel p_to,
-                                       std::vector<AudioFrame> audio_data,
-                                       Error error) const {
+    const AudioChannel p_from = p_audio_data->get_channel();
     if (p_from == p_to) {
-        // error.set_error(ErrorCode::Error);
+        const size_t frame_count = p_audio_data->get_frame_count();
+        const size_t channel_count = p_audio_data->get_channel_num();
+        std::unique_ptr<Sample[]> storage;
+        if (frame_count > 0 && channel_count > 0) {
+            storage = std::make_unique<Sample[]>(frame_count * channel_count);
+            for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
+                const Sample *src = p_audio_data->get_channel_data(static_cast<uint8_t>(channel_index));
+                if (src != nullptr) {
+                    std::copy_n(src, frame_count, storage.get() + channel_index * frame_count);
+                }
+            }
+        }
+        std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(
+            std::move(storage),
+            frame_count,
+            p_audio_data->get_sample_rate(),
+            p_to
+        );
+        audio_data->set_name(p_audio_data->get_name());
         return audio_data;
     }
     if (p_from == AudioChannel::None || p_to == AudioChannel::None) {
         error.set_error(ErrorCode::ConvertAudioChannelInvalid);
-        return audio_data;
-    }
-    if (p_from == AudioChannel::Mono && p_to == AudioChannel::Stereo) {
-        return convert(audio_data, &ChannelConverter::to_stereo);
-    }
-    if (p_from == AudioChannel::Stereo && p_to == AudioChannel::Mono) {
-        return convert(audio_data, &ChannelConverter::to_mono);
-    }
-    error.set_error(ErrorCode::ConvertAudioChannelNotSupported);
-    return audio_data;
-}
-
-std::unique_ptr<Lowl::Audio::AudioData>
-Lowl::Audio::ChannelConverter::convert(AudioChannel p_to, std::shared_ptr<AudioData> p_audio_data, Error error) const {
-    std::vector<AudioFrame> frames = convert(p_audio_data->get_channel(), p_to, p_audio_data->get_frames(), error);
-    if (error.has_error()) {
         return nullptr;
     }
+
+    const size_t frame_count = p_audio_data->get_frame_count();
+    const size_t channel_count = get_channel_num(p_to);
+    std::unique_ptr<Sample[]> storage;
+    if (frame_count > 0 && channel_count > 0) {
+        storage = std::make_unique<Sample[]>(frame_count * channel_count);
+    }
+
+    if (p_from == AudioChannel::Mono && p_to == AudioChannel::Stereo) {
+        const Sample *mono = p_audio_data->get_channel_data(0);
+        Sample *left = storage.get();
+        Sample *right = storage.get() + frame_count;
+        for (size_t frame_index = 0; frame_index < frame_count; frame_index++) {
+            const Sample sample = mono ? mono[frame_index] : static_cast<Sample>(0);
+            left[frame_index] = sample;
+            right[frame_index] = sample;
+        }
+    } else if (p_from == AudioChannel::Stereo && p_to == AudioChannel::Mono) {
+        const Sample *left = p_audio_data->get_channel_data(0);
+        const Sample *right = p_audio_data->get_channel_data(1);
+        Sample *mono = storage.get();
+        for (size_t frame_index = 0; frame_index < frame_count; frame_index++) {
+            const Sample left_sample = left ? left[frame_index] : static_cast<Sample>(0);
+            const Sample right_sample = right ? right[frame_index] : static_cast<Sample>(0);
+            mono[frame_index] = static_cast<Sample>((left_sample + right_sample) * 0.5);
+        }
+    } else {
+        error.set_error(ErrorCode::ConvertAudioChannelNotSupported);
+        return nullptr;
+    }
+
     std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(
-        frames,
+        std::move(storage),
+        frame_count,
         p_audio_data->get_sample_rate(),
         p_to
     );

@@ -1,74 +1,52 @@
 #ifndef LOWL_AUDIO_DATA_H
 #define LOWL_AUDIO_DATA_H
 
+#include "lowl_typedef.h"
 
-#include "audio/lowl_audio_frame.h"
 #include "audio/lowl_audio_channel.h"
-#include "audio/source/lowl_audio_source.h"
 
+#include <memory>
+#include <string>
 #include <vector>
-#include <atomic>
-
 
 namespace Lowl::Audio {
-    /**
-     * represents a collection of frames that can be pushed into a stream repeatedly.
-     * ex. sound effects, or any sound that should not be drained like a stream.
-     */
-    class AudioData : public AudioSource {
+    class AudioData {
     private:
-        std::vector<AudioFrame> frames;
-        std::atomic<size_t> position{};
-        std::atomic<size_t> seek_position{};
-        size_t size;
-        std::atomic_flag is_not_reset{};
+        std::unique_ptr<Sample[]> storage;
+        std::vector<Sample *> channel_ptrs;
+        SampleRate sample_rate;
+        AudioChannel channel;
+        size_t frame_count = 0;
+        std::string name;
+
+        void rebuild_channel_ptrs();
 
     public:
-        /**
-         * returns all frames.
-         */
-        std::vector<AudioFrame> get_frames();
+        AudioData(const AudioData &) = delete;
+        AudioData &operator=(const AudioData &) = delete;
+        AudioData(AudioData &&) = delete;
+        AudioData &operator=(AudioData &&) = delete;
 
-        /**
-         * returns a new AudioData created from a slice of its frames.
-         */
         std::unique_ptr<AudioData> create_slice(double p_begin_sec, double p_end_sec);
+        const Sample *get_channel_data(uint8_t p_channel) const;
 
-        /**
-         * resets the current position to the start
-         */
-        void reset();
+        AudioData(
+            std::unique_ptr<Sample[]> p_storage,
+            size_t p_frame_count,
+            SampleRate p_sample_rate,
+            AudioChannel p_channel
+        );
+        ~AudioData();
 
-        /**
-         * sets the play head to the specified time
-         */
-        void seek_time(TimeSeconds p_seconds);
-
-        /**
-         * sets the play head to the specified frame
-         */
-        void seek_frame(size_t p_frame);
-
-        /**
-         * reads a frame
-         *
-         * if the end is reached:
-         *  - false will be returned indicating that the read frame is invalid.
-         *  - position will be reset to the beginning, next call to read() will return the first frame again.
-         */
-        ReadResult read(AudioFrame &audio_frame) override;
-
-        size_l get_frames_remaining() const override;
-
-        size_l get_frame_position() const override;
-
-        size_l get_frame_count() const override;
-
-        AudioData(std::vector<AudioFrame> p_audio_frames, SampleRate p_sample_rate, AudioChannel p_channel);
-
-        ~AudioData() override;
+        SampleRate get_sample_rate() const;
+        AudioChannel get_channel() const;
+        size_t get_channel_num() const;
+        size_l get_frames_remaining() const;
+        size_l get_frame_position() const;
+        size_l get_frame_count() const;
+        std::string get_name() const;
+        void set_name(const std::string &p_name);
     };
 }
-
 
 #endif

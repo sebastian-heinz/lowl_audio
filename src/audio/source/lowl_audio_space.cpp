@@ -7,6 +7,8 @@
 #include "audio/convert/lowl_audio_channel_converter.h"
 #include "audio/convert/lowl_audio_re_sampler_r8b.h"
 
+#include <algorithm>
+
 Lowl::Audio::AudioSpace::AudioSpace(
     SampleRate p_sample_rate,
     AudioChannel p_channel
@@ -14,6 +16,7 @@ Lowl::Audio::AudioSpace::AudioSpace(
     mixer = std::make_unique<AudioMixer>(sample_rate, channel);
     current_id = FirstSpaceId;
     audio_data_lookup = std::vector<std::shared_ptr<AudioData> >();
+    active_voice_lookup = std::vector<std::vector<std::shared_ptr<AudioVoice> > >();
 }
 
 Lowl::Audio::AudioSpace::~AudioSpace() {
@@ -23,10 +26,40 @@ Lowl::SpaceId Lowl::Audio::AudioSpace::insert_audio_data(std::shared_ptr<AudioDa
     SpaceId id = current_id;
     if (audio_data_lookup.size() < id + 1) {
         audio_data_lookup.resize(id + LookupGrowth);
+        active_voice_lookup.resize(id + LookupGrowth);
     }
     audio_data_lookup[id] = p_audio_data;
     current_id++;
     return id;
+}
+
+void Lowl::Audio::AudioSpace::collect_garbage() const {
+    for (std::vector<std::shared_ptr<AudioVoice> > &voices : active_voice_lookup) {
+        voices.erase(
+            std::remove_if(
+                voices.begin(),
+                voices.end(),
+                [](const std::shared_ptr<AudioVoice> &voice) {
+                    return !voice || voice->is_detached();
+                }
+            ),
+            voices.end()
+        );
+    }
+
+    retired_voices.erase(
+        std::remove_if(
+            retired_voices.begin(),
+            retired_voices.end(),
+            [](const std::shared_ptr<AudioVoice> &voice) {
+                return !voice || voice->is_detached();
+            }
+        ),
+        retired_voices.end()
+    );
+    if (retired_voices.empty()) {
+        retired_audio_data.clear();
+    }
 }
 
 Lowl::SpaceId Lowl::Audio::AudioSpace::add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error) {
@@ -56,7 +89,6 @@ Lowl::SpaceId Lowl::Audio::AudioSpace::add_audio(std::unique_ptr<AudioData> p_au
     }
 
     SpaceId audio_data_id = insert_audio_data(audio);
-
     return audio_data_id;
 }
 
@@ -69,13 +101,29 @@ Lowl::SpaceId Lowl::Audio::AudioSpace::add_audio(const std::string &p_path, Erro
 }
 
 void Lowl::Audio::AudioSpace::clear_all_audio() {
+    collect_garbage();
     stop_all_audio();
-    audio_data_lookup.clear();
+
+    for (const std::shared_ptr<AudioData> &audio_data : audio_data_lookup) {
+        if (audio_data) {
+            retired_audio_data.push_back(audio_data);
+        }
+    }
+    for (const std::vector<std::shared_ptr<AudioVoice> > &voices : active_voice_lookup) {
+        for (const std::shared_ptr<AudioVoice> &voice : voices) {
+            if (voice) {
+                retired_voices.push_back(voice);
+            }
+        }
+    }
+
+    audio_data_lookup = std::vector<std::shared_ptr<AudioData> >();
+    active_voice_lookup = std::vector<std::vector<std::shared_ptr<AudioVoice> > >();
     current_id = FirstSpaceId;
-    insert_audio_data(std::shared_ptr<AudioData>());
 }
 
 void Lowl::Audio::AudioSpace::stop_all_audio() {
+    collect_garbage();
     for (SpaceId id = FirstSpaceId; id < current_id; id++) {
         stop(id);
     }
@@ -86,88 +134,123 @@ void Lowl::Audio::AudioSpace::play(
     const Volume p_volume,
     const Panning p_panning
 ) const {
+    collect_garbage();
     std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
     if (!audio_data) {
         return;
     }
-    audio_data->set_volume(p_volume);
-    audio_data->set_panning(p_panning);
-    mixer->mix(audio_data);
+    std::shared_ptr<AudioVoice> voice = std::make_shared<AudioVoice>(audio_data.get());
+    voice->set_name(audio_data->get_name());
+    voice->set_volume(p_volume);
+    voice->set_panning(p_panning);
+    active_voice_lookup[p_id].push_back(voice);
+    mixer->mix(voice.get());
 }
 
 void Lowl::Audio::AudioSpace::play(const SpaceId p_id) const {
+    collect_garbage();
     std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
     if (!audio_data) {
         return;
     }
-    mixer->mix(audio_data);
+    std::shared_ptr<AudioVoice> voice = std::make_shared<AudioVoice>(audio_data.get());
+    voice->set_name(audio_data->get_name());
+    active_voice_lookup[p_id].push_back(voice);
+    mixer->mix(voice.get());
 }
 
 void Lowl::Audio::AudioSpace::stop(const SpaceId p_id) const {
-    std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
-    if (!audio_data) {
+    collect_garbage();
+    if (p_id >= active_voice_lookup.size()) {
         return;
     }
-    mixer->remove(audio_data);
+    for (const std::shared_ptr<AudioVoice> &voice : active_voice_lookup[p_id]) {
+        if (voice && !voice->is_detached()) {
+            mixer->remove(voice.get());
+        }
+    }
 }
 
 void Lowl::Audio::AudioSpace::set_volume(const SpaceId p_id, const Volume p_volume) const {
-    std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
-    if (!audio_data) {
+    collect_garbage();
+    if (p_id >= active_voice_lookup.size()) {
         return;
     }
-    audio_data->set_volume(p_volume);
+    for (const std::shared_ptr<AudioVoice> &voice : active_voice_lookup[p_id]) {
+        if (voice && !voice->is_detached()) {
+            voice->set_volume(p_volume);
+        }
+    }
 }
 
 void Lowl::Audio::AudioSpace::set_panning(const SpaceId p_id, const Panning p_panning) const {
-    std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
-    if (!audio_data) {
+    collect_garbage();
+    if (p_id >= active_voice_lookup.size()) {
         return;
     }
-    audio_data->set_panning(p_panning);
+    for (const std::shared_ptr<AudioVoice> &voice : active_voice_lookup[p_id]) {
+        if (voice && !voice->is_detached()) {
+            voice->set_panning(p_panning);
+        }
+    }
 }
 
 void Lowl::Audio::AudioSpace::seek_frame(const SpaceId p_id, const size_t p_frame) const {
-    std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
-    if (!audio_data) {
+    collect_garbage();
+    if (p_id >= active_voice_lookup.size()) {
         return;
     }
-    audio_data->seek_frame(p_frame);
+    for (const std::shared_ptr<AudioVoice> &voice : active_voice_lookup[p_id]) {
+        if (voice && !voice->is_detached()) {
+            voice->seek_frame(p_frame);
+        }
+    }
 }
 
 void Lowl::Audio::AudioSpace::seek_time(const SpaceId p_id, const double_l p_seconds) const {
-    std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
-    if (!audio_data) {
+    collect_garbage();
+    if (p_id >= active_voice_lookup.size()) {
         return;
     }
-    audio_data->seek_time(p_seconds);
+    for (const std::shared_ptr<AudioVoice> &voice : active_voice_lookup[p_id]) {
+        if (voice && !voice->is_detached()) {
+            voice->seek_time(p_seconds);
+        }
+    }
 }
 
 void Lowl::Audio::AudioSpace::reset(const SpaceId p_id) const {
-    std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
-    if (!audio_data) {
+    collect_garbage();
+    if (p_id >= active_voice_lookup.size()) {
         return;
     }
-    audio_data->reset();
+    for (const std::shared_ptr<AudioVoice> &voice : active_voice_lookup[p_id]) {
+        if (voice && !voice->is_detached()) {
+            voice->reset();
+        }
+    }
 }
 
 Lowl::size_l Lowl::Audio::AudioSpace::get_frame_position(const SpaceId p_id) const {
-    std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
-    if (!audio_data) {
+    collect_garbage();
+    std::shared_ptr<AudioVoice> voice = get_latest_voice(p_id);
+    if (!voice) {
         return 0;
     }
-    return audio_data->get_frame_position();
+    return voice->get_frame_position();
 }
 
 Lowl::size_l Lowl::Audio::AudioSpace::get_frames_remaining(const SpaceId p_id) const {
-    std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
-    if (!audio_data) {
+    collect_garbage();
+    std::shared_ptr<AudioVoice> voice = get_latest_voice(p_id);
+    if (!voice) {
         return 0;
     }
-    return audio_data->get_frames_remaining();
+    return voice->get_frames_remaining();
 }
 
 Lowl::size_l Lowl::Audio::AudioSpace::get_frame_count(const SpaceId p_id) const {
+    collect_garbage();
     std::shared_ptr<AudioData> audio_data = get_audio_data(p_id);
     if (!audio_data) {
         return 0;
@@ -176,18 +259,32 @@ Lowl::size_l Lowl::Audio::AudioSpace::get_frame_count(const SpaceId p_id) const 
 }
 
 std::shared_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioSpace::get_audio_data(const SpaceId p_id) const {
-    if (p_id >= current_id) {
+    if (p_id >= current_id || p_id >= audio_data_lookup.size()) {
         return nullptr;
     }
-    std::shared_ptr<AudioData> audio_data = audio_data_lookup[p_id];
-    return audio_data;
+    return audio_data_lookup[p_id];
 }
 
-Lowl::Audio::AudioSource::ReadResult Lowl::Audio::AudioSpace::read(AudioFrame &audio_frame) {
-    ReadResult result = mixer->read(audio_frame);
-    if (result == ReadResult::Read) {
-        process_volume(audio_frame);
-        process_panning(audio_frame);
+std::shared_ptr<Lowl::Audio::AudioVoice> Lowl::Audio::AudioSpace::get_latest_voice(const SpaceId p_id) const {
+    if (p_id >= active_voice_lookup.size()) {
+        return nullptr;
+    }
+    const std::vector<std::shared_ptr<AudioVoice> > &voices = active_voice_lookup[p_id];
+    for (auto it = voices.rbegin(); it != voices.rend(); ++it) {
+        if (*it && !(*it)->is_detached()) {
+            return *it;
+        }
+    }
+    return nullptr;
+}
+
+Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioSpace::render(AudioBlockView p_block) {
+    RenderResult result = mixer->render(p_block);
+    if (result.frames_produced > 0) {
+        AudioBlockView produced_block = p_block;
+        produced_block.frame_count = result.frames_produced;
+        process_volume(produced_block);
+        process_panning(produced_block);
     }
     return result;
 }
@@ -205,6 +302,7 @@ Lowl::size_l Lowl::Audio::AudioSpace::get_frame_count() const {
 }
 
 std::map<Lowl::SpaceId, std::string> Lowl::Audio::AudioSpace::get_name_mapping() const {
+    collect_garbage();
     std::map<SpaceId, std::string> map = std::map<SpaceId, std::string>();
     for (SpaceId space_id = 0; space_id < audio_data_lookup.size(); space_id++) {
         std::shared_ptr<AudioData> audio_data = audio_data_lookup[space_id];

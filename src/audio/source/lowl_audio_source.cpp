@@ -1,7 +1,7 @@
 #include "lowl_audio_source.h"
 
-#include <cmath>
 #include <algorithm>
+#include <cmath>
 
 Lowl::Audio::AudioSource::AudioSource(const SampleRate p_sample_rate, const AudioChannel p_channel) {
     sample_rate = p_sample_rate;
@@ -21,6 +21,9 @@ Lowl::Audio::AudioChannel Lowl::Audio::AudioSource::get_channel() const {
 
 Lowl::Audio::SampleFormat Lowl::Audio::AudioSource::get_sample_format() const {
     return SampleFormat::FLOAT_32;
+}
+
+void Lowl::Audio::AudioSource::on_removed_from_mixer() {
 }
 
 
@@ -55,33 +58,36 @@ Lowl::Panning Lowl::Audio::AudioSource::get_panning() {
     return panning.load(std::memory_order_seq_cst);
 }
 
-void Lowl::Audio::AudioSource::process_volume(AudioFrame &audio_frame) {
+void Lowl::Audio::AudioSource::process_volume(AudioBlockView p_block) {
     const Volume vol = volume.load(std::memory_order_relaxed);
-    for (int current_channel = 0; current_channel < Audio::get_channel_num(channel); current_channel++) {
-        audio_frame[current_channel] *= vol;
+    for (uint8_t current_channel = 0; current_channel < p_block.channel_count; current_channel++) {
+        Sample *channel_data = p_block.channel(current_channel);
+        for (uint32_t frame_index = 0; frame_index < p_block.frame_count; frame_index++) {
+            channel_data[frame_index] *= vol;
+        }
     }
 }
 
-void Lowl::Audio::AudioSource::process_panning(AudioFrame &audio_frame) {
+void Lowl::Audio::AudioSource::process_panning(AudioBlockView p_block) {
     const Panning pan = panning.load(std::memory_order_relaxed);
-    switch (channel) {
-        case AudioChannel::Quadraphonic:
-        case AudioChannel::Surround5_1:
-        case AudioChannel::Surround7_1:
-            // TODO
-            audio_frame.left *= static_cast<Sample>(std::sqrt(1.0 - pan));
-            audio_frame.right *= static_cast<Sample>(std::sqrt(1.0 + pan));
-            break;
-        case AudioChannel::Stereo:
-            audio_frame.left *= static_cast<Sample>(std::sqrt(1.0 - pan));
-            audio_frame.right *= static_cast<Sample>(std::sqrt(1.0 + pan));
-            break;
-        case AudioChannel::Mono:
-            audio_frame.left *= static_cast<Sample>(std::sqrt(1.0 - pan));
-            audio_frame.right *= static_cast<Sample>(std::sqrt(1.0 + pan));
-            break;
-        case AudioChannel::None:
-            break;
+    if (p_block.channel_count == 0) {
+        return;
+    }
+
+    const Sample gain_l = static_cast<Sample>(std::sqrt(1.0 - pan));
+    Sample *left = p_block.channel(0);
+    for (uint32_t frame_index = 0; frame_index < p_block.frame_count; frame_index++) {
+        left[frame_index] *= gain_l;
+    }
+
+    if (p_block.channel_count < 2) {
+        return;
+    }
+
+    const Sample gain_r = static_cast<Sample>(std::sqrt(1.0 + pan));
+    Sample *right = p_block.channel(1);
+    for (uint32_t frame_index = 0; frame_index < p_block.frame_count; frame_index++) {
+        right[frame_index] *= gain_r;
     }
 }
 

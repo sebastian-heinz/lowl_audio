@@ -4,6 +4,7 @@
 #include "lowl_typedef.h"
 
 #include "audio/source/lowl_audio_data.h"
+#include "audio/source/lowl_audio_voice.h"
 #include "audio/source/lowl_audio_mixer.h"
 #include "audio/backend/lowl_audio_device.h"
 
@@ -35,10 +36,15 @@ namespace Lowl::Audio {
         static const int LookupGrowth = 100;
 
         std::vector<std::shared_ptr<AudioData> > audio_data_lookup;
+        mutable std::vector<std::vector<std::shared_ptr<AudioVoice> > > active_voice_lookup;
+        mutable std::vector<std::shared_ptr<AudioVoice> > retired_voices;
+        mutable std::vector<std::shared_ptr<AudioData> > retired_audio_data;
         std::unique_ptr<AudioMixer> mixer;
         SpaceId current_id;
 
         SpaceId insert_audio_data(std::shared_ptr<AudioData> p_audio_data);
+        void collect_garbage() const;
+        std::shared_ptr<AudioVoice> get_latest_voice(SpaceId p_id) const;
 
     public:
         size_l get_frames_remaining() const override;
@@ -47,7 +53,7 @@ namespace Lowl::Audio {
 
         size_l get_frame_count() const override;
 
-        ReadResult read(AudioFrame &audio_frame) override;
+        RenderResult render(AudioBlockView p_block) override;
 
         void play(SpaceId p_id, Volume p_volume, Panning p_panning) const;
 
