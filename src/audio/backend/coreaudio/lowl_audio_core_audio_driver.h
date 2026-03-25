@@ -3,13 +3,12 @@
 
 #ifdef LOWL_DRIVER_CORE_AUDIO
 
-#include "audio/backend/lowl_audio_driver.h"
-
-#include "audio/backend/coreaudio/lowl_audio_core_audio_device.h"
+#include <CoreAudio/AudioHardware.h>
 
 #include <memory>
 
-#include <CoreAudio/AudioHardware.h>
+#include "audio/backend/coreaudio/lowl_audio_core_audio_device.h"
+#include "audio/backend/lowl_audio_driver.h"
 
 namespace Lowl::Audio {
 
@@ -25,7 +24,7 @@ namespace Lowl::Audio {
 
         ~CoreAudioDriver() override;
     };
-}
+} // namespace Lowl::Audio
 
 #endif /* LOWL_DRIVER_CORE_AUDIO */
 #endif /* LOWL_AUDIO_CORE_AUDIO_DRIVER_H */

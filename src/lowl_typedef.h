@@ -2,8 +2,8 @@
 #define LOWL_TYPEDEF_H
 
 #include <atomic>
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 
 // Should always inline no matter what.
 #ifndef _INLINE_
@@ -29,10 +29,8 @@ namespace Lowl {
     typedef float_l Sample;
 #endif /* LOWL_TYPE_SAMPLE_64 */
 
-    static_assert(
-        std::atomic<Sample>::is_always_lock_free,
-        "std::atomic<Sample> must be lock-free for real-time audio safety"
-    );
+    static_assert(std::atomic<Sample>::is_always_lock_free,
+                  "std::atomic<Sample> must be lock-free for real-time audio safety");
 
     typedef uint16_l SpaceId;
     typedef double_l TimeSeconds;
@@ -49,5 +47,5 @@ namespace Lowl {
     static constexpr Panning DEFAULT_PANNING = 0.0;
     static constexpr Panning MAX_PANNING = 1.0;
     static constexpr Panning MIN_PANNING = -1.0;
-}
-#endif //LOWL_TYPEDEF_H
+} // namespace Lowl
+#endif // LOWL_TYPEDEF_H

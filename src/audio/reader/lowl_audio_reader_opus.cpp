@@ -1,9 +1,9 @@
 #include "lowl_audio_reader_opus.h"
 
+#include <opusfile.h>
+
 #include "audio/lowl_audio_format.h"
 #include "audio/lowl_audio_utilities.h"
-
-#include <opusfile.h>
 
 #define OPUS_SAMPLE_RATE (48000)
 #define OPUS_BUFFER_SIZE_MS (500)
@@ -12,10 +12,7 @@ std::unique_ptr<Lowl::Audio::AudioData>
 Lowl::Audio::AudioReaderOpus::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Error &error) {
 
     int _error = 0;
-    std::unique_ptr<OggOpusFile, decltype(&op_free)> ogg_file(
-            op_open_memory(p_buffer.get(), p_size, &_error),
-            op_free
-    );
+    std::unique_ptr<OggOpusFile, decltype(&op_free)> ogg_file(op_open_memory(p_buffer.get(), p_size, &_error), op_free);
 
     if (ogg_file == nullptr) {
         return nullptr;
@@ -35,7 +32,7 @@ Lowl::Audio::AudioReaderOpus::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p
     size_t frames_read_total = 0;
 
     while (frames_read_total < frame_count) {
-        int samples_read_per_channel = op_read_float(ogg_file.get(), buffer.data(), (int) buffer.size(), nullptr);
+        int samples_read_per_channel = op_read_float(ogg_file.get(), buffer.data(), (int)buffer.size(), nullptr);
         if (samples_read_per_channel < 0) {
             error.set_error(ErrorCode::OpusFileCanNotParseOpusFile);
             return nullptr;
@@ -60,11 +57,9 @@ Lowl::Audio::AudioReaderOpus::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p
         if (frames_read_total > 0 && channel_count > 0) {
             trimmed_storage = std::make_unique<Sample[]>(frames_read_total * channel_count);
             for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
-                std::copy_n(
-                    storage.get() + channel_index * frame_count,
-                    frames_read_total,
-                    trimmed_storage.get() + channel_index * frames_read_total
-                );
+                std::copy_n(storage.get() + channel_index * frame_count,
+                            frames_read_total,
+                            trimmed_storage.get() + channel_index * frames_read_total);
             }
         }
         storage = std::move(trimmed_storage);

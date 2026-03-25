@@ -1,23 +1,18 @@
 #ifndef LOWL_AUDIO_UTIL_H
 #define LOWL_AUDIO_UTIL_H
 
-#include "lowl_typedef.h"
-#include "lowl_error.h"
-
-#include "audio/lowl_audio_channel.h"
-
 #include <cmath>
 #include <memory>
+
+#include "audio/lowl_audio_channel.h"
+#include "lowl_error.h"
+#include "lowl_typedef.h"
 
 namespace Lowl::Audio {
     class AudioStream;
     class AudioData;
 
-    _INLINE_ size_t ms_to_samples(
-        const size_t ms,
-        const SampleRate sample_rate,
-        const AudioChannel channel
-    ) {
+    _INLINE_ size_t ms_to_samples(const size_t ms, const SampleRate sample_rate, const AudioChannel channel) {
         return ms * static_cast<size_t>(sample_rate) * get_channel_num(channel) / 1000;
     }
 
@@ -38,6 +33,6 @@ namespace Lowl::Audio {
     public:
         static std::unique_ptr<AudioStream> to_stream(const std::shared_ptr<AudioData> &p_audio_data, Error &error);
     };
-}
+} // namespace Lowl::Audio
 
 #endif // LOWL_AUDIO_UTIL_H

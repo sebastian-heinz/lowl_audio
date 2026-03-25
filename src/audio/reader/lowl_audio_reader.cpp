@@ -1,18 +1,17 @@
 #include "lowl_audio_reader.h"
 
-#include "lowl_file.h"
-
-#include "audio/reader/lowl_audio_reader_wav.h"
-#include "audio/reader/lowl_audio_reader_mp3.h"
-#include "audio/reader/lowl_audio_reader_flac.h"
-#include "audio/reader/lowl_audio_reader_ogg.h"
-#include "audio/reader/lowl_audio_reader_opus.h"
-
 #include <algorithm>
 #include <memory>
 
-std::unique_ptr<Lowl::Audio::AudioData>
-Lowl::Audio::AudioReader::read_file(const std::string &p_path, Lowl::Error &error) {
+#include "audio/reader/lowl_audio_reader_flac.h"
+#include "audio/reader/lowl_audio_reader_mp3.h"
+#include "audio/reader/lowl_audio_reader_ogg.h"
+#include "audio/reader/lowl_audio_reader_opus.h"
+#include "audio/reader/lowl_audio_reader_wav.h"
+#include "lowl_file.h"
+
+std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioReader::read_file(const std::string &p_path,
+                                                                            Lowl::Error &error) {
     std::unique_ptr<Lowl::File> file = std::make_unique<Lowl::File>();
     file->open(p_path, error);
     if (error.has_error()) {
@@ -66,9 +65,8 @@ Lowl::Audio::AudioReader::create_audio_data(Lowl::Audio::AudioFormat p_audio_for
     };
 
     auto int24_to_float = [](const uint8_t *p_bytes) -> float {
-        int32_t sample = static_cast<int32_t>(p_bytes[0])
-            | (static_cast<int32_t>(p_bytes[1]) << 8)
-            | (static_cast<int32_t>(p_bytes[2]) << 16);
+        int32_t sample = static_cast<int32_t>(p_bytes[0]) | (static_cast<int32_t>(p_bytes[1]) << 8) |
+                         (static_cast<int32_t>(p_bytes[2]) << 16);
         if ((sample & 0x00800000) != 0) {
             sample |= ~0x00FFFFFF;
         }
@@ -78,18 +76,15 @@ Lowl::Audio::AudioReader::create_audio_data(Lowl::Audio::AudioFormat p_audio_for
         return static_cast<float>(sample) / 0x800000;
     };
 
-    if (p_audio_format == Lowl::Audio::AudioFormat::WAVE_FORMAT_PCM
-        || p_audio_format == Lowl::Audio::AudioFormat::WAVE_FORMAT_IEEE_FLOAT
-        || p_audio_format == Lowl::Audio::AudioFormat::MP3
-        || p_audio_format == Lowl::Audio::AudioFormat::FLAC
-            ) {
+    if (p_audio_format == Lowl::Audio::AudioFormat::WAVE_FORMAT_PCM ||
+        p_audio_format == Lowl::Audio::AudioFormat::WAVE_FORMAT_IEEE_FLOAT ||
+        p_audio_format == Lowl::Audio::AudioFormat::MP3 || p_audio_format == Lowl::Audio::AudioFormat::FLAC) {
         switch (p_sample_format) {
             case Lowl::Audio::SampleFormat::INT_32: {
                 if (p_size >= sizeof(int32_t) && storage) {
                     write_channel_samples(
                         reinterpret_cast<const int32_t *>(p_buffer.get()),
-                        [](const int32_t p_sample) { return SampleConverter::int32_to_float(p_sample); }
-                    );
+                        [](const int32_t p_sample) { return SampleConverter::int32_to_float(p_sample); });
                 }
                 break;
             }
@@ -97,35 +92,29 @@ Lowl::Audio::AudioReader::create_audio_data(Lowl::Audio::AudioFormat p_audio_for
                 if (p_size >= sizeof(int16_t) && storage) {
                     write_channel_samples(
                         reinterpret_cast<const int16_t *>(p_buffer.get()),
-                        [](const int16_t p_sample) { return SampleConverter::int16_to_float(p_sample); }
-                    );
+                        [](const int16_t p_sample) { return SampleConverter::int16_to_float(p_sample); });
                 }
                 break;
             }
             case Lowl::Audio::SampleFormat::FLOAT_32: {
                 if (p_size >= sizeof(float) && storage) {
-                    write_channel_samples(
-                        reinterpret_cast<const float *>(p_buffer.get()),
-                        [](const float p_sample) { return p_sample; }
-                    );
+                    write_channel_samples(reinterpret_cast<const float *>(p_buffer.get()),
+                                          [](const float p_sample) { return p_sample; });
                 }
                 break;
             }
             case Lowl::Audio::SampleFormat::FLOAT_64: {
                 if (p_size >= sizeof(double) && storage) {
-                    write_channel_samples(
-                        reinterpret_cast<const double *>(p_buffer.get()),
-                        [](const double p_sample) { return static_cast<Sample>(p_sample); }
-                    );
+                    write_channel_samples(reinterpret_cast<const double *>(p_buffer.get()),
+                                          [](const double p_sample) { return static_cast<Sample>(p_sample); });
                 }
                 break;
             }
             case Lowl::Audio::SampleFormat::INT_8: {
                 if (p_size >= sizeof(int8_t) && storage) {
-                    write_channel_samples(
-                        reinterpret_cast<const int8_t *>(p_buffer.get()),
-                        [](const int8_t p_sample) { return SampleConverter::int8_to_float(p_sample); }
-                    );
+                    write_channel_samples(reinterpret_cast<const int8_t *>(p_buffer.get()), [](const int8_t p_sample) {
+                        return SampleConverter::int8_to_float(p_sample);
+                    });
                 }
                 break;
             }
@@ -133,8 +122,7 @@ Lowl::Audio::AudioReader::create_audio_data(Lowl::Audio::AudioFormat p_audio_for
                 if (p_size >= sizeof(uint8_t) && storage) {
                     write_channel_samples(
                         reinterpret_cast<const uint8_t *>(p_buffer.get()),
-                        [](const uint8_t p_sample) { return SampleConverter::uint8_to_float(p_sample); }
-                    );
+                        [](const uint8_t p_sample) { return SampleConverter::uint8_to_float(p_sample); });
                 }
                 break;
             }
@@ -165,11 +153,10 @@ Lowl::Audio::AudioReader::create_audio_data(Lowl::Audio::AudioFormat p_audio_for
     return std::make_unique<AudioData>(std::move(storage), frame_count, p_sample_rate, p_channel);
 }
 
-std::unique_ptr<Lowl::Audio::AudioData>
-Lowl::Audio::AudioReader::create_audio_data(Lowl::Audio::AudioChannel p_channel,
-                                            const std::vector<float> &p_samples,
-                                            SampleRate p_sample_rate,
-                                            Lowl::Error &error) {
+std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioReader::create_audio_data(Lowl::Audio::AudioChannel p_channel,
+                                                                                    const std::vector<float> &p_samples,
+                                                                                    SampleRate p_sample_rate,
+                                                                                    Lowl::Error &error) {
     const size_t channel_count = get_channel_num(p_channel);
     if (channel_count == 0) {
         error.set_error(ErrorCode::UnsupportedAudioFormat);
@@ -190,8 +177,8 @@ Lowl::Audio::AudioReader::create_audio_data(Lowl::Audio::AudioChannel p_channel,
     return std::make_unique<AudioData>(std::move(storage), frame_count, p_sample_rate, p_channel);
 }
 
-std::unique_ptr<Lowl::Audio::AudioReader>
-Lowl::Audio::AudioReader::create_reader(Lowl::FileFormat format, Lowl::Error &error) {
+std::unique_ptr<Lowl::Audio::AudioReader> Lowl::Audio::AudioReader::create_reader(Lowl::FileFormat format,
+                                                                                  Lowl::Error &error) {
     std::unique_ptr<AudioReader> reader = std::unique_ptr<AudioReader>();
     switch (format) {
         case Lowl::FileFormat::UNKNOWN: {
@@ -244,8 +231,8 @@ Lowl::FileFormat Lowl::Audio::AudioReader::detect_format(const std::string &p_pa
     return Lowl::FileFormat::UNKNOWN;
 }
 
-std::unique_ptr<Lowl::Audio::AudioData>
-Lowl::Audio::AudioReader::create_data(const std::string &p_path, Lowl::Error &error) {
+std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioReader::create_data(const std::string &p_path,
+                                                                              Lowl::Error &error) {
     if (p_path.empty()) {
         error.set_error(Lowl::ErrorCode::ReaderEmptyPath);
         return nullptr;
@@ -274,9 +261,10 @@ Lowl::Audio::AudioReader::create_data(const std::string &p_path, Lowl::Error &er
     return audio_data;
 }
 
-std::unique_ptr<Lowl::Audio::AudioData>
-Lowl::Audio::AudioReader::create_data(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Lowl::FileFormat p_format,
-                                      Lowl::Error &error) {
+std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioReader::create_data(std::unique_ptr<uint8_t[]> p_buffer,
+                                                                              size_t p_size,
+                                                                              Lowl::FileFormat p_format,
+                                                                              Lowl::Error &error) {
     std::unique_ptr<Lowl::Audio::AudioReader> reader = create_reader(p_format, error);
     if (error.has_error()) {
         return nullptr;

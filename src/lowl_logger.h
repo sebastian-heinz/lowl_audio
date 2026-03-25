@@ -1,8 +1,8 @@
 #ifndef LOWL_LOGGER_H
 #define LOWL_LOGGER_H
 
-#include <string>
 #include <chrono>
+#include <string>
 
 namespace Lowl {
     class Logger {
@@ -33,8 +33,7 @@ namespace Lowl {
             // Disallow creating an instance of this object
         };
 
-        template<typename T>
-        static int to_ms(const std::chrono::time_point<T> &tp);
+        template <typename T> static int to_ms(const std::chrono::time_point<T> &tp);
 
         static std::string pretty_time();
 
@@ -49,13 +48,11 @@ namespace Lowl {
 
         static void write(const Log &p_log);
 
-        static void write(
-            const char *p_file_name,
-            const char *p_file_function,
-            int p_file_line,
-            Level p_level,
-            const std::string &p_message
-        );
+        static void write(const char *p_file_name,
+                          const char *p_file_function,
+                          int p_file_line,
+                          Level p_level,
+                          const std::string &p_message);
 
         static std::string format_log(const Log &p_log);
 
@@ -63,8 +60,7 @@ namespace Lowl {
 
 #if defined(__GNUC__)
 
-        static std::string format_arguments(const char *const p_fmt, ...)
-        __attribute__ ((format (printf, 1, 2)));
+        static std::string format_arguments(const char *const p_fmt, ...) __attribute__((format(printf, 1, 2)));
 
 #elif _MSC_VER == 1400
 #include <sal.h>
@@ -76,14 +72,19 @@ namespace Lowl {
         static std::string format_arguments(const char *const p_fmt, ...);
 #endif
     };
-}
+} // namespace Lowl
 
 #ifdef LOWL_DEBUG
-#define LOWL_LOG_F(level, fmt, ...) Lowl::Logger::write(__FILE__, __FUNCTION__, __LINE__, level, Lowl::Logger::format_arguments(fmt, __VA_ARGS__))
+#define LOWL_LOG_F(level, fmt, ...)                                                                                    \
+    Lowl::Logger::write(__FILE__, __FUNCTION__, __LINE__, level, Lowl::Logger::format_arguments(fmt, __VA_ARGS__))
 #define LOWL_LOG(level, fmt) Lowl::Logger::write(__FILE__, __FUNCTION__, __LINE__, level, fmt)
 
-#define LOWL_LOG_L_ERROR_F(error, fmt, ...) Lowl::Logger::write(__FILE__, __FUNCTION__, __LINE__, \
-Lowl::Logger::Level::Error, Lowl::Logger::format_arguments(fmt, __VA_ARGS__) + " ErrTxt[" + error.get_error_text() + "]")
+#define LOWL_LOG_L_ERROR_F(error, fmt, ...)                                                                            \
+    Lowl::Logger::write(__FILE__,                                                                                      \
+                        __FUNCTION__,                                                                                  \
+                        __LINE__,                                                                                      \
+                        Lowl::Logger::Level::Error,                                                                    \
+                        Lowl::Logger::format_arguments(fmt, __VA_ARGS__) + " ErrTxt[" + error.get_error_text() + "]")
 
 #define LOWL_LOG_L_ERROR(error) LOWL_LOG(Lowl::Logger::Level::Error, error.get_error_text())
 #else

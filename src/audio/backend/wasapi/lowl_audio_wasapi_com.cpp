@@ -2,12 +2,11 @@
 
 #include "lowl_audio_wasapi_com.h"
 
-#include "lowl_logger.h"
-
 #include <objbase.h>
 
-// https://github.com/mozilla/cubeb/issues/534
+#include "lowl_logger.h"
 
+// https://github.com/mozilla/cubeb/issues/534
 
 std::unique_ptr<Lowl::Audio::WasapiCom> Lowl::Audio::WasapiCom::wasapi_com = std::make_unique<Lowl::Audio::WasapiCom>();
 

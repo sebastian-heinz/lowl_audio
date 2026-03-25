@@ -1,30 +1,28 @@
 #ifndef LOWL_H
 #define LOWL_H
 
-#include "lowl_logger.h"
-#include "lowl_file_format.h"
+#include <vector>
 
-#include "audio/backend/lowl_audio_driver.h"
 #include "audio/backend/lowl_audio_device.h"
+#include "audio/backend/lowl_audio_driver.h"
+#include "audio/reader/lowl_audio_reader.h"
 #include "audio/source/lowl_audio_data.h"
-#include "audio/source/lowl_audio_voice.h"
-#include "audio/source/lowl_audio_stream.h"
 #include "audio/source/lowl_audio_mixer.h"
 #include "audio/source/lowl_audio_space.h"
-
-#include "audio/reader/lowl_audio_reader.h"
-
-#include <vector>
+#include "audio/source/lowl_audio_stream.h"
+#include "audio/source/lowl_audio_voice.h"
+#include "lowl_file_format.h"
+#include "lowl_logger.h"
 
 namespace Lowl {
     // TODO move this to lowl_audio as it only audio related
     class Lib {
     private:
         static std::atomic_flag initialized;
-        static std::vector<std::shared_ptr<Audio::AudioDriver> > drivers;
+        static std::vector<std::shared_ptr<Audio::AudioDriver>> drivers;
 
     public:
-        static std::vector<std::shared_ptr<Audio::AudioDriver> > get_drivers(Error &error);
+        static std::vector<std::shared_ptr<Audio::AudioDriver>> get_drivers(Error &error);
 
         static void initialize(Error &error);
 
@@ -41,5 +39,5 @@ namespace Lowl {
 
         static std::shared_ptr<Audio::AudioDevice> get_default_device(Error &error);
     };
-}
+} // namespace Lowl
 #endif /* LOWL_H */

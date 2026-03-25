@@ -1,10 +1,9 @@
 #ifndef LOWL_SETTING_H
 #define LOWL_SETTING_H
 
+#include <vector>
 
 #include "audio/lowl_audio_sample_format.h"
-
-#include <vector>
 
 namespace Lowl::Audio {
 
@@ -19,11 +18,9 @@ namespace Lowl::Audio {
         static std::vector<SampleFormat> test_sample_formats;
 
     public:
-
         static std::vector<double> get_test_sample_rates();
 
         static std::vector<SampleFormat> get_test_sample_formats();
-
     };
-}
+} // namespace Lowl::Audio
 #endif /* LOWL_SETTING_H */

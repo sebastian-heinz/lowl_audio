@@ -1,14 +1,22 @@
 #ifdef LOWL_DRIVER_WASAPI
 
 #include "lowl_audio_wasapi_driver.h"
-#include "lowl_audio_wasapi_device.h"
 
 #include <mmdeviceapi.h>
 #include <propidl.h>
 
-#define SAFE_CLOSE(h) if ((h) != NULL) { CloseHandle((h)); (h) = NULL; }
-#define SAFE_RELEASE(punk) if ((punk) != NULL) { (punk)->Release(); (punk) = NULL; }
+#include "lowl_audio_wasapi_device.h"
 
+#define SAFE_CLOSE(h)                                                                                                  \
+    if ((h) != NULL) {                                                                                                 \
+        CloseHandle((h));                                                                                              \
+        (h) = NULL;                                                                                                    \
+    }
+#define SAFE_RELEASE(punk)                                                                                             \
+    if ((punk) != NULL) {                                                                                              \
+        (punk)->Release();                                                                                             \
+        (punk) = NULL;                                                                                                 \
+    }
 
 Lowl::Audio::WasapiDriver::WasapiDriver() {
     name = std::string("WASAPI");
@@ -27,26 +35,21 @@ void Lowl::Audio::WasapiDriver::create_devices(Lowl::Error &error) {
                                       nullptr,
                                       CLSCTX_INPROC_SERVER,
                                       __uuidof(IMMDeviceEnumerator),
-                                      (void **) &enumerator
-    );
+                                      (void **)&enumerator);
     if (FAILED(result)) {
         SAFE_RELEASE(enumerator)
         return;
     }
 
-    //IMMDevice *device = nullptr;
-    //result = enumerator->GetDefaultAudioEndpoint(
+    // IMMDevice *device = nullptr;
+    // result = enumerator->GetDefaultAudioEndpoint(
     //        _EDataFlow::eRender,
     //        _ERole::eMultimedia,
     //        &device
     //);
 
     IMMDeviceCollection *end_points = nullptr;
-    result = enumerator->EnumAudioEndpoints(
-        eRender,
-        DEVICE_STATE_ACTIVE,
-        &end_points
-    );
+    result = enumerator->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &end_points);
     if (FAILED(result)) {
         SAFE_RELEASE(end_points)
         SAFE_RELEASE(enumerator)
@@ -69,11 +72,7 @@ void Lowl::Audio::WasapiDriver::create_devices(Lowl::Error &error) {
             continue;
         }
         Error err;
-        std::shared_ptr<Lowl::Audio::AudioDevice> device = WasapiDevice::construct(
-            name,
-            wasapi_device,
-            err
-        );
+        std::shared_ptr<Lowl::Audio::AudioDevice> device = WasapiDevice::construct(name, wasapi_device, err);
         if (err.ok()) {
             devices.push_back(device);
         } else {

@@ -1,10 +1,8 @@
-#include <lowl.h>
-
 #include <iostream>
+#include <lowl.h>
+#include <string>
 #include <thread>
 #include <vector>
-#include <string>
-
 
 std::vector<std::string> music_paths = std::vector<std::string>();
 int device_index = -1;
@@ -23,13 +21,11 @@ void print_audio_properties(Lowl::Audio::AudioDeviceProperties p_device_properti
  * example on how to use space
  */
 void space(std::shared_ptr<Lowl::Audio::AudioDevice> device, Lowl::Audio::AudioDeviceProperties p_device_properties) {
-    std::shared_ptr<Lowl::Audio::AudioSpace> space = std::make_shared<Lowl::Audio::AudioSpace>(
-        p_device_properties.sample_rate,
-        p_device_properties.channel
-    );
+    std::shared_ptr<Lowl::Audio::AudioSpace> space =
+        std::make_shared<Lowl::Audio::AudioSpace>(p_device_properties.sample_rate, p_device_properties.channel);
     Lowl::Error error;
 
-    for (std::string music_path: music_paths) {
+    for (std::string music_path : music_paths) {
         space->add_audio(music_path, error);
         if (error.has_error()) {
             std::cout << "Err: space->add_audio (" << music_path << ")\n";
@@ -100,16 +96,16 @@ int run() {
         return -1;
     }
 
-    std::vector<std::shared_ptr<Lowl::Audio::AudioDriver> > drivers = Lowl::Lib::get_drivers(error);
+    std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>> drivers = Lowl::Lib::get_drivers(error);
     if (error.has_error()) {
         std::cout << "Err: Lowl::get_drivers\n";
         return -1;
     }
 
-    std::vector<std::shared_ptr<Lowl::Audio::AudioDevice> > all_devices = std::vector<std::shared_ptr<
-        Lowl::Audio::AudioDevice> >();
+    std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>> all_devices =
+        std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>>();
     int current_device_index = 0;
-    for (std::shared_ptr<Lowl::Audio::AudioDriver> driver: drivers) {
+    for (std::shared_ptr<Lowl::Audio::AudioDriver> driver : drivers) {
         std::cout << "Driver: " + driver->get_name() + "\n";
         driver->initialize(error);
         if (error.has_error()) {
@@ -117,12 +113,12 @@ int run() {
             error = Lowl::Error();
         }
 
-        std::vector<std::shared_ptr<Lowl::Audio::AudioDevice> > devices = driver->get_devices();
-        for (std::shared_ptr<Lowl::Audio::AudioDevice> device: devices) {
+        std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>> devices = driver->get_devices();
+        for (std::shared_ptr<Lowl::Audio::AudioDevice> device : devices) {
             std::cout << "+ Device[" + std::to_string(current_device_index++) + "]: " + device->get_name() + "\n";
             if (print_all_device_properties) {
                 int index = 0;
-                for (Lowl::Audio::AudioDeviceProperties device_properties: device->get_properties_list()) {
+                for (Lowl::Audio::AudioDeviceProperties device_properties : device->get_properties_list()) {
                     std::cout << "- Properties[" << index++ << "]\n";
                     print_audio_properties(device_properties);
                 }
@@ -155,7 +151,7 @@ int run() {
     }
     if (device_property_index <= -1) {
         int index = 0;
-        for (Lowl::Audio::AudioDeviceProperties device_properties: device_properties_list) {
+        for (Lowl::Audio::AudioDeviceProperties device_properties : device_properties_list) {
             std::cout << "- Properties[" << index++ << "]\n";
             print_audio_properties(device_properties);
         }

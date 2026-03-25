@@ -25,8 +25,7 @@ Lowl::Audio::AudioBuffer::AudioBuffer(const uint32_t p_frame_capacity, const uin
 }
 
 Lowl::Audio::AudioBuffer::AudioBuffer(AudioBuffer &&p_other) noexcept
-    : storage(std::move(p_other.storage)),
-      frame_capacity(p_other.frame_capacity),
+    : storage(std::move(p_other.storage)), frame_capacity(p_other.frame_capacity),
       channel_count(p_other.channel_count) {
     rebuild_channel_ptrs();
     p_other.channel_ptrs = {};
@@ -61,8 +60,7 @@ Lowl::Audio::AudioBlockView Lowl::Audio::AudioBuffer::view(const uint32_t p_fram
     block_view.frame_count = std::min(p_frame_count, frame_capacity);
     block_view.channel_count = channel_count;
     for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
-        block_view.channels[static_cast<size_t>(channel_index)] =
-            channel_ptrs[static_cast<size_t>(channel_index)];
+        block_view.channels[static_cast<size_t>(channel_index)] = channel_ptrs[static_cast<size_t>(channel_index)];
     }
     return block_view;
 }

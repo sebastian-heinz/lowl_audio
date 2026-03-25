@@ -2,14 +2,12 @@
 
 #include <algorithm>
 
-Lowl::Audio::AudioStream::AudioStream(SampleRate p_sample_rate, AudioChannel p_channel, size_t size) : AudioSource(
-    p_sample_rate, p_channel) {
+Lowl::Audio::AudioStream::AudioStream(SampleRate p_sample_rate, AudioChannel p_channel, size_t size)
+    : AudioSource(p_sample_rate, p_channel) {
     frame_capacity = size;
     const uint8_t channel_count = static_cast<uint8_t>(get_channel_num());
-    channels = std::vector<std::vector<Sample> >(
-        channel_count,
-        std::vector<Sample>(frame_capacity, static_cast<Sample>(0))
-    );
+    channels =
+        std::vector<std::vector<Sample>>(channel_count, std::vector<Sample>(frame_capacity, static_cast<Sample>(0)));
 }
 
 size_t Lowl::Audio::AudioStream::get_available_frames_to_read() const {
@@ -22,20 +20,16 @@ size_t Lowl::Audio::AudioStream::get_available_frames_to_write() const {
     return frame_capacity - get_available_frames_to_read();
 }
 
-void Lowl::Audio::AudioStream::copy_from_ring(
-    AudioBlockView p_block,
-    const uint32_t p_frames_to_read,
-    const size_t p_read_position
-) {
+void Lowl::Audio::AudioStream::copy_from_ring(AudioBlockView p_block,
+                                              const uint32_t p_frames_to_read,
+                                              const size_t p_read_position) {
     if (frame_capacity == 0 || p_frames_to_read == 0) {
         return;
     }
 
     const size_t first_index = p_read_position % frame_capacity;
-    const uint32_t first_part_frames = static_cast<uint32_t>(std::min<size_t>(
-        p_frames_to_read,
-        frame_capacity - first_index
-    ));
+    const uint32_t first_part_frames =
+        static_cast<uint32_t>(std::min<size_t>(p_frames_to_read, frame_capacity - first_index));
     const uint32_t second_part_frames = p_frames_to_read - first_part_frames;
 
     for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
@@ -48,11 +42,9 @@ void Lowl::Audio::AudioStream::copy_from_ring(
     }
 }
 
-void Lowl::Audio::AudioStream::copy_interleaved_to_ring(
-    const Sample *p_interleaved,
-    const size_t p_frame_count,
-    const size_t p_write_position
-) {
+void Lowl::Audio::AudioStream::copy_interleaved_to_ring(const Sample *p_interleaved,
+                                                        const size_t p_frame_count,
+                                                        const size_t p_write_position) {
     if (frame_capacity == 0 || p_interleaved == nullptr || p_frame_count == 0) {
         return;
     }
@@ -80,11 +72,9 @@ void Lowl::Audio::AudioStream::copy_interleaved_to_ring(
     }
 }
 
-void Lowl::Audio::AudioStream::copy_planar_to_ring(
-    const std::vector<const Sample *> &p_channels,
-    const size_t p_frame_count,
-    const size_t p_write_position
-) {
+void Lowl::Audio::AudioStream::copy_planar_to_ring(const std::vector<const Sample *> &p_channels,
+                                                   const size_t p_frame_count,
+                                                   const size_t p_write_position) {
     if (frame_capacity == 0 || p_frame_count == 0) {
         return;
     }
@@ -125,10 +115,8 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioStream::render(AudioBlo
     }
 
     const size_t current_read = read_position.load(std::memory_order_relaxed);
-    const uint32_t frames_to_read = static_cast<uint32_t>(std::min<size_t>(
-        get_available_frames_to_read(),
-        p_block.frame_count
-    ));
+    const uint32_t frames_to_read =
+        static_cast<uint32_t>(std::min<size_t>(get_available_frames_to_read(), p_block.frame_count));
     if (frames_to_read == 0) {
         return {0, RenderState::Starved};
     }
@@ -155,10 +143,8 @@ Lowl::size_l Lowl::Audio::AudioStream::write_interleaved(const Sample *p_interle
     return writable_frames;
 }
 
-Lowl::size_l Lowl::Audio::AudioStream::write_planar(
-    const std::vector<const Sample *> &p_channels,
-    const size_t p_frame_count
-) {
+Lowl::size_l Lowl::Audio::AudioStream::write_planar(const std::vector<const Sample *> &p_channels,
+                                                    const size_t p_frame_count) {
     size_t current_write = write_position.load(std::memory_order_relaxed);
     const size_t writable_frames = std::min<size_t>(get_available_frames_to_write(), p_frame_count);
     if (writable_frames > 0) {

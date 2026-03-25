@@ -1,15 +1,14 @@
 #ifndef LOWL_AUDIO_SOURCE_H
 #define LOWL_AUDIO_SOURCE_H
 
-#include "lowl_typedef.h"
+#include <atomic>
+#include <string>
 
+#include "audio/backend/lowl_audio_device_properties.h"
 #include "audio/lowl_audio_buffer.h"
 #include "audio/lowl_audio_channel.h"
 #include "audio/lowl_audio_sample_format.h"
-#include "audio/backend/lowl_audio_device_properties.h"
-
-#include <string>
-#include <atomic>
+#include "lowl_typedef.h"
 
 namespace Lowl::Audio {
     /**
@@ -88,7 +87,6 @@ namespace Lowl::Audio {
 
         bool is_play();
     };
-}
+} // namespace Lowl::Audio
 
-
-#endif //LOWL_AUDIO_SOURCE_H
+#endif // LOWL_AUDIO_SOURCE_H

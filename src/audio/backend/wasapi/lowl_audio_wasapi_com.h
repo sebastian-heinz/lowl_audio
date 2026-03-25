@@ -3,9 +3,9 @@
 
 #ifdef LOWL_DRIVER_WASAPI
 
-#include "lowl_error.h"
-
 #include <memory>
+
+#include "lowl_error.h"
 
 namespace Lowl::Audio {
     class WasapiCom {
@@ -24,7 +24,7 @@ namespace Lowl::Audio {
 
         void terminate();
     };
-} //namespace Lowl::Audio
+} // namespace Lowl::Audio
 
 #endif /* LOWL_DRIVER_WASAPI */
 #endif /* LOWL_AUDIO_WASAPI_COM_H */

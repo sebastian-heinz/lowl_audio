@@ -1,10 +1,10 @@
 #ifndef LOWL_AUDIO_BUFFER_H
 #define LOWL_AUDIO_BUFFER_H
 
-#include "lowl_typedef.h"
-
 #include <array>
 #include <memory>
+
+#include "lowl_typedef.h"
 
 namespace Lowl::Audio {
     struct AudioBlockView {
@@ -46,6 +46,6 @@ namespace Lowl::Audio {
         AudioBlockView view(uint32_t p_frame_count);
         void clear(uint32_t p_frame_count);
     };
-}
+} // namespace Lowl::Audio
 
 #endif

@@ -1,9 +1,9 @@
 #ifndef LOWL_AUDIO_DRIVER_H
 #define LOWL_AUDIO_DRIVER_H
 
-#include "audio/backend/lowl_audio_device.h"
-
 #include <vector>
+
+#include "audio/backend/lowl_audio_device.h"
 
 namespace Lowl::Audio {
     class AudioDriver {
@@ -24,9 +24,9 @@ namespace Lowl::Audio {
 
         AudioDriver();
 
-        virtual ~AudioDriver() = default;;
-
+        virtual ~AudioDriver() = default;
+        ;
     };
-}
+} // namespace Lowl::Audio
 
 #endif

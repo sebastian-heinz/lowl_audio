@@ -32,11 +32,8 @@ namespace Lowl::Audio {
         }
 
         bool operator==(const AudioDeviceProperties &rhs) const {
-            return is_supported == rhs.is_supported &&
-                   Lowl::Audio::sample_rates_equal(sample_rate, rhs.sample_rate) &&
-                   channel == rhs.channel &&
-                   sample_format == rhs.sample_format &&
-                   channel_map == rhs.channel_map &&
+            return is_supported == rhs.is_supported && Lowl::Audio::sample_rates_equal(sample_rate, rhs.sample_rate) &&
+                   channel == rhs.channel && sample_format == rhs.sample_format && channel_map == rhs.channel_map &&
                    exclusive_mode == rhs.exclusive_mode;
         }
 
@@ -90,6 +87,6 @@ namespace Lowl::Audio {
             return !(*this < rhs);
         }
     };
-}
+} // namespace Lowl::Audio
 
 #endif

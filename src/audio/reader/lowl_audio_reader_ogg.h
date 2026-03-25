@@ -12,5 +12,5 @@ namespace Lowl::Audio {
 
         bool support(FileFormat p_file_format) const override;
     };
-}
+} // namespace Lowl::Audio
 #endif

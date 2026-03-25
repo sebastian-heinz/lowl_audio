@@ -21,12 +21,8 @@ Lowl::Audio::ChannelConverter::convert(AudioChannel p_to, std::shared_ptr<AudioD
                 }
             }
         }
-        std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(
-            std::move(storage),
-            frame_count,
-            p_audio_data->get_sample_rate(),
-            p_to
-        );
+        std::unique_ptr<AudioData> audio_data =
+            std::make_unique<AudioData>(std::move(storage), frame_count, p_audio_data->get_sample_rate(), p_to);
         audio_data->set_name(p_audio_data->get_name());
         return audio_data;
     }
@@ -65,12 +61,8 @@ Lowl::Audio::ChannelConverter::convert(AudioChannel p_to, std::shared_ptr<AudioD
         return nullptr;
     }
 
-    std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(
-        std::move(storage),
-        frame_count,
-        p_audio_data->get_sample_rate(),
-        p_to
-    );
+    std::unique_ptr<AudioData> audio_data =
+        std::make_unique<AudioData>(std::move(storage), frame_count, p_audio_data->get_sample_rate(), p_to);
     audio_data->set_name(p_audio_data->get_name());
     return audio_data;
 }

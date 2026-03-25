@@ -5,7 +5,6 @@
 
 namespace Lowl {
 
-
     enum class ErrorCode {
         NoError = 0,
         Error = -1,
@@ -21,7 +20,7 @@ namespace Lowl {
 
         FileStreamOpenFailed = -200,
         AudioReaderNoData = -201,
-        ReaderUnsupportedFormat = - 202,
+        ReaderUnsupportedFormat = -202,
         ReaderUndetectedFormat = -203,
         ReaderEmptyPath = -204,
         ReaderNotFound = -205,
@@ -91,6 +90,6 @@ namespace Lowl {
 
         Error();
     };
-}
+} // namespace Lowl
 
 #endif

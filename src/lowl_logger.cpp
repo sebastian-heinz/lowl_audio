@@ -1,8 +1,8 @@
 #include "lowl_logger.h"
 
+#include <cstdarg>
 #include <iostream>
 #include <vector>
-#include <cstdarg>
 
 #define LOGGER_PRETTY_TIME_FORMAT "%Y-%m-%d %H:%M:%S"
 #define LOGGER_PRETTY_MS_FORMAT ".%03d"
@@ -48,18 +48,11 @@ namespace Lowl {
                        int p_file_line,
                        Level p_level,
                        const std::string &p_message) {
-        Log log{
-            std::string(p_file_name),
-            p_file_line,
-            std::string(p_file_function),
-            p_level,
-            p_message
-        };
+        Log log{std::string(p_file_name), p_file_line, std::string(p_file_function), p_level, p_message};
         write(log);
     }
 
-    template<typename T>
-    int Logger::to_ms(const std::chrono::time_point<T> &tp) {
+    template <typename T> int Logger::to_ms(const std::chrono::time_point<T> &tp) {
         auto dur = tp.time_since_epoch();
         return static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(dur).count());
     }
@@ -70,16 +63,10 @@ namespace Lowl {
         // this function use static global pointer. so it is not thread safe solution
         std::tm *time_info = std::localtime(&current_time);
         char buffer[128];
-        size_t string_size = strftime(
-            buffer, sizeof(buffer),
-            LOGGER_PRETTY_TIME_FORMAT,
-            time_info
-        );
+        size_t string_size = strftime(buffer, sizeof(buffer), LOGGER_PRETTY_TIME_FORMAT, time_info);
         int ms = to_ms(tp) % 1000;
-        string_size += (size_t) std::snprintf(
-            buffer + string_size, sizeof(buffer) - string_size,
-            LOGGER_PRETTY_MS_FORMAT, ms
-        );
+        string_size +=
+            (size_t)std::snprintf(buffer + string_size, sizeof(buffer) - string_size, LOGGER_PRETTY_MS_FORMAT, ms);
         return std::string(buffer, buffer + string_size);
     }
 
@@ -117,31 +104,27 @@ namespace Lowl {
     std::string Logger::format_log(const Log &p_log) {
         std::string now = pretty_time();
         std::string level = format_level(p_log.level);
-        int size = std::snprintf(
-            nullptr,
-            0,
-            LOGGER_FORMAT,
-            now.c_str(),
-            LOGGER_PREFIX,
-            level.c_str(),
-            p_log.function_name.c_str(),
-            p_log.message.c_str(),
-            p_log.file_name.c_str(),
-            p_log.line
-        );
+        int size = std::snprintf(nullptr,
+                                 0,
+                                 LOGGER_FORMAT,
+                                 now.c_str(),
+                                 LOGGER_PREFIX,
+                                 level.c_str(),
+                                 p_log.function_name.c_str(),
+                                 p_log.message.c_str(),
+                                 p_log.file_name.c_str(),
+                                 p_log.line);
         std::vector<char> buf(static_cast<size_t>(size + 1)); // note +1 for null terminator
-        std::snprintf(
-            &buf[0],
-            buf.size(),
-            LOGGER_FORMAT,
-            now.c_str(),
-            LOGGER_PREFIX,
-            level.c_str(),
-            p_log.message.c_str(),
-            p_log.function_name.c_str(),
-            p_log.file_name.c_str(),
-            p_log.line
-        );
+        std::snprintf(&buf[0],
+                      buf.size(),
+                      LOGGER_FORMAT,
+                      now.c_str(),
+                      LOGGER_PREFIX,
+                      level.c_str(),
+                      p_log.message.c_str(),
+                      p_log.function_name.c_str(),
+                      p_log.file_name.c_str(),
+                      p_log.line);
         return std::string{buf.data(), buf.size()};
     }
-}
+} // namespace Lowl

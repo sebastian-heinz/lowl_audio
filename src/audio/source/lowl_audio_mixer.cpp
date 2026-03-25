@@ -1,19 +1,16 @@
 #include "lowl_audio_mixer.h"
 
-#include "lowl_logger.h"
-
 #include <algorithm>
 #include <string>
 
 #include "audio/lowl_audio_utilities.h"
+#include "lowl_logger.h"
 
-Lowl::Audio::AudioMixer::AudioMixer(
-    SampleRate p_sample_rate,
-    AudioChannel p_channel
-) : AudioSource(p_sample_rate, p_channel),
-    scratch_buffer(SCRATCH_BUFFER_CAPACITY, static_cast<uint8_t>(get_channel_num())) {
+Lowl::Audio::AudioMixer::AudioMixer(SampleRate p_sample_rate, AudioChannel p_channel)
+    : AudioSource(p_sample_rate, p_channel),
+      scratch_buffer(SCRATCH_BUFFER_CAPACITY, static_cast<uint8_t>(get_channel_num())) {
     sources.fill(nullptr);
-    events = std::make_unique<moodycamel::ConcurrentQueue<AudioMixerEvent> >();
+    events = std::make_unique<moodycamel::ConcurrentQueue<AudioMixerEvent>>();
 }
 
 size_t Lowl::Audio::AudioMixer::find_source_index(const AudioSource *p_audio_source) const {
@@ -137,17 +134,15 @@ void Lowl::Audio::AudioMixer::mix(AudioSource *p_audio_source) {
         return;
     }
     if (p_audio_source->get_channel() != channel) {
-        LOWL_LOG_ERROR(
-            "Lowl::AudioMixer::mix: p_audio_source(" + std::to_string(p_audio_source->get_channel_num()) +
-            "ch) does not match mixer(" + std::to_string(get_channel_num()) + "ch) channel count."
-        );
+        LOWL_LOG_ERROR("Lowl::AudioMixer::mix: p_audio_source(" + std::to_string(p_audio_source->get_channel_num()) +
+                       "ch) does not match mixer(" + std::to_string(get_channel_num()) + "ch) channel count.");
         p_audio_source->on_removed_from_mixer();
         return;
     }
 
     if (!Lowl::Audio::sample_rates_equal(p_audio_source->get_sample_rate(), sample_rate)) {
         LOWL_LOG_WARN("Lowl::AudioMixer::mix: p_audio_source(" + std::to_string(p_audio_source->get_sample_rate()) +
-            ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate.");
+                      ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate.");
     }
     AudioMixerEvent event = {};
     event.type = AudioMixerEvent::Type::Mix;

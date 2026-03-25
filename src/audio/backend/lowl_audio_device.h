@@ -1,13 +1,12 @@
 #ifndef LOWL_AUDIO_DEVICE_H
 #define LOWL_AUDIO_DEVICE_H
 
-#include "lowl_error.h"
+#include <vector>
 
+#include "audio/backend/lowl_audio_device_properties.h"
 #include "audio/lowl_audio_buffer.h"
 #include "audio/source/lowl_audio_source.h"
-#include "audio/backend/lowl_audio_device_properties.h"
-
-#include <vector>
+#include "lowl_error.h"
 
 namespace Lowl::Audio {
     class AudioDevice {
@@ -26,32 +25,26 @@ namespace Lowl::Audio {
 
         void allocate_render_buffer(unsigned long p_frame_capacity);
 
-        void render_to_device_buffer(
-            void *p_dst,
-            unsigned long p_frames_per_buffer,
-            unsigned long p_bytes_per_frame
-        );
+        void render_to_device_buffer(void *p_dst, unsigned long p_frames_per_buffer, unsigned long p_bytes_per_frame);
 
     public:
         AudioDevice(_constructor_tag);
 
         void set_name(const std::string &p_name);
 
-        virtual void start(
-            AudioDeviceProperties p_audio_device_properties,
-            std::shared_ptr<AudioSource> p_audio_source,
-            Error &error
-        ) = 0;
+        virtual void start(AudioDeviceProperties p_audio_device_properties,
+                           std::shared_ptr<AudioSource> p_audio_source,
+                           Error &error) = 0;
 
         virtual void stop(Error &error) = 0;
 
         std::vector<AudioDeviceProperties> get_properties_list() const;
 
-        AudioDeviceProperties
-        get_closest_properties(AudioDeviceProperties p_audio_device_properties, Error &error) const;
+        AudioDeviceProperties get_closest_properties(AudioDeviceProperties p_audio_device_properties,
+                                                     Error &error) const;
 
         std::string get_name() const;
     };
-}
+} // namespace Lowl::Audio
 
 #endif

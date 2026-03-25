@@ -16,6 +16,6 @@ namespace Lowl::Audio {
         Type type = Type::Mix;
         AudioSource *audio_source = nullptr;
     };
-}
+} // namespace Lowl::Audio
 
-#endif //LOWL_AUDIO_MIXER_EVENT_H
+#endif // LOWL_AUDIO_MIXER_EVENT_H

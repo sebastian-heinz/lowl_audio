@@ -1,9 +1,9 @@
 #include "lowl_audio_device.h"
 
-#include "audio/convert/lowl_audio_sample_converter.h"
-
 #include <algorithm>
 #include <cstring>
+
+#include "audio/convert/lowl_audio_sample_converter.h"
 
 std::string Lowl::Audio::AudioDevice::get_name() const {
     return name;
@@ -22,15 +22,12 @@ Lowl::Audio::AudioDevice::AudioDevice(_constructor_tag) {
 }
 
 Lowl::Audio::AudioDeviceProperties
-Lowl::Audio::AudioDevice::get_closest_properties(
-    AudioDeviceProperties p_audio_device_properties,
-    Error &error
-) const {
+Lowl::Audio::AudioDevice::get_closest_properties(AudioDeviceProperties p_audio_device_properties, Error &error) const {
     if (properties_list.empty()) {
         error.set_error(ErrorCode::DeviceHasNoAudioProperties);
         return AudioDeviceProperties();
     }
-    for (AudioDeviceProperties property: properties_list) {
+    for (AudioDeviceProperties property : properties_list) {
     }
     // TODO find best match between `property` and `p_audio_device_properties`
     return properties_list[0];
@@ -48,10 +45,9 @@ void Lowl::Audio::AudioDevice::allocate_render_buffer(const unsigned long p_fram
     render_buffer = std::make_unique<AudioBuffer>(static_cast<uint32_t>(p_frame_capacity), channel_count);
 }
 
-void Lowl::Audio::AudioDevice::render_to_device_buffer(
-    void *p_dst,
-    unsigned long p_frames_per_buffer,
-    unsigned long p_bytes_per_frame) {
+void Lowl::Audio::AudioDevice::render_to_device_buffer(void *p_dst,
+                                                       unsigned long p_frames_per_buffer,
+                                                       unsigned long p_bytes_per_frame) {
     if (p_dst == nullptr) {
         return;
     }
@@ -70,10 +66,7 @@ void Lowl::Audio::AudioDevice::render_to_device_buffer(
     for (uint32_t frame_index = 0; frame_index < produced_frames; frame_index++) {
         for (uint8_t channel_index = 0; channel_index < output_block.channel_count; channel_index++) {
             const Sample sample = std::clamp(
-                output_block.channel(channel_index)[frame_index],
-                static_cast<Sample>(-1.0),
-                static_cast<Sample>(1.0)
-            );
+                output_block.channel(channel_index)[frame_index], static_cast<Sample>(-1.0), static_cast<Sample>(1.0));
             SampleConverter::write_sample(audio_device_properties.sample_format, sample, &write_ptr);
         }
     }

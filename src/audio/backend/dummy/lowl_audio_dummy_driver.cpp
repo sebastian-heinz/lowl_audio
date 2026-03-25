@@ -7,7 +7,6 @@ Lowl::Audio::AudioDriverDummy::AudioDriverDummy() : AudioDriver() {
 }
 
 void Lowl::Audio::AudioDriverDummy::initialize(Lowl::Error &error) {
-
 }
 
 #endif

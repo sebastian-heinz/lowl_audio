@@ -1,14 +1,13 @@
 #ifndef LOWL_AUDIO_MIXER_H
 #define LOWL_AUDIO_MIXER_H
 
-#include "lowl_typedef.h"
-
-#include "audio/source/lowl_audio_mixer_event.h"
-#include "audio/source/lowl_audio_source.h"
-
 #include <concurrentqueue.h>
 
 #include <array>
+
+#include "audio/source/lowl_audio_mixer_event.h"
+#include "audio/source/lowl_audio_source.h"
+#include "lowl_typedef.h"
 
 namespace Lowl::Audio {
     /**
@@ -20,7 +19,7 @@ namespace Lowl::Audio {
         static constexpr size_t MAX_ACTIVE_SOURCES = 1024;
 
         std::array<AudioSource *, MAX_ACTIVE_SOURCES> sources{};
-        std::unique_ptr<moodycamel::ConcurrentQueue<AudioMixerEvent> > events;
+        std::unique_ptr<moodycamel::ConcurrentQueue<AudioMixerEvent>> events;
         AudioBuffer scratch_buffer;
 
         size_t find_source_index(const AudioSource *p_audio_source) const;
@@ -52,7 +51,6 @@ namespace Lowl::Audio {
 
         ~AudioMixer() override = default;
     };
-}
+} // namespace Lowl::Audio
 
-
-#endif //LOWL_AUDIO_MIXER_H
+#endif // LOWL_AUDIO_MIXER_H

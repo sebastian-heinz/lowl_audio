@@ -1,15 +1,15 @@
 #ifndef LOWL_RELEASE_POOL_H
 #define LOWL_RELEASE_POOL_H
 
-#include "lowl_typedef.h"
-#include "lowl_timer.h"
-#include "lowl_logger.h"
-
-#include <mutex>
-#include <vector>
-#include <memory>
-#include <unordered_set>
 #include <algorithm>
+#include <memory>
+#include <mutex>
+#include <unordered_set>
+#include <vector>
+
+#include "lowl_logger.h"
+#include "lowl_timer.h"
+#include "lowl_typedef.h"
 
 namespace Lowl {
 
@@ -22,20 +22,14 @@ namespace Lowl {
 
         void release_callback() {
             std::lock_guard<std::mutex> lock(mutex);
-            pool.erase(
-                    std::remove_if(
-                            pool.begin(), pool.end(),
-                            [](std::shared_ptr<void> &object) {
-                                return object.use_count() <= 1;
-                            }
-                    ),
-                    pool.end()
-            );
+            pool.erase(std::remove_if(pool.begin(),
+                                      pool.end(),
+                                      [](std::shared_ptr<void> &object) { return object.use_count() <= 1; }),
+                       pool.end());
         }
 
     public:
-        template<typename T>
-        void add(const std::shared_ptr<T> &object) {
+        template <typename T> void add(const std::shared_ptr<T> &object) {
             if (object == nullptr) {
                 return;
             }
@@ -52,8 +46,9 @@ namespace Lowl {
             timer->start_interval(std::bind(&ReleasePool::release_callback, this), std::chrono::seconds(10));
         }
 
-        ~ReleasePool() {}
+        ~ReleasePool() {
+        }
     };
-}
+} // namespace Lowl
 
 #endif

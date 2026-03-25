@@ -1,6 +1,5 @@
 #include "lowl_file.h"
 
-
 std::string Lowl::File::get_path() {
     return path;
 }

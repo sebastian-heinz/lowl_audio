@@ -9,16 +9,15 @@
 #endif
 
 #ifdef LOWL_DRIVER_WASAPI
-#include "audio/backend/wasapi/lowl_audio_wasapi_driver.h"
 #include "audio/backend/wasapi/lowl_audio_wasapi_com.h"
+#include "audio/backend/wasapi/lowl_audio_wasapi_driver.h"
 #endif
 
-
-std::vector<std::shared_ptr<Lowl::Audio::AudioDriver> > Lowl::Lib::drivers = std::vector<std::shared_ptr<
-    Audio::AudioDriver> >();
+std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>> Lowl::Lib::drivers =
+    std::vector<std::shared_ptr<Audio::AudioDriver>>();
 std::atomic_flag Lowl::Lib::initialized = ATOMIC_FLAG_INIT;
 
-std::vector<std::shared_ptr<Lowl::Audio::AudioDriver> > Lowl::Lib::get_drivers(Error &error) {
+std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>> Lowl::Lib::get_drivers(Error &error) {
     return drivers;
 }
 
@@ -54,9 +53,10 @@ Lowl::FileFormat Lowl::Lib::detect_format(const std::string &p_path, Lowl::Error
     return Lowl::Audio::AudioReader::detect_format(p_path, error);
 }
 
-std::unique_ptr<Lowl::Audio::AudioData>
-Lowl::Lib::create_data(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Lowl::FileFormat p_format,
-                       Lowl::Error &error) {
+std::unique_ptr<Lowl::Audio::AudioData> Lowl::Lib::create_data(std::unique_ptr<uint8_t[]> p_buffer,
+                                                               size_t p_size,
+                                                               Lowl::FileFormat p_format,
+                                                               Lowl::Error &error) {
     return Lowl::Audio::AudioReader::create_data(std::move(p_buffer), p_size, p_format, error);
 }
 
@@ -75,5 +75,6 @@ std::shared_ptr<Lowl::Audio::AudioDevice> Lowl::Lib::get_default_device(Lowl::Er
             return default_device;
         }
     }
-    return std::shared_ptr<Lowl::Audio::AudioDevice>();;
+    return std::shared_ptr<Lowl::Audio::AudioDevice>();
+    ;
 }

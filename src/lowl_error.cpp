@@ -118,7 +118,6 @@ std::string Lowl::Error::to_error_text(ErrorCode p_error) {
             return "OpusFileVendorError";
         case ErrorCode::OpusFileCanNotParseOpusFile:
             return "OpusFileCanNotParseOpusFile";
-
     }
     return "NOT DECLARED";
 }

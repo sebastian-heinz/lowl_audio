@@ -48,7 +48,7 @@ TEST_CASE("AudioData") {
     };
 
     std::shared_ptr<Lowl::Audio::AudioData> audio_data = std::move(make_stereo_audio_data({StereoSample{0.5f, 0.5f}}));
-    Lowl::Audio::AudioVoice audio_voice(audio_data.get());
+    Lowl::Audio::AudioVoice audio_voice(audio_data);
 
     SUBCASE("AudioVoice - Frame") {
         auto [result, read] = render_one_frame(audio_voice);

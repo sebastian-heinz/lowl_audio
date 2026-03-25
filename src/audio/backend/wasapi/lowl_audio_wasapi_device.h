@@ -3,12 +3,12 @@
 
 #ifdef LOWL_DRIVER_WASAPI
 
-#include "audio/backend/lowl_audio_device.h"
-
-#include <mmdeviceapi.h>
 #include <audioclient.h>
+#include <mmdeviceapi.h>
 
 #include <vector>
+
+#include "audio/backend/lowl_audio_device.h"
 
 namespace Lowl::Audio {
     class WasapiDevice : public AudioDevice {
@@ -22,23 +22,17 @@ namespace Lowl::Audio {
 
         static GUID get_wave_sub_format(const Lowl::Audio::SampleFormat p_sample_format);
 
-        static std::vector<Lowl::Audio::AudioDeviceProperties> create_device_properties(
-            IMMDevice *p_wasapi_device,
-            const WAVEFORMATEX *wave_format,
-            std::string device_name
-        );
+        static std::vector<Lowl::Audio::AudioDeviceProperties>
+        create_device_properties(IMMDevice *p_wasapi_device, const WAVEFORMATEX *wave_format, std::string device_name);
 
-        static Lowl::Audio::AudioDeviceProperties validate(
-            IMMDevice *p_wasapi_device,
-            const Lowl::Audio::AudioDeviceProperties p_device_properties
-        );
+        static Lowl::Audio::AudioDeviceProperties
+        validate(IMMDevice *p_wasapi_device, const Lowl::Audio::AudioDeviceProperties p_device_properties);
 
-        static std::vector<Lowl::Audio::AudioDeviceProperties> create_device_properties(
-            IMMDevice *p_wasapi_device,
-            const AudioDeviceProperties p_device_properties,
-            std::string device_name,
-            Error &error
-        );
+        static std::vector<Lowl::Audio::AudioDeviceProperties>
+        create_device_properties(IMMDevice *p_wasapi_device,
+                                 const AudioDeviceProperties p_device_properties,
+                                 std::string device_name,
+                                 Error &error);
 
         static Lowl::Audio::AudioChannelMask to_channel_mask(DWORD p_wasapi_channel_map);
 
@@ -47,7 +41,6 @@ namespace Lowl::Audio {
         static Lowl::Audio::AudioChannelMask to_channel_bit(DWORD p_wasapi_channel_bit);
 
         static DWORD to_wasapi_channel_bit(AudioChannelMask p_channel_bit);
-
 
         IMMDevice *wasapi_device;
         IAudioClient *audio_client;
@@ -61,11 +54,8 @@ namespace Lowl::Audio {
         bool enable_avrt();
 
     public:
-        static std::unique_ptr<WasapiDevice> construct(
-            const std::string &p_driver_name,
-            void *p_wasapi_device,
-            Error &error
-        );
+        static std::unique_ptr<WasapiDevice>
+        construct(const std::string &p_driver_name, void *p_wasapi_device, Error &error);
 
         uint32_t audio_callback();
 
@@ -75,11 +65,11 @@ namespace Lowl::Audio {
 
         virtual void stop(Error &error) override;
 
-        WasapiDevice (_constructor_tag);
+        WasapiDevice(_constructor_tag);
 
         ~WasapiDevice() override;
     };
-}
+} // namespace Lowl::Audio
 
 #endif /* LOWL_DRIVER_WASAPI */
 #endif /* LOWL_AUDIO_WASAPI_DEVICE_H */

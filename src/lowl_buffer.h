@@ -47,6 +47,6 @@ namespace Lowl {
 
         ~Buffer();
     };
-}
+} // namespace Lowl
 
 #endif

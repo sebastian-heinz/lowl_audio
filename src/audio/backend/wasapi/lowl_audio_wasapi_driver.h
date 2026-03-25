@@ -17,7 +17,7 @@ namespace Lowl::Audio {
 
         ~WasapiDriver();
     };
-}
+} // namespace Lowl::Audio
 
 #endif /* LOWL_DRIVER_WASAPI */
 #endif /* LOWL_AUDIO_WASAPI_DRIVER_H */

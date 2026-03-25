@@ -2,9 +2,8 @@
 
 #include "lowl_audio_core_audio_driver.h"
 
-#include "lowl_logger.h"
-
 #include "audio/backend/coreaudio/lowl_audio_core_audio_utilities.h"
+#include "lowl_logger.h"
 
 void Lowl::Audio::CoreAudioDriver::initialize(Lowl::Error &error) {
     create_devices(error);
@@ -24,11 +23,8 @@ void Lowl::Audio::CoreAudioDriver::create_devices(Error &error) {
     }
 
     for (AudioObjectID device_id : device_ids) {
-        std::shared_ptr<Lowl::Audio::CoreAudioDevice> device = Lowl::Audio::CoreAudioDevice::construct(
-                name,
-                device_id,
-                error
-        );
+        std::shared_ptr<Lowl::Audio::CoreAudioDevice> device =
+            Lowl::Audio::CoreAudioDevice::construct(name, device_id, error);
         if (error.has_error()) {
             LOWL_LOG_L_ERROR_F(error, "Device:%u", device_id);
             error.clear();
@@ -51,7 +47,6 @@ Lowl::Audio::CoreAudioDriver::CoreAudioDriver() : AudioDriver() {
 }
 
 Lowl::Audio::CoreAudioDriver::~CoreAudioDriver() {
-
 }
 
 #endif

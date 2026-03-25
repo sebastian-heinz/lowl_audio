@@ -1,11 +1,11 @@
 #ifndef LOWL_AUDIO_STREAM_H
 #define LOWL_AUDIO_STREAM_H
 
-#include "audio/lowl_audio_channel.h"
-#include "audio/source/lowl_audio_source.h"
-
 #include <atomic>
 #include <vector>
+
+#include "audio/lowl_audio_channel.h"
+#include "audio/source/lowl_audio_source.h"
 
 namespace Lowl::Audio {
     /**
@@ -14,7 +14,7 @@ namespace Lowl::Audio {
     class AudioStream : public AudioSource {
     private:
         static constexpr size_t DEFAULT_STREAM_SIZE = 375000; // ~ 7 Seconds(3 MB) of stereo 32-bit float audio
-        std::vector<std::vector<Sample> > channels;
+        std::vector<std::vector<Sample>> channels;
         std::atomic<size_t> read_position{0};
         std::atomic<size_t> write_position{0};
         size_t frame_capacity = 0;
@@ -23,7 +23,9 @@ namespace Lowl::Audio {
         size_t get_available_frames_to_write() const;
         void copy_from_ring(AudioBlockView p_block, uint32_t p_frames_to_read, size_t p_read_position);
         void copy_interleaved_to_ring(const Sample *p_interleaved, size_t p_frame_count, size_t p_write_position);
-        void copy_planar_to_ring(const std::vector<const Sample *> &p_channels, size_t p_frame_count, size_t p_write_position);
+        void copy_planar_to_ring(const std::vector<const Sample *> &p_channels,
+                                 size_t p_frame_count,
+                                 size_t p_write_position);
 
     public:
         size_l get_frames_remaining() const override;
@@ -42,6 +44,6 @@ namespace Lowl::Audio {
 
         ~AudioStream() override = default;
     };
-}
+} // namespace Lowl::Audio
 
 #endif

@@ -2,11 +2,9 @@
 
 #include "audio/lowl_audio_format.h"
 
-
 #define DR_WAV_IMPLEMENTATION
 #define DR_WAV_NO_STDIO
 #include <dr_wav.h>
-
 
 std::unique_ptr<Lowl::Audio::AudioData>
 Lowl::Audio::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Error &error) {
@@ -18,13 +16,13 @@ Lowl::Audio::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
     }
 
     /* Cannot use this function for compressed formats. */
-	if (drwav__is_compressed_format_tag(wav.translatedFormatTag)) {
-    //if (LowlThirdParty::DrLib::lowl_drwav__is_compressed_format_tag(wav.translatedFormatTag)) {
+    if (drwav__is_compressed_format_tag(wav.translatedFormatTag)) {
+        // if (LowlThirdParty::DrLib::lowl_drwav__is_compressed_format_tag(wav.translatedFormatTag)) {
         // todo uninit?
         return nullptr;
     }
 
-	//uint32_t bytes_per_frame = LowlThirdParty::DrLib::lowl_drwav_get_bytes_per_pcm_frame(&wav);
+    // uint32_t bytes_per_frame = LowlThirdParty::DrLib::lowl_drwav_get_bytes_per_pcm_frame(&wav);
     uint32_t bytes_per_frame = drwav_get_bytes_per_pcm_frame(&wav);
     if (bytes_per_frame == 0) {
         return nullptr;
@@ -33,11 +31,11 @@ Lowl::Audio::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
     /* Don't try to read more samples than can potentially fit in the output buffer. */
     /* Intentionally uint64 instead of size_t so we can do a check that we're not reading too much on 32-bit builds. */
     uint64_t bytes_to_read_test = wav.totalPCMFrameCount * bytes_per_frame;
-    //if (bytes_to_read_test > LowlThirdParty::DrLib::lowl_drwav_size_max()) {
+    // if (bytes_to_read_test > LowlThirdParty::DrLib::lowl_drwav_size_max()) {
     if (bytes_to_read_test > DRWAV_SIZE_MAX) {
         /* Round the number of bytes to read to a clean frame boundary. */
-    	bytes_to_read_test = (DRWAV_SIZE_MAX / bytes_per_frame) * bytes_per_frame;
-        //bytes_to_read_test = (LowlThirdParty::DrLib::lowl_drwav_size_max() / bytes_per_frame) * bytes_per_frame;
+        bytes_to_read_test = (DRWAV_SIZE_MAX / bytes_per_frame) * bytes_per_frame;
+        // bytes_to_read_test = (LowlThirdParty::DrLib::lowl_drwav_size_max() / bytes_per_frame) * bytes_per_frame;
     }
 
     /*
@@ -57,9 +55,8 @@ Lowl::Audio::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
     AudioChannel channel = get_channel(wav.channels);
     size_t bytes_per_sample = bytes_per_frame / wav.channels;
 
-
     /* Don't try to read more samples than can potentially fit in the output buffer. */
-    //if (framesToRead * pWav->channels * sizeof(float) > DRWAV_SIZE_MAX) {
+    // if (framesToRead * pWav->channels * sizeof(float) > DRWAV_SIZE_MAX) {
     //    framesToRead = DRWAV_SIZE_MAX / sizeof(float) / pWav->channels;
     //}
 
@@ -108,15 +105,8 @@ Lowl::Audio::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
             break;
     }
 
-    std::unique_ptr<AudioData> audio_data = create_audio_data(
-        audio_format,
-        sample_format,
-        channel,
-        sample_rate,
-        pcm_frames,
-        bytes_read,
-        error
-    );
+    std::unique_ptr<AudioData> audio_data =
+        create_audio_data(audio_format, sample_format, channel, sample_rate, pcm_frames, bytes_read, error);
     drwav_uninit(&wav);
     return audio_data;
 }

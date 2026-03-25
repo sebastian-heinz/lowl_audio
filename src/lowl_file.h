@@ -1,9 +1,9 @@
 #ifndef LOWL_FILE
 #define LOWL_FILE
 
-#include "lowl_error.h"
-
 #include <fstream>
+
+#include "lowl_error.h"
 
 namespace Lowl {
 
@@ -42,6 +42,6 @@ namespace Lowl {
 
         ~File() = default;
     };
-}
+} // namespace Lowl
 
 #endif

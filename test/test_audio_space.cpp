@@ -100,4 +100,28 @@ TEST_CASE("AudioSpace") {
         REQUIRE_EQ(frame.right, doctest::Approx(0.0f));
         REQUIRE(audio_space.get_name_mapping().empty());
     }
+
+    SUBCASE("AudioSpace - query methods ignore detached voices without cleanup side effects") {
+        auto audio_data = make_stereo_audio_data({StereoSample{0.5f, -0.5f}});
+        audio_data->set_name("one-shot");
+        const Lowl::SpaceId id = audio_space.add_audio(std::move(audio_data), error);
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE_NE(id, 0U);
+
+        audio_space.play(id);
+
+        auto [result, frame] = render_one_frame(audio_space);
+        REQUIRE_EQ(result.frames_produced, 1U);
+        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Ok);
+        REQUIRE_EQ(frame.left, doctest::Approx(0.5f));
+        REQUIRE_EQ(frame.right, doctest::Approx(-0.5f));
+
+        REQUIRE_EQ(audio_space.get_frame_position(id), 0U);
+        REQUIRE_EQ(audio_space.get_frames_remaining(id), 0U);
+        REQUIRE_EQ(audio_space.get_frame_count(id), 1U);
+
+        const std::map<Lowl::SpaceId, std::string> names = audio_space.get_name_mapping();
+        REQUIRE_EQ(names.at(id), "one-shot");
+    }
 }

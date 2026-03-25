@@ -1,0 +1,62 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+ColumnLimit: 120
+
+NamespaceIndentation: All
+IndentCaseLabels: true
+AccessModifierOffset: -4
+
+PointerAlignment: Right
+DerivePointerAlignment: false
+
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+
+BinPackArguments: false
+BinPackParameters: false
+AlignAfterOpenBracket: Align
+BreakBeforeBinaryOperators: None
+
+SpaceBeforeParens: ControlStatements
+SpacesInAngles: Never
+
+Cpp11BracedListStyle: true
+
+ReflowComments: IndentOnly
+MaxEmptyLinesToKeep: 1
+
+
+# Enable include sorting
+SortIncludes: CaseSensitive
+
+# Regroup ensures blocks are merged and then split by category with empty lines
+IncludeBlocks: Regroup
+
+IncludeCategories:
+  # 1. Related Header (Main header for a .cpp file automatically gets Category 0)
+  # This is handled by clang-format by default.
+
+  # 2. C System Headers (e.g., <stdlib.h>)
+  - Regex:           '^<.*\.(h|hh)>'
+    Priority:        1
+
+  # 3. C++ Standard Library (e.g., <vector>, <string>)
+  - Regex:           '^<[^.]*>'
+    Priority:        2
+
+  # 4. Third-party Library Headers (e.g., <boost/...>, <gtest/...>)
+  - Regex:           '^<.*'
+    Priority:        3
+
+  # 5. Project-specific Headers (e.g., "my_project/utils.h")
+  - Regex:           '^".*'
+    Priority:        4

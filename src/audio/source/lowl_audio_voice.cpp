@@ -1,13 +1,12 @@
 #include "lowl_audio_voice.h"
 
 #include <algorithm>
+#include <utility>
 
-Lowl::Audio::AudioVoice::AudioVoice(const AudioData *p_audio_data)
-    : AudioSource(
-        p_audio_data ? p_audio_data->get_sample_rate() : NO_SAMPLE_RATE,
-        p_audio_data ? p_audio_data->get_channel() : AudioChannel::None
-    ) {
-    audio_data = p_audio_data;
+Lowl::Audio::AudioVoice::AudioVoice(std::shared_ptr<const AudioData> p_audio_data)
+    : AudioSource(p_audio_data ? p_audio_data->get_sample_rate() : NO_SAMPLE_RATE,
+                  p_audio_data ? p_audio_data->get_channel() : AudioChannel::None),
+      audio_data(std::move(p_audio_data)) {
     position = 0;
     seek_position = 0;
     is_not_reset.test_and_set();

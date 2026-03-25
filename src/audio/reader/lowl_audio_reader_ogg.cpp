@@ -1,9 +1,10 @@
 #include "lowl_audio_reader_ogg.h"
 
-#include "audio/lowl_audio_format.h"
+#include <vorbis/vorbisfile.h>
 
 #include <cassert>
-#include <vorbis/vorbisfile.h>
+
+#include "audio/lowl_audio_format.h"
 
 struct OggData {
     uint8_t *data;
@@ -31,13 +32,13 @@ static int ogg_memory_seek(void *source, ogg_int64_t offset, int origin) {
     OggData *src = static_cast<OggData *>(source);
     if (origin == SEEK_SET) {
         /* set file offset to offset */
-        src->index = (size_t) offset;
+        src->index = (size_t)offset;
     } else if (origin == SEEK_CUR) {
         /* set file offset to current plus offset */
-        src->index += (size_t) offset;
+        src->index += (size_t)offset;
     } else if (origin == SEEK_END) {
         /* set file offset to EOF plus offset */
-        src->index += src->length + (size_t) offset;
+        src->index += src->length + (size_t)offset;
     }
 
     return 0;
@@ -45,25 +46,15 @@ static int ogg_memory_seek(void *source, ogg_int64_t offset, int origin) {
 
 static long ogg_memory_tell(void *source) {
     OggData *src = static_cast<OggData *>(source);
-    return (long) src->index;
+    return (long)src->index;
 }
-
 
 std::unique_ptr<Lowl::Audio::AudioData>
 Lowl::Audio::AudioReaderOgg::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Error &error) {
 
     OggVorbis_File vf;
-    const ov_callbacks callbacks{
-            &ogg_memory_read,
-            &ogg_memory_seek,
-            nullptr,
-            &ogg_memory_tell
-    };
-    OggData ogg_data{
-            p_buffer.get(),
-            p_size,
-            0
-    };
+    const ov_callbacks callbacks{&ogg_memory_read, &ogg_memory_seek, nullptr, &ogg_memory_tell};
+    OggData ogg_data{p_buffer.get(), p_size, 0};
     int ret = ov_open_callbacks(&ogg_data, &vf, nullptr, 0, callbacks);
     if (ret < 0) {
         ov_clear(&vf);
@@ -76,7 +67,7 @@ Lowl::Audio::AudioReaderOgg::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
     uint32_t channel_count = static_cast<uint32_t>(vi->channels);
     ogg_int64_t sample_count = ov_pcm_total(&vf, -1);
 
-    SampleRate sample_rate = (SampleRate) vi->rate;
+    SampleRate sample_rate = (SampleRate)vi->rate;
     AudioChannel channel = get_channel(channel_count);
     const size_t frame_count = sample_count > 0 ? static_cast<size_t>(sample_count) : 0;
     std::unique_ptr<Sample[]> storage;
@@ -98,7 +89,8 @@ Lowl::Audio::AudioReaderOgg::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
             break;
         }
         for (uint32_t channel_index = 0; channel_index < channel_count; channel_index++) {
-            Sample *dst = storage ? storage.get() + static_cast<size_t>(channel_index) * frame_count + read_total : nullptr;
+            Sample *dst =
+                storage ? storage.get() + static_cast<size_t>(channel_index) * frame_count + read_total : nullptr;
             if (dst != nullptr) {
                 std::copy_n(pcm[channel_index], static_cast<size_t>(samples_read), dst);
             }
@@ -112,11 +104,9 @@ Lowl::Audio::AudioReaderOgg::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
         if (frames_read_total > 0 && channel_count > 0) {
             trimmed_storage = std::make_unique<Sample[]>(frames_read_total * channel_count);
             for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
-                std::copy_n(
-                    storage.get() + channel_index * frame_count,
-                    frames_read_total,
-                    trimmed_storage.get() + channel_index * frames_read_total
-                );
+                std::copy_n(storage.get() + channel_index * frame_count,
+                            frames_read_total,
+                            trimmed_storage.get() + channel_index * frames_read_total);
             }
         }
         storage = std::move(trimmed_storage);

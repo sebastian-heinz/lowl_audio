@@ -1,19 +1,24 @@
 #ifndef LOWL_AUDIO_SPACE_H
 #define LOWL_AUDIO_SPACE_H
 
-#include "lowl_typedef.h"
-
-#include "audio/source/lowl_audio_data.h"
-#include "audio/source/lowl_audio_voice.h"
-#include "audio/source/lowl_audio_mixer.h"
-#include "audio/backend/lowl_audio_device.h"
-
-#include <string>
 #include <map>
+#include <mutex>
+#include <string>
+
+#include "audio/backend/lowl_audio_device.h"
+#include "audio/source/lowl_audio_data.h"
+#include "audio/source/lowl_audio_mixer.h"
+#include "audio/source/lowl_audio_voice.h"
+#include "lowl_typedef.h"
 
 namespace Lowl::Audio {
     /**
      * Owns a collection of clips addressed by `SpaceId` and plays them through an internal mixer.
+     *
+     * `render()` is the real-time render path and does not take this class' state lock. All other
+     * methods that touch clip or voice bookkeeping synchronize on `state_mutex`; they are safe to
+     * call concurrently, but they are not real-time safe and should stay off the audio callback
+     * thread.
      */
     class AudioSpace : public AudioSource {
     public:
@@ -23,16 +28,18 @@ namespace Lowl::Audio {
         static const SpaceId FirstSpaceId = 1;
         static const int LookupGrowth = 100;
 
-        std::vector<std::shared_ptr<AudioData> > audio_data_lookup;
-        mutable std::vector<std::vector<std::shared_ptr<AudioVoice> > > active_voice_lookup;
-        mutable std::vector<std::shared_ptr<AudioVoice> > retired_voices;
-        mutable std::vector<std::shared_ptr<AudioData> > retired_audio_data;
+        std::vector<std::shared_ptr<AudioData>> audio_data_lookup;
+        mutable std::mutex state_mutex;
+        mutable std::vector<std::vector<std::shared_ptr<AudioVoice>>> active_voice_lookup;
+        mutable std::vector<std::shared_ptr<AudioVoice>> retired_voices;
         std::unique_ptr<AudioMixer> mixer;
         SpaceId current_id;
 
         SpaceId insert_audio_data(std::shared_ptr<AudioData> p_audio_data);
-        void collect_garbage() const;
-        std::shared_ptr<AudioVoice> get_latest_voice(SpaceId p_id) const;
+
+        void collect_garbage_locked() const;
+
+        std::shared_ptr<AudioVoice> get_latest_voice_locked(SpaceId p_id) const;
 
     public:
         size_l get_frames_remaining() const override;
@@ -80,8 +87,8 @@ namespace Lowl::Audio {
         ~AudioSpace() override;
 
     private:
-        std::shared_ptr<AudioData> get_audio_data(SpaceId p_id) const;
+        std::shared_ptr<AudioData> get_audio_data_locked(SpaceId p_id) const;
     };
-}
+} // namespace Lowl::Audio
 
 #endif

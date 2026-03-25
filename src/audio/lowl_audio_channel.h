@@ -40,52 +40,52 @@ namespace Lowl::Audio {
     };
 
     constexpr enum AudioChannelMask operator|(const enum AudioChannelMask p_self, const enum AudioChannelMask p_in) {
-        return (enum AudioChannelMask) (uint32_t(p_self) | uint32_t(p_in));
+        return (enum AudioChannelMask)(uint32_t(p_self) | uint32_t(p_in));
     }
 
     constexpr enum AudioChannelMask operator&(const enum AudioChannelMask p_self, const enum AudioChannelMask p_in) {
-        return (enum AudioChannelMask) (uint32_t(p_self) & uint32_t(p_in));
+        return (enum AudioChannelMask)(uint32_t(p_self) & uint32_t(p_in));
     }
 
     inline std::string audio_channel_mask_string(AudioChannelMask p_channel_mask) {
         std::string response;
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::MONO))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::MONO))
             response += "MONO | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::LEFT))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::LEFT))
             response += "LEFT | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::RIGHT))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::RIGHT))
             response += "RIGHT | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::FRONT_CENTER))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::FRONT_CENTER))
             response += "FRONT_CENTER | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::LOW_FREQUENCY))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::LOW_FREQUENCY))
             response += "LOW_FREQUENCY | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::BACK_LEFT))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::BACK_LEFT))
             response += "BACK_LEFT | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::BACK_RIGHT))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::BACK_RIGHT))
             response += "BACK_RIGHT | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::FRONT_LEFT_OF_CENTER))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::FRONT_LEFT_OF_CENTER))
             response += "FRONT_LEFT_OF_CENTER | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::FRONT_RIGHT_OF_CENTER))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::FRONT_RIGHT_OF_CENTER))
             response += "FRONT_RIGHT_OF_CENTER | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::BACK_CENTER))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::BACK_CENTER))
             response += "BACK_CENTER | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::SIDE_LEFT))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::SIDE_LEFT))
             response += "SIDE_LEFT | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::SIDE_RIGHT))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::SIDE_RIGHT))
             response += "SIDE_RIGHT | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::TOP_CENTER))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::TOP_CENTER))
             response += "TOP_CENTER | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::TOP_FRONT_LEFT))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::TOP_FRONT_LEFT))
             response += "TOP_FRONT_LEFT | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::TOP_FRONT_CENTER))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::TOP_FRONT_CENTER))
             response += "TOP_FRONT_CENTER | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::TOP_FRONT_RIGHT))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::TOP_FRONT_RIGHT))
             response += "TOP_FRONT_RIGHT | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::TOP_BACK_LEFT))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::TOP_BACK_LEFT))
             response += "TOP_BACK_LEFT | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::TOP_BACK_CENTER))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::TOP_BACK_CENTER))
             response += "TOP_BACK_CENTER | ";
-        if ((uint32_t) (p_channel_mask & AudioChannelMask::TOP_BACK_RIGHT))
+        if ((uint32_t)(p_channel_mask & AudioChannelMask::TOP_BACK_RIGHT))
             response += "TOP_BACK_RIGHT | ";
         if (response.empty()) {
             response = "NONE";
@@ -94,7 +94,6 @@ namespace Lowl::Audio {
         }
         return response;
     }
-
 
     inline size_t get_channel_num(AudioChannel channel) {
         switch (channel) {
@@ -131,6 +130,6 @@ namespace Lowl::Audio {
                 return AudioChannel::None;
         }
     }
-}
+} // namespace Lowl::Audio
 
 #endif

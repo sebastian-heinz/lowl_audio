@@ -2,9 +2,9 @@
 #define LOWL_TIMER_H
 
 #include <atomic>
-#include <thread>
 #include <chrono>
 #include <functional>
+#include <thread>
 
 namespace Lowl {
 
@@ -30,7 +30,7 @@ namespace Lowl {
         }
 
     public:
-        template<typename Rep, typename Period>
+        template <typename Rep, typename Period>
         void start_interval(std::function<void()> p_thread_function, std::chrono::duration<Rep, Period> p_interval) {
             stop();
             thread_function = p_thread_function;
@@ -38,7 +38,7 @@ namespace Lowl {
             thread = new std::thread(&Timer::thread_interval, this);
         }
 
-        template<typename Rep, typename Period>
+        template <typename Rep, typename Period>
         void start_timer(std::function<void()> p_thread_function, std::chrono::duration<Rep, Period> p_duration) {
             stop();
             thread_function = p_thread_function;
@@ -71,6 +71,6 @@ namespace Lowl {
             stop();
         }
     };
-}
+} // namespace Lowl
 
 #endif

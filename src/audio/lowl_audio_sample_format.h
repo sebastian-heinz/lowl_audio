@@ -1,10 +1,10 @@
 #ifndef LOWL_SAMPLE_FORMAT
 #define LOWL_SAMPLE_FORMAT
 
-#include "lowl_typedef.h"
-
 #include <cstddef>
 #include <string>
+
+#include "lowl_typedef.h"
 
 namespace Lowl::Audio {
 
@@ -42,7 +42,6 @@ namespace Lowl::Audio {
         }
     }
 
-
     _INLINE_ size_t get_sample_size_bytes(SampleFormat p_format) {
         switch (p_format) {
             case SampleFormat::FLOAT_64:
@@ -68,6 +67,6 @@ namespace Lowl::Audio {
         return get_sample_size_bytes(p_format) * 8;
     }
 
-}
+} // namespace Lowl::Audio
 
 #endif
