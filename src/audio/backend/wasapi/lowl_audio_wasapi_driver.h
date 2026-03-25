@@ -6,9 +6,7 @@
 #include "audio/lowl_audio_driver.h"
 
 namespace Lowl::Audio {
-
     class WasapiDriver : public AudioDriver {
-
     private:
         void create_devices(Error &error);
 

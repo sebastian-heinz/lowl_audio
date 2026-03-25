@@ -12,7 +12,6 @@
 std::unique_ptr<Lowl::Audio::WasapiCom> Lowl::Audio::WasapiCom::wasapi_com = std::make_unique<Lowl::Audio::WasapiCom>();
 
 void Lowl::Audio::WasapiCom::initialize(Lowl::Error &error) {
-
     HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     if (FAILED(hr) && hr != RPC_E_CHANGED_MODE) {
         error.set_vendor_error(hr, Error::VendorError::WasapiVendorError);

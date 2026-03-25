@@ -22,7 +22,6 @@ void Lowl::Audio::WasapiDriver::initialize(Lowl::Error &error) {
 }
 
 void Lowl::Audio::WasapiDriver::create_devices(Lowl::Error &error) {
-
     IMMDeviceEnumerator *enumerator = nullptr;
     HRESULT result = CoCreateInstance(__uuidof(MMDeviceEnumerator),
                                       nullptr,
@@ -44,9 +43,9 @@ void Lowl::Audio::WasapiDriver::create_devices(Lowl::Error &error) {
 
     IMMDeviceCollection *end_points = nullptr;
     result = enumerator->EnumAudioEndpoints(
-            eRender,
-            DEVICE_STATE_ACTIVE,
-            &end_points
+        eRender,
+        DEVICE_STATE_ACTIVE,
+        &end_points
     );
     if (FAILED(result)) {
         SAFE_RELEASE(end_points)
@@ -71,9 +70,9 @@ void Lowl::Audio::WasapiDriver::create_devices(Lowl::Error &error) {
         }
         Error err;
         std::shared_ptr<Lowl::Audio::AudioDevice> device = WasapiDevice::construct(
-                name,
-                wasapi_device,
-                err
+            name,
+            wasapi_device,
+            err
         );
         if (err.ok()) {
             devices.push_back(device);

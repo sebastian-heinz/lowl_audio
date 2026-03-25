@@ -8,7 +8,6 @@
 #include <memory>
 
 namespace Lowl::Audio {
-
     class WasapiCom {
     private:
         bool initialized;
@@ -25,7 +24,6 @@ namespace Lowl::Audio {
 
         void terminate();
     };
-
 } //namespace Lowl::Audio
 
 #endif /* LOWL_DRIVER_WASAPI */
