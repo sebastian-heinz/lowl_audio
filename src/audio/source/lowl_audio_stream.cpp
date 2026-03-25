@@ -56,11 +56,26 @@ void Lowl::Audio::AudioStream::copy_interleaved_to_ring(
     if (frame_capacity == 0 || p_interleaved == nullptr || p_frame_count == 0) {
         return;
     }
+
     const size_t channel_count = channels.size();
-    for (size_t frame_index = 0; frame_index < p_frame_count; frame_index++) {
-        const size_t ring_frame_index = (p_write_position + frame_index) % frame_capacity;
-        for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
-            channels[channel_index][ring_frame_index] = p_interleaved[frame_index * channel_count + channel_index];
+    const size_t first_index = p_write_position % frame_capacity;
+    const size_t first_part_frames = std::min(p_frame_count, frame_capacity - first_index);
+    const size_t second_part_frames = p_frame_count - first_part_frames;
+
+    for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
+        std::vector<Sample> &dst_channel = channels[channel_index];
+        Sample *dst = dst_channel.data() + first_index;
+        const Sample *src = p_interleaved + channel_index;
+
+        for (size_t frame_index = 0; frame_index < first_part_frames; frame_index++) {
+            *dst++ = *src;
+            src += channel_count;
+        }
+
+        dst = dst_channel.data();
+        for (size_t frame_index = 0; frame_index < second_part_frames; frame_index++) {
+            *dst++ = *src;
+            src += channel_count;
         }
     }
 }
@@ -98,6 +113,14 @@ void Lowl::Audio::AudioStream::copy_planar_to_ring(
 
 Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioStream::render(AudioBlockView p_block) {
     if (!is_playing) {
+        return {0, RenderState::Starved};
+    }
+
+    const uint8_t expected_channel_count = static_cast<uint8_t>(get_channel_num());
+    if (p_block.channel_count != expected_channel_count) {
+        for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
+            std::fill_n(p_block.channel(channel_index), p_block.frame_count, static_cast<Sample>(0));
+        }
         return {0, RenderState::Starved};
     }
 

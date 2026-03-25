@@ -2,6 +2,8 @@
 
 #include "lowl_logger.h"
 
+#include "audio/lowl_audio_utilities.h"
+
 #include "audio/reader/lowl_audio_reader.h"
 
 #include "audio/convert/lowl_audio_channel_converter.h"
@@ -34,7 +36,7 @@ Lowl::SpaceId Lowl::Audio::AudioSpace::insert_audio_data(std::shared_ptr<AudioDa
 }
 
 void Lowl::Audio::AudioSpace::collect_garbage() const {
-    for (std::vector<std::shared_ptr<AudioVoice> > &voices : active_voice_lookup) {
+    for (std::vector<std::shared_ptr<AudioVoice> > &voices: active_voice_lookup) {
         voices.erase(
             std::remove_if(
                 voices.begin(),
@@ -65,10 +67,8 @@ void Lowl::Audio::AudioSpace::collect_garbage() const {
 Lowl::SpaceId Lowl::Audio::AudioSpace::add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error) {
     std::shared_ptr<AudioData> audio = std::move(p_audio_data);
     SampleRate rate = audio->get_sample_rate();
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wfloat-equal"
-    if (rate != sample_rate) {
-#pragma clang diagnostic pop
+
+    if (!Lowl::Audio::sample_rates_equal(rate, sample_rate)) {
         std::unique_ptr<AudioData> resampled = ReSamplerR8b::resample(audio, sample_rate);
         audio = std::move(resampled);
     }
@@ -104,13 +104,13 @@ void Lowl::Audio::AudioSpace::clear_all_audio() {
     collect_garbage();
     stop_all_audio();
 
-    for (const std::shared_ptr<AudioData> &audio_data : audio_data_lookup) {
+    for (const std::shared_ptr<AudioData> &audio_data: audio_data_lookup) {
         if (audio_data) {
             retired_audio_data.push_back(audio_data);
         }
     }
-    for (const std::vector<std::shared_ptr<AudioVoice> > &voices : active_voice_lookup) {
-        for (const std::shared_ptr<AudioVoice> &voice : voices) {
+    for (const std::vector<std::shared_ptr<AudioVoice> > &voices: active_voice_lookup) {
+        for (const std::shared_ptr<AudioVoice> &voice: voices) {
             if (voice) {
                 retired_voices.push_back(voice);
             }
@@ -164,7 +164,7 @@ void Lowl::Audio::AudioSpace::stop(const SpaceId p_id) const {
     if (p_id >= active_voice_lookup.size()) {
         return;
     }
-    for (const std::shared_ptr<AudioVoice> &voice : active_voice_lookup[p_id]) {
+    for (const std::shared_ptr<AudioVoice> &voice: active_voice_lookup[p_id]) {
         if (voice && !voice->is_detached()) {
             mixer->remove(voice.get());
         }
@@ -176,7 +176,7 @@ void Lowl::Audio::AudioSpace::set_volume(const SpaceId p_id, const Volume p_volu
     if (p_id >= active_voice_lookup.size()) {
         return;
     }
-    for (const std::shared_ptr<AudioVoice> &voice : active_voice_lookup[p_id]) {
+    for (const std::shared_ptr<AudioVoice> &voice: active_voice_lookup[p_id]) {
         if (voice && !voice->is_detached()) {
             voice->set_volume(p_volume);
         }
@@ -188,7 +188,7 @@ void Lowl::Audio::AudioSpace::set_panning(const SpaceId p_id, const Panning p_pa
     if (p_id >= active_voice_lookup.size()) {
         return;
     }
-    for (const std::shared_ptr<AudioVoice> &voice : active_voice_lookup[p_id]) {
+    for (const std::shared_ptr<AudioVoice> &voice: active_voice_lookup[p_id]) {
         if (voice && !voice->is_detached()) {
             voice->set_panning(p_panning);
         }
@@ -200,7 +200,7 @@ void Lowl::Audio::AudioSpace::seek_frame(const SpaceId p_id, const size_t p_fram
     if (p_id >= active_voice_lookup.size()) {
         return;
     }
-    for (const std::shared_ptr<AudioVoice> &voice : active_voice_lookup[p_id]) {
+    for (const std::shared_ptr<AudioVoice> &voice: active_voice_lookup[p_id]) {
         if (voice && !voice->is_detached()) {
             voice->seek_frame(p_frame);
         }
@@ -212,7 +212,7 @@ void Lowl::Audio::AudioSpace::seek_time(const SpaceId p_id, const double_l p_sec
     if (p_id >= active_voice_lookup.size()) {
         return;
     }
-    for (const std::shared_ptr<AudioVoice> &voice : active_voice_lookup[p_id]) {
+    for (const std::shared_ptr<AudioVoice> &voice: active_voice_lookup[p_id]) {
         if (voice && !voice->is_detached()) {
             voice->seek_time(p_seconds);
         }
@@ -224,7 +224,7 @@ void Lowl::Audio::AudioSpace::reset(const SpaceId p_id) const {
     if (p_id >= active_voice_lookup.size()) {
         return;
     }
-    for (const std::shared_ptr<AudioVoice> &voice : active_voice_lookup[p_id]) {
+    for (const std::shared_ptr<AudioVoice> &voice: active_voice_lookup[p_id]) {
         if (voice && !voice->is_detached()) {
             voice->reset();
         }

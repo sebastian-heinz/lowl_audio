@@ -4,6 +4,9 @@
 #include "audio/source/lowl_audio_source.h"
 
 namespace Lowl::Audio {
+    /**
+     * Queued command used to add or remove a source from the mixer thread-safely.
+     */
     struct AudioMixerEvent {
         enum class Type : uint8_t {
             Mix = 0,

@@ -3,6 +3,8 @@
 
 #include <string>
 
+#include "audio/lowl_audio_utilities.h"
+
 namespace Lowl::Audio {
     struct AudioDevicePropertiesWasapi {
         uint16_t valid_bits_per_sample;
@@ -31,10 +33,7 @@ namespace Lowl::Audio {
 
         bool operator==(const AudioDeviceProperties &rhs) const {
             return is_supported == rhs.is_supported &&
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wfloat-equal"
-                   sample_rate == rhs.sample_rate &&
-#pragma clang diagnostic pop
+                   Lowl::Audio::sample_rates_equal(sample_rate, rhs.sample_rate) &&
                    channel == rhs.channel &&
                    sample_format == rhs.sample_format &&
                    channel_map == rhs.channel_map &&

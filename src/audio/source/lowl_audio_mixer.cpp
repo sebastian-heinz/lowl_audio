@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <string>
 
+#include "audio/lowl_audio_utilities.h"
+
 Lowl::Audio::AudioMixer::AudioMixer(
     SampleRate p_sample_rate,
     AudioChannel p_channel
@@ -69,6 +71,14 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render(AudioBloc
         return {0, RenderState::Starved};
     }
 
+    const uint8_t expected_channel_count = static_cast<uint8_t>(get_channel_num());
+    if (p_block.channel_count != expected_channel_count) {
+        for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
+            std::fill_n(p_block.channel(channel_index), p_block.frame_count, static_cast<Sample>(0));
+        }
+        return {0, RenderState::Starved};
+    }
+
     bool has_output = false;
     bool has_sources = false;
     uint32_t produced_frames = 0;
@@ -126,10 +136,16 @@ void Lowl::Audio::AudioMixer::mix(AudioSource *p_audio_source) {
     if (p_audio_source == nullptr) {
         return;
     }
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wfloat-equal"
-    if (p_audio_source->get_sample_rate() != sample_rate) {
-#pragma clang diagnostic pop
+    if (p_audio_source->get_channel() != channel) {
+        LOWL_LOG_ERROR(
+            "Lowl::AudioMixer::mix: p_audio_source(" + std::to_string(p_audio_source->get_channel_num()) +
+            "ch) does not match mixer(" + std::to_string(get_channel_num()) + "ch) channel count."
+        );
+        p_audio_source->on_removed_from_mixer();
+        return;
+    }
+
+    if (!Lowl::Audio::sample_rates_equal(p_audio_source->get_sample_rate(), sample_rate)) {
         LOWL_LOG_WARN("Lowl::AudioMixer::mix: p_audio_source(" + std::to_string(p_audio_source->get_sample_rate()) +
             ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate.");
     }

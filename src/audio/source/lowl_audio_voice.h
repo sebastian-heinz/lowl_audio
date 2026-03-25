@@ -7,6 +7,9 @@
 #include <atomic>
 
 namespace Lowl::Audio {
+    /**
+     * Playback instance for an `AudioData` clip with its own position, gain, and panning state.
+     */
     class AudioVoice : public AudioSource {
     private:
         const AudioData *audio_data = nullptr;

@@ -8,6 +8,9 @@
 #include <vector>
 
 namespace Lowl::Audio {
+    /**
+     * Ring-buffer backed source for streaming sample blocks into the audio pipeline.
+     */
     class AudioStream : public AudioSource {
     private:
         static constexpr size_t DEFAULT_STREAM_SIZE = 375000; // ~ 7 Seconds(3 MB) of stereo 32-bit float audio

@@ -1,6 +1,10 @@
 #include "lowl_audio_utilities.h"
 
 #include "lowl_error.h"
+#include "audio/source/lowl_audio_data.h"
+#include "audio/source/lowl_audio_stream.h"
+
+#include <vector>
 
 std::unique_ptr<Lowl::Audio::AudioStream> Lowl::Audio::Utilities::to_stream(
     const std::shared_ptr<AudioData> &p_audio_data, Error &error

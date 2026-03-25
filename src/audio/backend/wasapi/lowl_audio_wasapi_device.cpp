@@ -74,6 +74,15 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
 		error.set_error(Lowl::ErrorCode::Error);
 		return;
 	}
+	if (p_audio_source != nullptr && p_audio_source->get_channel() != p_audio_device_properties.channel) {
+		LOWL_LOG_ERROR(
+			"WasapiDevice::start: p_audio_source(" + std::to_string(p_audio_source->get_channel_num()) +
+			"ch) does not match device(" +
+			std::to_string(get_channel_num(p_audio_device_properties.channel)) + "ch) channel count."
+		);
+		error.set_error(Lowl::ErrorCode::InvalidParameter);
+		return;
+	}
 
 	audio_device_properties = p_audio_device_properties;
 	audio_source = p_audio_source;

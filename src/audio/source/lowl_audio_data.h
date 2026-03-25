@@ -10,6 +10,9 @@
 #include <vector>
 
 namespace Lowl::Audio {
+    /**
+     * Stores decoded clip data in planar sample buffers that voices can read from.
+     */
     class AudioData {
     private:
         std::unique_ptr<Sample[]> storage;

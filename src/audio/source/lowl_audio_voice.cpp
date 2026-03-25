@@ -20,6 +20,15 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::render(AudioBloc
     if (!is_playing) {
         return {0, RenderState::Starved};
     }
+
+    const uint8_t expected_channel_count = static_cast<uint8_t>(get_channel_num());
+    if (p_block.channel_count != expected_channel_count) {
+        for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
+            std::fill_n(p_block.channel(channel_index), p_block.frame_count, static_cast<Sample>(0));
+        }
+        return {0, RenderState::Starved};
+    }
+
     if (!is_not_reset.test_and_set()) {
         position = seek_position.load();
         seek_position = 0;
@@ -34,7 +43,7 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::render(AudioBloc
 
     const size_t available = frame_count - current_position;
     const uint32_t frames_to_copy = static_cast<uint32_t>(std::min<size_t>(available, p_block.frame_count));
-    const uint8_t channel_count = std::min<uint8_t>(p_block.channel_count, static_cast<uint8_t>(audio_data->get_channel_num()));
+    const uint8_t channel_count = expected_channel_count;
 
     for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
         const Sample *src_channel = audio_data->get_channel_data(channel_index);

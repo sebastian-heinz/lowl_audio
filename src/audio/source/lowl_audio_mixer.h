@@ -11,6 +11,9 @@
 #include <array>
 
 namespace Lowl::Audio {
+    /**
+     * Mixes multiple active sources into a single renderable output stream.
+     */
     class AudioMixer : public AudioSource {
     private:
         static constexpr uint32_t SCRATCH_BUFFER_CAPACITY = 8192;

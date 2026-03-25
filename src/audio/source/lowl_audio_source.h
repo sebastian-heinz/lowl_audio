@@ -12,9 +12,8 @@
 #include <atomic>
 
 namespace Lowl::Audio {
-
     /**
-     *  A test class. A more elaborate class description.
+     * Base class for anything that can render audio into a block for a mixer or device.
      */
     class AudioSource {
     public:

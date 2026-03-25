@@ -2,6 +2,9 @@
 
 #include "audio/lowl_audio_utilities.h"
 #include "audio/lowl_audio_buffer.h"
+#include "audio/source/lowl_audio_data.h"
+#include "audio/source/lowl_audio_stream.h"
+#include "audio/source/lowl_audio_source.h"
 
 #include <memory>
 #include <vector>

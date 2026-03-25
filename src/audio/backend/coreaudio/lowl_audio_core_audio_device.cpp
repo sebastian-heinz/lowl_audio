@@ -3,6 +3,7 @@
 #include "lowl_audio_core_audio_device.h"
 
 #include "lowl_logger.h"
+#include "audio/lowl_audio_utilities.h"
 #include "audio/lowl_audio_setting.h"
 #include "audio/backend/coreaudio/lowl_audio_core_audio_utilities.h"
 
@@ -138,6 +139,15 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
                                          Error &error) {
     if (!p_audio_device_properties.is_supported) {
         error.set_error(Lowl::ErrorCode::DevicePropertiesNotSupported);
+        return;
+    }
+    if (p_audio_source && p_audio_source->get_channel() != p_audio_device_properties.channel) {
+        LOWL_LOG_ERROR(
+            "CoreAudioDevice::start: p_audio_source(" + std::to_string(p_audio_source->get_channel_num()) +
+            "ch) does not match device(" +
+            std::to_string(get_channel_num(p_audio_device_properties.channel)) + "ch) channel count."
+        );
+        error.set_error(Lowl::ErrorCode::InvalidParameter);
         return;
     }
     audio_device_properties = p_audio_device_properties;
@@ -420,13 +430,9 @@ bool Lowl::Audio::CoreAudioDevice::test_device_properties(AudioObjectID p_device
         LOWL_LOG_ERROR_F("failed to get output sample rate (device:%u)", p_device_id);
         return false;
     }
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wfloat-equal"
-    if (output_sample_rate != p_properties.sample_rate) {
+    if (!Lowl::Audio::sample_rates_equal(output_sample_rate, p_properties.sample_rate)) {
         return false;
     }
-#pragma clang diagnostic pop
 
     return true;
 }

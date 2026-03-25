@@ -11,6 +11,35 @@ namespace {
         Lowl::Sample left;
         Lowl::Sample right;
     };
+
+    class MixerDetachProbe final : public Lowl::Audio::AudioSource {
+    public:
+        explicit MixerDetachProbe(Lowl::Audio::AudioChannel p_channel)
+            : AudioSource(44100.0, p_channel) {
+        }
+
+        RenderResult render(Lowl::Audio::AudioBlockView) override {
+            return {0, RenderState::Starved};
+        }
+
+        Lowl::size_l get_frames_remaining() const override {
+            return 0;
+        }
+
+        Lowl::size_l get_frame_position() const override {
+            return 0;
+        }
+
+        Lowl::size_l get_frame_count() const override {
+            return 0;
+        }
+
+        void on_removed_from_mixer() override {
+            detached = true;
+        }
+
+        bool detached = false;
+    };
 }
 
 TEST_CASE("AudioStream") {
@@ -111,5 +140,59 @@ TEST_CASE("AudioStream") {
         REQUIRE_EQ(result3.frames_produced, 1U);
         REQUIRE_EQ(read3.left, doctest::Approx(0.4f));
         REQUIRE_EQ(read3.right, doctest::Approx(-0.4f));
+    }
+
+    SUBCASE("AudioStream - Interleaved write wraps around ring") {
+        Lowl::Audio::AudioStream small_stream(44100.0, Lowl::Audio::AudioChannel::Stereo, 3);
+        const Lowl::Sample first_block[] = {0.1f, -0.1f, 0.2f, -0.2f};
+        REQUIRE_EQ(small_stream.write_interleaved(first_block, 2), 2U);
+
+        auto [result0, read0] = render_one_frame(small_stream);
+        REQUIRE_EQ(result0.frames_produced, 1U);
+        REQUIRE_EQ(read0.left, doctest::Approx(0.1f));
+        REQUIRE_EQ(read0.right, doctest::Approx(-0.1f));
+
+        const Lowl::Sample second_block[] = {0.3f, -0.3f, 0.4f, -0.4f};
+        REQUIRE_EQ(small_stream.write_interleaved(second_block, 2), 2U);
+
+        auto [result1, read1] = render_one_frame(small_stream);
+        REQUIRE_EQ(result1.frames_produced, 1U);
+        REQUIRE_EQ(read1.left, doctest::Approx(0.2f));
+        REQUIRE_EQ(read1.right, doctest::Approx(-0.2f));
+
+        auto [result2, read2] = render_one_frame(small_stream);
+        REQUIRE_EQ(result2.frames_produced, 1U);
+        REQUIRE_EQ(read2.left, doctest::Approx(0.3f));
+        REQUIRE_EQ(read2.right, doctest::Approx(-0.3f));
+
+        auto [result3, read3] = render_one_frame(small_stream);
+        REQUIRE_EQ(result3.frames_produced, 1U);
+        REQUIRE_EQ(read3.left, doctest::Approx(0.4f));
+        REQUIRE_EQ(read3.right, doctest::Approx(-0.4f));
+    }
+
+    SUBCASE("AudioStream - render rejects mismatched channel block") {
+        Lowl::Audio::AudioStream mono_stream(44100.0, Lowl::Audio::AudioChannel::Mono, 3);
+        const Lowl::Sample samples[] = {0.5f};
+        REQUIRE_EQ(mono_stream.write_interleaved(samples, 1), 1U);
+
+        Lowl::Audio::AudioBuffer stereo_buffer(1, 2);
+        Lowl::Audio::AudioBlockView stereo_block = stereo_buffer.view(1);
+        stereo_buffer.clear(1);
+
+        Lowl::Audio::AudioSource::RenderResult result = mono_stream.render(stereo_block);
+        REQUIRE_EQ(result.frames_produced, 0U);
+        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Starved);
+        REQUIRE_EQ(stereo_block.channel(0)[0], doctest::Approx(0.0f));
+        REQUIRE_EQ(stereo_block.channel(1)[0], doctest::Approx(0.0f));
+    }
+
+    SUBCASE("AudioMixer - mix rejects mismatched channel source") {
+        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::AudioChannel::Stereo);
+        MixerDetachProbe mono_probe(Lowl::Audio::AudioChannel::Mono);
+
+        mixer.mix(&mono_probe);
+
+        REQUIRE(mono_probe.detached);
     }
 }

@@ -13,19 +13,7 @@
 
 namespace Lowl::Audio {
     /**
-     * A "Space" represents a set of audio files that are managed by an Id.
-     *
-     * 1) use add_audio() to provide audio for playback
-     * 2) set_sample_rate() and set_channel() if you want to enforce a specific config,
-     *    this will cause all mismatched data to be resampled.
-     *    Otherwise the sample rate with the least required resampling will be chosen.
-     *    NOTE: if the playback device is not set to the same configuration, additional
-     *          resampling might be required.
-     * 3) load() will perform all processing, this might take a little bit.
-     *    after it has been called, no more audio can be added and no further changes are possible.
-     * 4) use get_out_stream() to retrieve the stream where the audio will be written to.
-     *    pass this to the device or a mixer for playback.
-     * 5) use play() and stop() to produce the sounds
+     * Owns a collection of clips addressed by `SpaceId` and plays them through an internal mixer.
      */
     class AudioSpace : public AudioSource {
     public:
