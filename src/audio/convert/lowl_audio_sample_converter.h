@@ -1,8 +1,8 @@
 #ifndef LOWL_SAMPLE_CONVERTER_H
 #define LOWL_SAMPLE_CONVERTER_H
 
-#include <math.h>
-
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 #include "audio/lowl_audio_sample_format.h"
@@ -67,8 +67,8 @@ namespace Lowl::Audio {
         }
 
         static _INLINE_ uint8_t sample_to_uint8(Lowl::Sample p_sample) {
-            uint8_t scaled = (uint8_t)(128 + ((uint8_t)(p_sample * (127.0f))));
-            return scaled;
+            float clamped = std::clamp(static_cast<float>(p_sample), -1.0f, 1.0f);
+            return static_cast<uint8_t>(static_cast<int>(clamped * 127.0f) + 128);
         }
 
         static _INLINE_ int8_t sample_to_int8(Lowl::Sample p_sample) {
@@ -90,9 +90,9 @@ namespace Lowl::Audio {
                     case SampleFormat::INT_24: {
                         int32_t sample = sample_to_int24(p_sample);
                         uint8_t *dst = (uint8_t *)*p_dst;
-                        *dst++ = static_cast<uint8_t>(sample >> 8);
-                        *dst++ = static_cast<uint8_t>(sample >> 16);
-                        *dst++ = static_cast<uint8_t>(sample >> 24);
+                        *dst++ = static_cast<uint8_t>(sample);        // bits 0-7
+                        *dst++ = static_cast<uint8_t>(sample >> 8);   // bits 8-15
+                        *dst++ = static_cast<uint8_t>(sample >> 16);  // bits 16-23
                         *p_dst = dst;
                         break;
                     }

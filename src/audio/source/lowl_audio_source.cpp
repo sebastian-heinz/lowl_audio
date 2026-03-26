@@ -46,7 +46,7 @@ void Lowl::Audio::AudioSource::set_volume(Volume p_volume) {
     volume.store(p_volume, std::memory_order_seq_cst);
 }
 
-Lowl::Volume Lowl::Audio::AudioSource::get_volume() {
+Lowl::Volume Lowl::Audio::AudioSource::get_volume() const {
     return volume.load(std::memory_order_seq_cst);
 }
 
@@ -55,11 +55,11 @@ void Lowl::Audio::AudioSource::set_panning(Panning p_panning) {
     panning.store(p_panning);
 }
 
-Lowl::Panning Lowl::Audio::AudioSource::get_panning() {
+Lowl::Panning Lowl::Audio::AudioSource::get_panning() const {
     return panning.load(std::memory_order_seq_cst);
 }
 
-void Lowl::Audio::AudioSource::process_volume(AudioBlockView p_block) {
+void Lowl::Audio::AudioSource::process_volume(AudioBlockView p_block) const {
     const Volume vol = volume.load(std::memory_order_relaxed);
     for (uint8_t current_channel = 0; current_channel < p_block.channel_count; current_channel++) {
         Sample *channel_data = p_block.channel(current_channel);
@@ -69,7 +69,7 @@ void Lowl::Audio::AudioSource::process_volume(AudioBlockView p_block) {
     }
 }
 
-void Lowl::Audio::AudioSource::process_panning(AudioBlockView p_block) {
+void Lowl::Audio::AudioSource::process_panning(AudioBlockView p_block) const {
     const Panning pan = panning.load(std::memory_order_relaxed);
     if (p_block.channel_count == 0) {
         return;
@@ -104,7 +104,7 @@ void Lowl::Audio::AudioSource::play() {
     playback_enabled.store(true, std::memory_order_relaxed);
 }
 
-bool Lowl::Audio::AudioSource::is_play() {
+bool Lowl::Audio::AudioSource::is_play() const {
     return playback_enabled.load(std::memory_order_relaxed);
 }
 

@@ -38,9 +38,9 @@ namespace Lowl::Audio {
         AudioChannel channel;
         std::atomic<bool> playback_enabled{true};
 
-        void process_volume(AudioBlockView p_block);
+        void process_volume(AudioBlockView p_block) const;
 
-        void process_panning(AudioBlockView p_block);
+        void process_panning(AudioBlockView p_block) const;
 
     public:
         AudioSource(SampleRate p_sample_rate, AudioChannel p_channel);
@@ -75,11 +75,11 @@ namespace Lowl::Audio {
 
         void set_volume(Volume p_volume);
 
-        Volume get_volume();
+        Volume get_volume() const;
 
         void set_panning(Panning p_panning);
 
-        Panning get_panning();
+        Panning get_panning() const;
 
         void pause();
 
@@ -87,7 +87,7 @@ namespace Lowl::Audio {
 
         void play();
 
-        bool is_play();
+        bool is_play() const;
     };
 } // namespace Lowl::Audio
 

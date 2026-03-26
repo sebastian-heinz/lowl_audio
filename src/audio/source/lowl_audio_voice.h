@@ -2,6 +2,7 @@
 #define LOWL_AUDIO_VOICE_H
 
 #include <atomic>
+#include <limits>
 
 #include "audio/source/lowl_audio_data.h"
 #include "audio/source/lowl_audio_source.h"
@@ -19,10 +20,12 @@ namespace Lowl::Audio {
         };
 
     private:
+        static constexpr size_t NoPendingSeek = std::numeric_limits<size_t>::max();
+
         std::shared_ptr<const AudioData> audio_data;
-        std::atomic<size_t> position{};
-        std::atomic<size_t> seek_position{};
-        std::atomic_flag is_not_reset{};
+        std::atomic<size_t> render_position{};
+        std::atomic<size_t> reported_position{};
+        std::atomic<size_t> pending_seek_position{NoPendingSeek};
         std::atomic<bool> detached{false};
         std::atomic<PlaybackState> playback_state{PlaybackState::Stopped};
 

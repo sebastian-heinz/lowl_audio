@@ -2,7 +2,9 @@
 
 #include <vorbis/vorbisfile.h>
 
+#include <algorithm>
 #include <cassert>
+#include <cstdint>
 
 #include "audio/lowl_audio_format.h"
 
@@ -30,17 +32,17 @@ static size_t ogg_memory_read(void *buffer, size_t element_size, size_t element_
 
 static int ogg_memory_seek(void *source, ogg_int64_t offset, int origin) {
     OggData *src = static_cast<OggData *>(source);
+    int64_t target = 0;
     if (origin == SEEK_SET) {
-        /* set file offset to offset */
-        src->index = (size_t)offset;
+        target = offset;
     } else if (origin == SEEK_CUR) {
-        /* set file offset to current plus offset */
-        src->index += (size_t)offset;
+        target = static_cast<int64_t>(src->index) + offset;
     } else if (origin == SEEK_END) {
-        /* set file offset to EOF plus offset */
-        src->index += src->length + (size_t)offset;
+        target = static_cast<int64_t>(src->length) + offset;
+    } else {
+        return -1;
     }
-
+    src->index = static_cast<size_t>(std::clamp<int64_t>(target, 0, static_cast<int64_t>(src->length)));
     return 0;
 }
 

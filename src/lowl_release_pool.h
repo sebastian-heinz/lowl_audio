@@ -47,6 +47,7 @@ namespace Lowl {
         }
 
         ~ReleasePool() {
+            timer->stop();
         }
     };
 } // namespace Lowl

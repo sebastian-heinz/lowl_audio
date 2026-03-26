@@ -52,13 +52,17 @@ uint8_t Lowl::Buffer::read_u8() {
 }
 
 uint16_t Lowl::Buffer::read_u16() {
-    uint16_t value = static_cast<uint16_t>(read_u8() | read_u8() << 8);
-    return value;
+    uint8_t b0 = read_u8();
+    uint8_t b1 = read_u8();
+    return static_cast<uint16_t>(b0 | (b1 << 8));
 }
 
 uint32_t Lowl::Buffer::read_u32() {
-    uint32_t value = static_cast<uint32_t>(read_u8() | (read_u8() << 8) | (read_u8() << 16) | (read_u8() << 24));
-    return value;
+    uint8_t b0 = read_u8();
+    uint8_t b1 = read_u8();
+    uint8_t b2 = read_u8();
+    uint8_t b3 = read_u8();
+    return static_cast<uint32_t>(b0 | (b1 << 8) | (b2 << 16) | (b3 << 24));
 }
 
 void Lowl::Buffer::read_data(void *p_dst, size_t p_length) {
@@ -140,7 +144,7 @@ void Lowl::Buffer::grow(const size_t p_length) {
     size_t new_real_length = real_length + p_length;
     void *newloc = realloc(data, new_real_length);
     if (!newloc) {
-        return;
+        std::abort();
     }
     data = static_cast<uint8_t *>(newloc);
     real_length = new_real_length;

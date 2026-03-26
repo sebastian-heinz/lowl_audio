@@ -7,10 +7,9 @@ Lowl::Audio::AudioVoice::AudioVoice(std::shared_ptr<const AudioData> p_audio_dat
     : AudioSource(p_audio_data ? p_audio_data->get_sample_rate() : NO_SAMPLE_RATE,
                   p_audio_data ? p_audio_data->get_channel() : AudioChannel::None),
       audio_data(std::move(p_audio_data)) {
-    position = 0;
-    seek_position = 0;
-    is_not_reset.test_and_set();
-    pause();
+    render_position.store(0, std::memory_order_relaxed);
+    reported_position.store(0, std::memory_order_release);
+    playback_state.store(PlaybackState::Playing, std::memory_order_relaxed);
 }
 
 Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::render(AudioBlockView p_block) {
@@ -30,15 +29,23 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::render(AudioBloc
         return {0, RenderState::Starved};
     }
 
-    if (!is_not_reset.test_and_set()) {
-        position = seek_position.load();
-        seek_position = 0;
-    }
-
     const size_t frame_count = audio_data->get_frame_count();
-    size_t current_position = position.load(std::memory_order_relaxed);
+    size_t current_position = render_position.load(std::memory_order_relaxed);
+    const size_t pending_position = pending_seek_position.load(std::memory_order_acquire);
+    if (pending_position != NoPendingSeek) {
+        current_position = pending_position;
+        render_position.store(current_position, std::memory_order_relaxed);
+        reported_position.store(current_position, std::memory_order_release);
+
+        size_t expected_pending_position = pending_position;
+        pending_seek_position.compare_exchange_strong(expected_pending_position,
+                                                     NoPendingSeek,
+                                                     std::memory_order_acq_rel,
+                                                     std::memory_order_acquire);
+    }
     if (current_position >= frame_count || p_block.frame_count == 0) {
-        position.store(0, std::memory_order_relaxed);
+        render_position.store(0, std::memory_order_relaxed);
+        reported_position.store(0, std::memory_order_release);
         playback_state.store(PlaybackState::Stopped, std::memory_order_relaxed);
         return {0, RenderState::Remove};
     }
@@ -61,11 +68,13 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::render(AudioBloc
 
     current_position += frames_to_copy;
     if (current_position >= frame_count) {
-        position.store(0, std::memory_order_relaxed);
+        render_position.store(0, std::memory_order_relaxed);
+        reported_position.store(0, std::memory_order_release);
         playback_state.store(PlaybackState::Stopped, std::memory_order_relaxed);
         return {frames_to_copy, RenderState::Remove};
     }
-    position.store(current_position, std::memory_order_relaxed);
+    render_position.store(current_position, std::memory_order_relaxed);
+    reported_position.store(current_position, std::memory_order_release);
     return {frames_to_copy, RenderState::Ok};
 }
 
@@ -73,12 +82,20 @@ Lowl::size_l Lowl::Audio::AudioVoice::get_frames_remaining() const {
     if (!audio_data) {
         return 0;
     }
-    const int64_t remaining = static_cast<int64_t>(audio_data->get_frame_count() - position.load());
-    return static_cast<size_l>(std::max<int64_t>(remaining, 0));
+    const size_t current_position = get_frame_position();
+    const size_t frame_count = audio_data->get_frame_count();
+    if (current_position >= frame_count) {
+        return 0;
+    }
+    return frame_count - current_position;
 }
 
 Lowl::size_l Lowl::Audio::AudioVoice::get_frame_position() const {
-    return position.load();
+    const size_t pending_position = pending_seek_position.load(std::memory_order_acquire);
+    if (pending_position != NoPendingSeek) {
+        return pending_position;
+    }
+    return reported_position.load(std::memory_order_acquire);
 }
 
 Lowl::size_l Lowl::Audio::AudioVoice::get_frame_count() const {
@@ -89,8 +106,8 @@ Lowl::size_l Lowl::Audio::AudioVoice::get_frame_count() const {
 }
 
 void Lowl::Audio::AudioVoice::reset() {
-    seek_position = 0;
-    is_not_reset.clear();
+    pending_seek_position.store(0, std::memory_order_release);
+    reported_position.store(0, std::memory_order_release);
     detached.store(false, std::memory_order_relaxed);
 }
 
@@ -100,14 +117,15 @@ void Lowl::Audio::AudioVoice::seek_time(const TimeSeconds p_seconds) {
 }
 
 void Lowl::Audio::AudioVoice::seek_frame(size_t p_frame) {
+    size_t target_position = 0;
     if (!audio_data || audio_data->get_frame_count() == 0) {
-        seek_position = 0;
-        is_not_reset.clear();
+        pending_seek_position.store(0, std::memory_order_release);
+        reported_position.store(0, std::memory_order_release);
         return;
     }
-    p_frame = std::min<size_t>(p_frame, audio_data->get_frame_count() - 1);
-    seek_position = p_frame;
-    is_not_reset.clear();
+    target_position = std::min<size_t>(p_frame, audio_data->get_frame_count() - 1);
+    pending_seek_position.store(target_position, std::memory_order_release);
+    reported_position.store(target_position, std::memory_order_release);
 }
 
 bool Lowl::Audio::AudioVoice::is_detached() const {

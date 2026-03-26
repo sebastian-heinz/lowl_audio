@@ -14,11 +14,11 @@ namespace Lowl::Audio {
         uint32_t frame_count = 0;
         uint8_t channel_count = 0;
 
-        _INLINE_ Sample *channel(uint8_t p_channel) {
+        _INLINE_ Sample *channel(const uint8_t p_channel) {
             return channels[static_cast<size_t>(p_channel)];
         }
 
-        _INLINE_ const Sample *channel(uint8_t p_channel) const {
+        _INLINE_ const Sample *channel(const uint8_t p_channel) const {
             return channels[static_cast<size_t>(p_channel)];
         }
     };

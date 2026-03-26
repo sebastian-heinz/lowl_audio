@@ -215,6 +215,56 @@ TEST_CASE("AudioSpace") {
         REQUIRE_EQ(frame1.right, doctest::Approx(0.50f));
     }
 
+    SUBCASE("AudioSpace - seek and reset update query state immediately") {
+        const Lowl::AudioPlaybackHandle playback_handle = add_asset_and_create_playback(
+            audio_space,
+            make_stereo_audio_data({
+                StereoSample{0.25f, 0.50f},
+                StereoSample{0.75f, -0.25f},
+                StereoSample{-0.50f, 0.125f},
+                StereoSample{0.125f, -0.75f},
+            }),
+            error
+        );
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE(playback_handle.is_valid());
+
+        audio_space.play(playback_handle);
+
+        auto [result0, frame0] = render_one_frame(audio_space);
+        REQUIRE_EQ(result0.frames_produced, 1U);
+        REQUIRE_EQ(result0.state, Lowl::Audio::AudioSource::RenderState::Ok);
+        REQUIRE_EQ(frame0.left, doctest::Approx(0.25f));
+        REQUIRE_EQ(frame0.right, doctest::Approx(0.50f));
+        REQUIRE_EQ(audio_space.get_frame_position(playback_handle), 1U);
+        REQUIRE_EQ(audio_space.get_frames_remaining(playback_handle), 3U);
+
+        audio_space.seek_frame(playback_handle, 2);
+
+        REQUIRE_EQ(audio_space.get_frame_position(playback_handle), 2U);
+        REQUIRE_EQ(audio_space.get_frames_remaining(playback_handle), 2U);
+
+        auto [result1, frame1] = render_one_frame(audio_space);
+        REQUIRE_EQ(result1.frames_produced, 1U);
+        REQUIRE_EQ(result1.state, Lowl::Audio::AudioSource::RenderState::Ok);
+        REQUIRE_EQ(frame1.left, doctest::Approx(-0.50f));
+        REQUIRE_EQ(frame1.right, doctest::Approx(0.125f));
+        REQUIRE_EQ(audio_space.get_frame_position(playback_handle), 3U);
+        REQUIRE_EQ(audio_space.get_frames_remaining(playback_handle), 1U);
+
+        audio_space.reset(playback_handle);
+
+        REQUIRE_EQ(audio_space.get_frame_position(playback_handle), 0U);
+        REQUIRE_EQ(audio_space.get_frames_remaining(playback_handle), 4U);
+
+        auto [result2, frame2] = render_one_frame(audio_space);
+        REQUIRE_EQ(result2.frames_produced, 1U);
+        REQUIRE_EQ(result2.state, Lowl::Audio::AudioSource::RenderState::Ok);
+        REQUIRE_EQ(frame2.left, doctest::Approx(0.25f));
+        REQUIRE_EQ(frame2.right, doctest::Approx(0.50f));
+    }
+
     SUBCASE("AudioSpace - play works when stop and play happen before the mixer processes removal") {
         const Lowl::AudioPlaybackHandle playback_handle = add_asset_and_create_playback(
             audio_space,
