@@ -102,7 +102,7 @@ void Lowl::Audio::AudioStream::copy_planar_to_ring(const std::vector<const Sampl
 }
 
 Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioStream::render(AudioBlockView p_block) {
-    if (!is_playing) {
+    if (!playback_enabled.load(std::memory_order_relaxed)) {
         return {0, RenderState::Starved};
     }
 

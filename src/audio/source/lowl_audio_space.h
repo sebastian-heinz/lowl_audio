@@ -11,6 +11,7 @@
 #include "audio/backend/lowl_audio_device.h"
 #include "audio/source/lowl_audio_data.h"
 #include "audio/source/lowl_audio_mixer.h"
+#include "audio/source/lowl_audio_playback_handle.h"
 #include "audio/source/lowl_audio_voice.h"
 
 namespace Lowl::Audio {
@@ -25,26 +26,24 @@ namespace Lowl::Audio {
     class AudioSpace : public AudioSource {
     public:
         static constexpr AudioAssetId InvalidAudioAssetId = 0;
-        static constexpr AudioPlaybackId InvalidAudioPlaybackId = 0;
+        static constexpr AudioPlaybackHandle InvalidAudioPlaybackHandle = {};
 
     private:
         static constexpr AudioAssetId FirstAudioAssetId = 1;
-        static constexpr AudioPlaybackId FirstAudioPlaybackId = 1;
+        static constexpr AudioPlaybackId InvalidPlaybackSlotId = 0;
+        static constexpr AudioPlaybackId FirstPlaybackSlotId = 1;
         static constexpr int LookupGrowth = 100;
 
-        enum class PlaybackState : uint8_t {
-            Free = 0,
-            Stopped = 1,
-            Playing = 2,
-            Paused = 3,
-            Retiring = 4,
+        enum class SlotState : uint8_t {
+            Active = 0,
+            Retiring = 1,
         };
 
         struct PlaybackSlot {
             std::unique_ptr<AudioVoice> voice;
             AudioAssetId audio_asset_id = InvalidAudioAssetId;
             uint16_l generation = 1;
-            PlaybackState state = PlaybackState::Free;
+            SlotState slot_state = SlotState::Active;
         };
 
         std::vector<std::shared_ptr<AudioData>> audio_asset_lookup;
@@ -53,18 +52,18 @@ namespace Lowl::Audio {
         std::unique_ptr<AudioMixer> mixer;
         uint16_l mixer_owner_id;
         AudioAssetId current_audio_asset_id;
-        AudioPlaybackId current_audio_playback_id;
+        AudioPlaybackId current_audio_playback_slot_id;
 
         AudioAssetId insert_audio_asset_locked(std::shared_ptr<AudioData> p_audio_data);
-        AudioPlaybackId insert_playback_locked(std::unique_ptr<AudioVoice> p_voice, AudioAssetId p_audio_asset_id);
+        AudioPlaybackHandle insert_playback_locked(std::unique_ptr<AudioVoice> p_voice, AudioAssetId p_audio_asset_id);
         void recycle_playback_locked(PlaybackSlot &p_slot);
 
-        void collect_garbage_locked();
+        void drain_mixer_acks_locked();
 
         std::shared_ptr<AudioData> get_audio_asset_locked(AudioAssetId p_audio_asset_id) const;
-        AudioMixerHandle get_mixer_handle_locked(AudioPlaybackId p_audio_playback_id) const;
-        PlaybackSlot *get_playback_slot_locked(AudioPlaybackId p_audio_playback_id);
-        const PlaybackSlot *get_playback_slot_locked(AudioPlaybackId p_audio_playback_id) const;
+        AudioMixerHandle get_mixer_handle_locked(AudioPlaybackHandle p_audio_playback_handle) const;
+        PlaybackSlot *get_playback_slot_locked(AudioPlaybackHandle p_audio_playback_handle);
+        const PlaybackSlot *get_playback_slot_locked(AudioPlaybackHandle p_audio_playback_handle) const;
 
     public:
         size_l get_frames_remaining() const override;
@@ -75,19 +74,19 @@ namespace Lowl::Audio {
 
         RenderResult render(AudioBlockView p_block) override;
 
-        void play(AudioPlaybackId p_audio_playback_id);
+        void play(AudioPlaybackHandle p_audio_playback_handle);
 
-        void pause(AudioPlaybackId p_audio_playback_id);
+        void pause(AudioPlaybackHandle p_audio_playback_handle);
 
-        void resume(AudioPlaybackId p_audio_playback_id);
+        void resume(AudioPlaybackHandle p_audio_playback_handle);
 
-        void stop(AudioPlaybackId p_audio_playback_id);
+        void stop(AudioPlaybackHandle p_audio_playback_handle);
 
         AudioAssetId add_audio(const std::string &p_path, Error &error);
 
         AudioAssetId add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error);
 
-        AudioPlaybackId create_playback(AudioAssetId p_audio_asset_id);
+        AudioPlaybackHandle create_playback(AudioAssetId p_audio_asset_id);
 
         std::map<AudioAssetId, std::string> get_name_mapping() const;
 
@@ -95,21 +94,21 @@ namespace Lowl::Audio {
 
         void stop_all_audio();
 
-        virtual size_l get_frames_remaining(AudioPlaybackId p_audio_playback_id) const;
+        virtual size_l get_frames_remaining(AudioPlaybackHandle p_audio_playback_handle) const;
 
-        virtual size_l get_frame_count(AudioPlaybackId p_audio_playback_id) const;
+        virtual size_l get_frame_count(AudioPlaybackHandle p_audio_playback_handle) const;
 
-        virtual size_l get_frame_position(AudioPlaybackId p_audio_playback_id) const;
+        virtual size_l get_frame_position(AudioPlaybackHandle p_audio_playback_handle) const;
 
-        void set_volume(AudioPlaybackId p_audio_playback_id, Volume p_volume);
+        void set_volume(AudioPlaybackHandle p_audio_playback_handle, Volume p_volume);
 
-        void set_panning(AudioPlaybackId p_audio_playback_id, Panning p_panning);
+        void set_panning(AudioPlaybackHandle p_audio_playback_handle, Panning p_panning);
 
-        void reset(AudioPlaybackId p_audio_playback_id);
+        void reset(AudioPlaybackHandle p_audio_playback_handle);
 
-        void seek_time(AudioPlaybackId p_audio_playback_id, double_l p_seconds);
+        void seek_time(AudioPlaybackHandle p_audio_playback_handle, double_l p_seconds);
 
-        void seek_frame(AudioPlaybackId p_audio_playback_id, size_t p_frame);
+        void seek_frame(AudioPlaybackHandle p_audio_playback_handle, size_t p_frame);
 
         AudioSpace(SampleRate p_sample_rate, AudioChannel p_channel);
 

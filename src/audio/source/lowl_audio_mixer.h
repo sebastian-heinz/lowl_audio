@@ -7,6 +7,7 @@
 #include <atomic>
 #include <mutex>
 
+#include "audio/source/lowl_audio_mixer_handle.h"
 #include "audio/source/lowl_audio_mixer_event.h"
 #include "audio/source/lowl_audio_source.h"
 #include "lowl_typedef.h"
@@ -20,6 +21,7 @@ namespace Lowl::Audio {
         static constexpr uint32_t SCRATCH_BUFFER_CAPACITY = 8192;
         static constexpr size_t MAX_ACTIVE_SOURCES = 1024;
         static constexpr size_t MAX_ACK_OWNERS = 64;
+        static constexpr size_t InvalidSourceIndex = MAX_ACTIVE_SOURCES;
 
         struct ActiveSourceSlot {
             AudioMixerHandle handle{};

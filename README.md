@@ -199,23 +199,23 @@ int main()
         return -1;
     }
 
-    Lowl::AudioPlaybackId playback_id = space->create_playback(asset_id);
-    if (playback_id == Lowl::Audio::AudioSpace::InvalidAudioPlaybackId) {
+    Lowl::AudioPlaybackHandle playback_handle = space->create_playback(asset_id);
+    if (!playback_handle.is_valid()) {
         std::cout << "Err: space->create_playback\n";
         return -1;
     }
 
     // `play()` always starts the playback from frame 0.
-    space->play(playback_id);
+    space->play(playback_handle);
 
-    // playback controls operate on the playback id, not the asset id.
-    space->set_volume(playback_id, 0.5f);
-    space->set_panning(playback_id, -0.25f);
-    space->pause(playback_id);
-    space->resume(playback_id);
+    // playback controls operate on the playback handle, not the asset id.
+    space->set_volume(playback_handle, 0.5f);
+    space->set_panning(playback_handle, -0.25f);
+    space->pause(playback_handle);
+    space->resume(playback_handle);
 
     // `stop()` pauses and resets the playback to frame 0.
-    space->stop(playback_id);
+    space->stop(playback_handle);
 }
 ```
 ---

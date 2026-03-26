@@ -1,0 +1,27 @@
+#ifndef LOWL_AUDIO_MIXER_HANDLE_H
+#define LOWL_AUDIO_MIXER_HANDLE_H
+
+#include "lowl_typedef.h"
+
+namespace Lowl {
+    struct AudioMixerHandle {
+        uint16_l owner_id = 0;
+        AudioPlaybackId playback_id = 0;
+        uint16_l generation = 0;
+
+        bool is_valid() const {
+            return owner_id != 0 && playback_id != 0 && generation != 0;
+        }
+
+        bool operator==(const AudioMixerHandle &p_other) const {
+            return owner_id == p_other.owner_id && playback_id == p_other.playback_id &&
+                   generation == p_other.generation;
+        }
+
+        bool operator!=(const AudioMixerHandle &p_other) const {
+            return !(*this == p_other);
+        }
+    };
+} // namespace Lowl
+
+#endif // LOWL_AUDIO_MIXER_HANDLE_H

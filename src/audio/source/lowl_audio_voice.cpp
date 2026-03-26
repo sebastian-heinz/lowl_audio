@@ -10,13 +10,15 @@ Lowl::Audio::AudioVoice::AudioVoice(std::shared_ptr<const AudioData> p_audio_dat
     position = 0;
     seek_position = 0;
     is_not_reset.test_and_set();
+    pause();
 }
 
 Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::render(AudioBlockView p_block) {
     if (!audio_data) {
+        playback_state.store(PlaybackState::Stopped, std::memory_order_relaxed);
         return {0, RenderState::Remove};
     }
-    if (!is_playing) {
+    if (!playback_enabled.load(std::memory_order_relaxed)) {
         return {0, RenderState::Starved};
     }
 
@@ -37,6 +39,7 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::render(AudioBloc
     size_t current_position = position.load(std::memory_order_relaxed);
     if (current_position >= frame_count || p_block.frame_count == 0) {
         position.store(0, std::memory_order_relaxed);
+        playback_state.store(PlaybackState::Stopped, std::memory_order_relaxed);
         return {0, RenderState::Remove};
     }
 
@@ -59,6 +62,7 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::render(AudioBloc
     current_position += frames_to_copy;
     if (current_position >= frame_count) {
         position.store(0, std::memory_order_relaxed);
+        playback_state.store(PlaybackState::Stopped, std::memory_order_relaxed);
         return {frames_to_copy, RenderState::Remove};
     }
     position.store(current_position, std::memory_order_relaxed);
@@ -108,6 +112,34 @@ void Lowl::Audio::AudioVoice::seek_frame(size_t p_frame) {
 
 bool Lowl::Audio::AudioVoice::is_detached() const {
     return detached.load(std::memory_order_relaxed);
+}
+
+Lowl::Audio::AudioVoice::PlaybackState Lowl::Audio::AudioVoice::get_playback_state() const {
+    return playback_state.load(std::memory_order_relaxed);
+}
+
+void Lowl::Audio::AudioVoice::restart_playback() {
+    reset();
+    play();
+    playback_state.store(PlaybackState::Playing, std::memory_order_relaxed);
+}
+
+void Lowl::Audio::AudioVoice::pause_playback() {
+    pause();
+    if (playback_state.load(std::memory_order_relaxed) != PlaybackState::Stopped) {
+        playback_state.store(PlaybackState::Paused, std::memory_order_relaxed);
+    }
+}
+
+void Lowl::Audio::AudioVoice::resume_playback() {
+    play();
+    playback_state.store(PlaybackState::Playing, std::memory_order_relaxed);
+}
+
+void Lowl::Audio::AudioVoice::stop_playback() {
+    pause();
+    playback_state.store(PlaybackState::Stopped, std::memory_order_relaxed);
+    reset();
 }
 
 void Lowl::Audio::AudioVoice::on_added_to_mixer() {

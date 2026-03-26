@@ -47,12 +47,12 @@ namespace {
         return std::make_pair(result, frame);
     }
 
-    Lowl::AudioPlaybackId add_asset_and_create_playback(Lowl::Audio::AudioSpace &p_audio_space,
-                                                        std::unique_ptr<Lowl::Audio::AudioData> p_audio_data,
-                                                        Lowl::Error &p_error) {
+    Lowl::AudioPlaybackHandle add_asset_and_create_playback(Lowl::Audio::AudioSpace &p_audio_space,
+                                                            std::unique_ptr<Lowl::Audio::AudioData> p_audio_data,
+                                                            Lowl::Error &p_error) {
         const Lowl::AudioAssetId asset_id = p_audio_space.add_audio(std::move(p_audio_data), p_error);
         if (p_error.has_error() || asset_id == Lowl::Audio::AudioSpace::InvalidAudioAssetId) {
-            return Lowl::Audio::AudioSpace::InvalidAudioPlaybackId;
+            return Lowl::Audio::AudioSpace::InvalidAudioPlaybackHandle;
         }
         return p_audio_space.create_playback(asset_id);
     }
@@ -63,7 +63,7 @@ TEST_CASE("AudioSpace") {
     Lowl::Audio::AudioSpace audio_space(44100.0, Lowl::Audio::AudioChannel::Stereo);
 
     SUBCASE("AudioSpace - play restarts a playback from the beginning") {
-        const Lowl::AudioPlaybackId playback_id = add_asset_and_create_playback(
+        const Lowl::AudioPlaybackHandle playback_handle = add_asset_and_create_playback(
             audio_space,
             make_stereo_audio_data({
                 StereoSample{0.25f, 0.50f},
@@ -73,9 +73,9 @@ TEST_CASE("AudioSpace") {
         );
 
         REQUIRE_FALSE(error.has_error());
-        REQUIRE_NE(playback_id, Lowl::Audio::AudioSpace::InvalidAudioPlaybackId);
+        REQUIRE(playback_handle.is_valid());
 
-        audio_space.play(playback_id);
+        audio_space.play(playback_handle);
 
         auto [result0, frame0] = render_one_frame(audio_space);
         REQUIRE_EQ(result0.frames_produced, 1U);
@@ -83,7 +83,7 @@ TEST_CASE("AudioSpace") {
         REQUIRE_EQ(frame0.left, doctest::Approx(0.25f));
         REQUIRE_EQ(frame0.right, doctest::Approx(0.50f));
 
-        audio_space.play(playback_id);
+        audio_space.play(playback_handle);
 
         auto [result1, frame1] = render_one_frame(audio_space);
         REQUIRE_EQ(result1.frames_produced, 1U);
@@ -105,7 +105,7 @@ TEST_CASE("AudioSpace") {
     }
 
     SUBCASE("AudioSpace - pause and resume continue from the paused position") {
-        const Lowl::AudioPlaybackId playback_id = add_asset_and_create_playback(
+        const Lowl::AudioPlaybackHandle playback_handle = add_asset_and_create_playback(
             audio_space,
             make_stereo_audio_data({
                 StereoSample{0.25f, 0.50f},
@@ -115,9 +115,9 @@ TEST_CASE("AudioSpace") {
         );
 
         REQUIRE_FALSE(error.has_error());
-        REQUIRE_NE(playback_id, Lowl::Audio::AudioSpace::InvalidAudioPlaybackId);
+        REQUIRE(playback_handle.is_valid());
 
-        audio_space.play(playback_id);
+        audio_space.play(playback_handle);
 
         auto [result0, frame0] = render_one_frame(audio_space);
         REQUIRE_EQ(result0.frames_produced, 1U);
@@ -125,11 +125,11 @@ TEST_CASE("AudioSpace") {
         REQUIRE_EQ(frame0.left, doctest::Approx(0.25f));
         REQUIRE_EQ(frame0.right, doctest::Approx(0.50f));
 
-        REQUIRE_EQ(audio_space.get_frame_position(playback_id), 1U);
-        REQUIRE_EQ(audio_space.get_frames_remaining(playback_id), 1U);
-        REQUIRE_EQ(audio_space.get_frame_count(playback_id), 2U);
+        REQUIRE_EQ(audio_space.get_frame_position(playback_handle), 1U);
+        REQUIRE_EQ(audio_space.get_frames_remaining(playback_handle), 1U);
+        REQUIRE_EQ(audio_space.get_frame_count(playback_handle), 2U);
 
-        audio_space.pause(playback_id);
+        audio_space.pause(playback_handle);
 
         auto [paused_result, paused_frame] = render_one_frame(audio_space);
         REQUIRE_EQ(paused_result.frames_produced, 0U);
@@ -137,7 +137,7 @@ TEST_CASE("AudioSpace") {
         REQUIRE_EQ(paused_frame.left, doctest::Approx(0.0f));
         REQUIRE_EQ(paused_frame.right, doctest::Approx(0.0f));
 
-        audio_space.resume(playback_id);
+        audio_space.resume(playback_handle);
 
         auto [result1, frame1] = render_one_frame(audio_space);
         REQUIRE_EQ(result1.frames_produced, 1U);
@@ -147,7 +147,7 @@ TEST_CASE("AudioSpace") {
     }
 
     SUBCASE("AudioSpace - resume works when pause and resume happen before the mixer processes removal") {
-        const Lowl::AudioPlaybackId playback_id = add_asset_and_create_playback(
+        const Lowl::AudioPlaybackHandle playback_handle = add_asset_and_create_playback(
             audio_space,
             make_stereo_audio_data({
                 StereoSample{0.25f, 0.50f},
@@ -157,9 +157,9 @@ TEST_CASE("AudioSpace") {
         );
 
         REQUIRE_FALSE(error.has_error());
-        REQUIRE_NE(playback_id, Lowl::Audio::AudioSpace::InvalidAudioPlaybackId);
+        REQUIRE(playback_handle.is_valid());
 
-        audio_space.play(playback_id);
+        audio_space.play(playback_handle);
 
         auto [result0, frame0] = render_one_frame(audio_space);
         REQUIRE_EQ(result0.frames_produced, 1U);
@@ -167,8 +167,8 @@ TEST_CASE("AudioSpace") {
         REQUIRE_EQ(frame0.left, doctest::Approx(0.25f));
         REQUIRE_EQ(frame0.right, doctest::Approx(0.50f));
 
-        audio_space.pause(playback_id);
-        audio_space.resume(playback_id);
+        audio_space.pause(playback_handle);
+        audio_space.resume(playback_handle);
 
         auto [result1, frame1] = render_one_frame(audio_space);
         REQUIRE_EQ(result1.frames_produced, 1U);
@@ -178,7 +178,7 @@ TEST_CASE("AudioSpace") {
     }
 
     SUBCASE("AudioSpace - stop resets playback to the beginning") {
-        const Lowl::AudioPlaybackId playback_id = add_asset_and_create_playback(
+        const Lowl::AudioPlaybackHandle playback_handle = add_asset_and_create_playback(
             audio_space,
             make_stereo_audio_data({
                 StereoSample{0.25f, 0.50f},
@@ -188,9 +188,9 @@ TEST_CASE("AudioSpace") {
         );
 
         REQUIRE_FALSE(error.has_error());
-        REQUIRE_NE(playback_id, Lowl::Audio::AudioSpace::InvalidAudioPlaybackId);
+        REQUIRE(playback_handle.is_valid());
 
-        audio_space.play(playback_id);
+        audio_space.play(playback_handle);
 
         auto [result0, frame0] = render_one_frame(audio_space);
         REQUIRE_EQ(result0.frames_produced, 1U);
@@ -198,7 +198,7 @@ TEST_CASE("AudioSpace") {
         REQUIRE_EQ(frame0.left, doctest::Approx(0.25f));
         REQUIRE_EQ(frame0.right, doctest::Approx(0.50f));
 
-        audio_space.stop(playback_id);
+        audio_space.stop(playback_handle);
 
         auto [stopped_result, stopped_frame] = render_one_frame(audio_space);
         REQUIRE_EQ(stopped_result.frames_produced, 0U);
@@ -206,7 +206,7 @@ TEST_CASE("AudioSpace") {
         REQUIRE_EQ(stopped_frame.left, doctest::Approx(0.0f));
         REQUIRE_EQ(stopped_frame.right, doctest::Approx(0.0f));
 
-        audio_space.play(playback_id);
+        audio_space.play(playback_handle);
 
         auto [result1, frame1] = render_one_frame(audio_space);
         REQUIRE_EQ(result1.frames_produced, 1U);
@@ -216,7 +216,7 @@ TEST_CASE("AudioSpace") {
     }
 
     SUBCASE("AudioSpace - play works when stop and play happen before the mixer processes removal") {
-        const Lowl::AudioPlaybackId playback_id = add_asset_and_create_playback(
+        const Lowl::AudioPlaybackHandle playback_handle = add_asset_and_create_playback(
             audio_space,
             make_stereo_audio_data({
                 StereoSample{0.25f, 0.50f},
@@ -226,9 +226,9 @@ TEST_CASE("AudioSpace") {
         );
 
         REQUIRE_FALSE(error.has_error());
-        REQUIRE_NE(playback_id, Lowl::Audio::AudioSpace::InvalidAudioPlaybackId);
+        REQUIRE(playback_handle.is_valid());
 
-        audio_space.play(playback_id);
+        audio_space.play(playback_handle);
 
         auto [result0, frame0] = render_one_frame(audio_space);
         REQUIRE_EQ(result0.frames_produced, 1U);
@@ -236,8 +236,8 @@ TEST_CASE("AudioSpace") {
         REQUIRE_EQ(frame0.left, doctest::Approx(0.25f));
         REQUIRE_EQ(frame0.right, doctest::Approx(0.50f));
 
-        audio_space.stop(playback_id);
-        audio_space.play(playback_id);
+        audio_space.stop(playback_handle);
+        audio_space.play(playback_handle);
 
         auto [result1, frame1] = render_one_frame(audio_space);
         REQUIRE_EQ(result1.frames_produced, 1U);
@@ -255,11 +255,11 @@ TEST_CASE("AudioSpace") {
         REQUIRE_FALSE(error.has_error());
         REQUIRE_NE(asset_id, Lowl::Audio::AudioSpace::InvalidAudioAssetId);
 
-        const Lowl::AudioPlaybackId playback_left = audio_space.create_playback(asset_id);
-        const Lowl::AudioPlaybackId playback_right = audio_space.create_playback(asset_id);
+        const Lowl::AudioPlaybackHandle playback_left = audio_space.create_playback(asset_id);
+        const Lowl::AudioPlaybackHandle playback_right = audio_space.create_playback(asset_id);
 
-        REQUIRE_NE(playback_left, Lowl::Audio::AudioSpace::InvalidAudioPlaybackId);
-        REQUIRE_NE(playback_right, Lowl::Audio::AudioSpace::InvalidAudioPlaybackId);
+        REQUIRE(playback_left.is_valid());
+        REQUIRE(playback_right.is_valid());
 
         audio_space.set_panning(playback_left, -1.0f);
         audio_space.set_panning(playback_right, 1.0f);
@@ -283,10 +283,10 @@ TEST_CASE("AudioSpace") {
         REQUIRE_FALSE(error.has_error());
         REQUIRE_NE(asset_id, Lowl::Audio::AudioSpace::InvalidAudioAssetId);
 
-        const Lowl::AudioPlaybackId playback_id = audio_space.create_playback(asset_id);
-        REQUIRE_NE(playback_id, Lowl::Audio::AudioSpace::InvalidAudioPlaybackId);
+        const Lowl::AudioPlaybackHandle playback_handle = audio_space.create_playback(asset_id);
+        REQUIRE(playback_handle.is_valid());
 
-        audio_space.play(playback_id);
+        audio_space.play(playback_handle);
         audio_space.clear_all_audio();
 
         auto [result, frame] = render_one_frame(audio_space);

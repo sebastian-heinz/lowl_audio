@@ -26,7 +26,7 @@ void space(std::shared_ptr<Lowl::Audio::AudioDevice> device, Lowl::Audio::AudioD
     Lowl::Error error;
     struct PlaybackEntry {
         Lowl::AudioAssetId asset_id = Lowl::Audio::AudioSpace::InvalidAudioAssetId;
-        Lowl::AudioPlaybackId playback_id = Lowl::Audio::AudioSpace::InvalidAudioPlaybackId;
+        Lowl::AudioPlaybackHandle playback_handle = Lowl::Audio::AudioSpace::InvalidAudioPlaybackHandle;
     };
     std::vector<PlaybackEntry> playback_entries;
 
@@ -37,18 +37,18 @@ void space(std::shared_ptr<Lowl::Audio::AudioDevice> device, Lowl::Audio::AudioD
             error.clear();
             continue;
         }
-        const Lowl::AudioPlaybackId playback_id = space->create_playback(asset_id);
-        if (playback_id == Lowl::Audio::AudioSpace::InvalidAudioPlaybackId) {
+        const Lowl::AudioPlaybackHandle playback_handle = space->create_playback(asset_id);
+        if (!playback_handle.is_valid()) {
             std::cout << "Err: space->create_playback (" << music_path << ")\n";
             continue;
         }
-        playback_entries.push_back({asset_id, playback_id});
+        playback_entries.push_back({asset_id, playback_handle});
     }
 
     std::map<Lowl::AudioAssetId, std::string> mapping = space->get_name_mapping();
     for (const PlaybackEntry &entry : playback_entries) {
         const std::string audio_name = mapping.count(entry.asset_id) > 0 ? mapping.at(entry.asset_id) : std::string();
-        std::cout << "Playback Entry: " << entry.playback_id << "->" << audio_name << "\n";
+        std::cout << "Playback Entry: " << entry.playback_handle.id << "->" << audio_name << "\n";
     }
 
     device->start(p_device_properties, space, error);
@@ -59,28 +59,39 @@ void space(std::shared_ptr<Lowl::Audio::AudioDevice> device, Lowl::Audio::AudioD
 
     std::vector<bool> status;
     while (true) {
-        Lowl::AudioPlaybackId selected_id = Lowl::Audio::AudioSpace::InvalidAudioPlaybackId;
+        Lowl::AudioPlaybackId selected_id = 0;
         std::cout << "Select Sound:\n";
         std::string user_input;
         std::getline(std::cin, user_input);
         try {
-            selected_id = std::stoul(user_input);
+            selected_id = static_cast<Lowl::AudioPlaybackId>(std::stoul(user_input));
         } catch (const std::exception &e) {
             continue;
         }
 
-        if (selected_id <= Lowl::Audio::AudioSpace::InvalidAudioPlaybackId) {
+        if (selected_id == 0) {
             std::cout << "Stop Selecting PlaybackId\n";
             break;
         } else {
+            Lowl::AudioPlaybackHandle selected_handle = Lowl::Audio::AudioSpace::InvalidAudioPlaybackHandle;
+            for (const PlaybackEntry &entry : playback_entries) {
+                if (entry.playback_handle.id == selected_id) {
+                    selected_handle = entry.playback_handle;
+                    break;
+                }
+            }
+            if (!selected_handle.is_valid()) {
+                std::cout << "selected playback handle not found\n";
+                continue;
+            }
             if (status.size() <= selected_id) {
                 status.resize(selected_id + 1);
             }
             bool playing = status[selected_id];
             if (!playing) {
-                space->play(selected_id);
+                space->play(selected_handle);
             } else {
-                space->stop(selected_id);
+                space->stop(selected_handle);
             }
             status[selected_id] = !playing;
         }

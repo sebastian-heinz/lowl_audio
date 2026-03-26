@@ -36,7 +36,7 @@ namespace Lowl::Audio {
     protected:
         SampleRate sample_rate;
         AudioChannel channel;
-        std::atomic<bool> is_playing{true};
+        std::atomic<bool> playback_enabled{true};
 
         void process_volume(AudioBlockView p_block);
 

@@ -11,12 +11,20 @@ namespace Lowl::Audio {
      * Playback instance for an `AudioData` clip with its own position, gain, and panning state.
      */
     class AudioVoice : public AudioSource {
+    public:
+        enum class PlaybackState : uint8_t {
+            Stopped = 0,
+            Playing = 1,
+            Paused = 2,
+        };
+
     private:
         std::shared_ptr<const AudioData> audio_data;
         std::atomic<size_t> position{};
         std::atomic<size_t> seek_position{};
         std::atomic_flag is_not_reset{};
         std::atomic<bool> detached{false};
+        std::atomic<PlaybackState> playback_state{PlaybackState::Stopped};
 
     public:
         explicit AudioVoice(std::shared_ptr<const AudioData> p_audio_data);
@@ -30,6 +38,11 @@ namespace Lowl::Audio {
         void seek_time(TimeSeconds p_seconds);
         void seek_frame(size_t p_frame);
         bool is_detached() const;
+        PlaybackState get_playback_state() const;
+        void restart_playback();
+        void pause_playback();
+        void resume_playback();
+        void stop_playback();
 
         void on_added_to_mixer() override;
         void on_removed_from_mixer() override;

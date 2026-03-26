@@ -1,6 +1,7 @@
 #ifndef LOWL_AUDIO_MIXER_EVENT_H
 #define LOWL_AUDIO_MIXER_EVENT_H
 
+#include "audio/source/lowl_audio_mixer_handle.h"
 #include "audio/source/lowl_audio_source.h"
 
 namespace Lowl::Audio {

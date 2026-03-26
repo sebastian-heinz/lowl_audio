@@ -15,14 +15,14 @@ Lowl::Audio::AudioMixer::AudioMixer(SampleRate p_sample_rate, AudioChannel p_cha
 
 size_t Lowl::Audio::AudioMixer::find_source_index(const AudioMixerHandle p_handle) const {
     if (!p_handle.is_valid()) {
-        return sources.size();
+        return InvalidSourceIndex;
     }
     for (size_t source_index = 0; source_index < sources.size(); source_index++) {
         if (sources[source_index].handle == p_handle) {
             return source_index;
         }
     }
-    return sources.size();
+    return InvalidSourceIndex;
 }
 
 size_t Lowl::Audio::AudioMixer::find_source_index(const AudioSource *p_audio_source) const {
@@ -31,7 +31,7 @@ size_t Lowl::Audio::AudioMixer::find_source_index(const AudioSource *p_audio_sou
             return source_index;
         }
     }
-    return sources.size();
+    return InvalidSourceIndex;
 }
 
 size_t Lowl::Audio::AudioMixer::find_free_source_index() const {
@@ -40,7 +40,7 @@ size_t Lowl::Audio::AudioMixer::find_free_source_index() const {
             return source_index;
         }
     }
-    return sources.size();
+    return InvalidSourceIndex;
 }
 
 void Lowl::Audio::AudioMixer::clear_ack_queue(AckOwnerSlot &p_owner_slot) {
@@ -77,13 +77,13 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render(AudioBloc
                 if (event.audio_source == nullptr) {
                     break;
                 }
-                const size_t existing_index = event.handle.is_valid() ? find_source_index(event.handle)
-                                                                      : find_source_index(event.audio_source);
-                if (existing_index < sources.size()) {
+                const size_t existing_index =
+                    event.handle.is_valid() ? find_source_index(event.handle) : find_source_index(event.audio_source);
+                if (existing_index != InvalidSourceIndex) {
                     break;
                 }
                 const size_t free_index = find_free_source_index();
-                if (free_index < sources.size()) {
+                if (free_index != InvalidSourceIndex) {
                     sources[free_index].handle = event.handle;
                     sources[free_index].source = event.audio_source;
                     event.audio_source->on_added_to_mixer();
@@ -99,9 +99,9 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render(AudioBloc
                 break;
             }
             case AudioMixerEvent::Type::Remove: {
-                const size_t source_index = event.handle.is_valid() ? find_source_index(event.handle)
-                                                                    : find_source_index(event.audio_source);
-                if (source_index < sources.size() && sources[source_index].source != nullptr) {
+                const size_t source_index =
+                    event.handle.is_valid() ? find_source_index(event.handle) : find_source_index(event.audio_source);
+                if (source_index != InvalidSourceIndex && sources[source_index].source != nullptr) {
                     sources[source_index].source->on_removed_from_mixer();
                     sources[source_index] = ActiveSourceSlot{};
                 }
@@ -116,7 +116,7 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render(AudioBloc
         }
     }
 
-    if (!is_playing) {
+    if (!playback_enabled.load(std::memory_order_relaxed)) {
         return {0, RenderState::Starved};
     }
 
