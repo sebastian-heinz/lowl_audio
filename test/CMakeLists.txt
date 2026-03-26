@@ -2,6 +2,7 @@ set(LOWL_TEST_MAIN lowl_audio_test)
 set(LOWL_TEST_FILES
         main.cpp
         test_driver.cpp
+        test_buffer.cpp
         test_audio_device.cpp
         test_audio_data.cpp
         test_audio_reader.cpp

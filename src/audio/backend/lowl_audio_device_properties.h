@@ -8,25 +8,22 @@
 
 namespace Lowl::Audio {
     struct AudioDevicePropertiesWasapi {
-        uint16_t valid_bits_per_sample;
+        uint16_t valid_bits_per_sample = 0;
     };
 
     struct AudioDeviceProperties {
-        bool is_supported;
-        SampleRate sample_rate;
-        AudioChannel channel;
-        SampleFormat sample_format;
-        AudioChannelMask channel_map;
-        bool exclusive_mode;
-
-        union {
-            AudioDevicePropertiesWasapi wasapi;
-        };
+        bool is_supported = false;
+        SampleRate sample_rate = NO_SAMPLE_RATE;
+        AudioChannel channel = AudioChannel::None;
+        SampleFormat sample_format = SampleFormat::Unknown;
+        AudioChannelMask channel_map = AudioChannelMask::NONE;
+        bool exclusive_mode = false;
+        AudioDevicePropertiesWasapi wasapi{};
 
         std::string to_string() const {
             return "{channel:" + std::to_string(get_channel_num(channel)) + "," +
                    "sample_rate:" + std::to_string(sample_rate) + "," +
-                   "sample_format:" + sample_format_to_string(sample_format) + "," +
+                   "sample_format:" + std::string(sample_format_to_string(sample_format)) + "," +
                    "channel_map:" + audio_channel_mask_string(channel_map) + "," +
                    "is_supported:" + std::to_string(is_supported) + "," +
                    "exclusive_mode:" + std::to_string(exclusive_mode) + "}";

@@ -2,7 +2,7 @@
 #define LOWL_SAMPLE_FORMAT
 
 #include <cstddef>
-#include <string>
+#include <string_view>
 
 #include "lowl_typedef.h"
 
@@ -19,7 +19,7 @@ namespace Lowl::Audio {
         U_INT_8 = 7,
     };
 
-    _INLINE_ std::string sample_format_to_string(SampleFormat p_format) noexcept {
+    constexpr std::string_view sample_format_to_string(SampleFormat p_format) noexcept {
         switch (p_format) {
             case SampleFormat::Unknown:
                 return "Unknown";

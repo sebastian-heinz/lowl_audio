@@ -4,6 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <functional>
+#include <memory>
 #include <thread>
 
 namespace Lowl {
@@ -12,7 +13,7 @@ namespace Lowl {
 
     private:
         std::atomic_flag running = ATOMIC_FLAG_INIT;
-        std::thread *thread;
+        std::unique_ptr<std::thread> thread;
         std::chrono::duration<double, std::milli> duration;
         std::function<void()> thread_function;
 
@@ -35,7 +36,7 @@ namespace Lowl {
             stop();
             thread_function = p_thread_function;
             duration = p_interval;
-            thread = new std::thread(&Timer::thread_interval, this);
+            thread = std::make_unique<std::thread>(&Timer::thread_interval, this);
         }
 
         template <typename Rep, typename Period>
@@ -43,25 +44,28 @@ namespace Lowl {
             stop();
             thread_function = p_thread_function;
             duration = p_duration;
-            thread = new std::thread(&Timer::thread_timer, this);
+            thread = std::make_unique<std::thread>(&Timer::thread_timer, this);
         }
 
         void stop() {
             running.clear();
-            if (thread == nullptr) {
+            if (!thread) {
                 return;
             }
             if (thread->get_id() == std::this_thread::get_id()) {
+                thread->detach();
+                thread.reset();
+                thread_function = nullptr;
                 return;
             }
-            thread->join();
-            delete thread;
-            thread = nullptr;
+            if (thread->joinable()) {
+                thread->join();
+            }
+            thread.reset();
             thread_function = nullptr;
         }
 
         Timer() {
-            thread = nullptr;
             running.clear();
             duration = std::chrono::seconds(0);
             thread_function = nullptr;

@@ -110,10 +110,13 @@ namespace Lowl {
                                  now.c_str(),
                                  LOGGER_PREFIX,
                                  level.c_str(),
-                                 p_log.function_name.c_str(),
                                  p_log.message.c_str(),
+                                 p_log.function_name.c_str(),
                                  p_log.file_name.c_str(),
                                  p_log.line);
+        if (size < 0) {
+            return "formatting error status:" + std::to_string(size);
+        }
         std::vector<char> buf(static_cast<size_t>(size + 1)); // note +1 for null terminator
         std::snprintf(&buf[0],
                       buf.size(),
@@ -125,6 +128,6 @@ namespace Lowl {
                       p_log.function_name.c_str(),
                       p_log.file_name.c_str(),
                       p_log.line);
-        return std::string{buf.data(), buf.size()};
+        return std::string{buf.data(), static_cast<size_t>(size)};
     }
 } // namespace Lowl

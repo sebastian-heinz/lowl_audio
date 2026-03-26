@@ -1,29 +1,21 @@
 #include "lowl_buffer.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 
-// Swap 16, 32 and 64 bits value for endianness.
-#if defined(__GNUC__)
-#define BSWAP16(x) __builtin_bswap16(x)
-#define BSWAP32(x) __builtin_bswap32(x)
-#define BSWAP64(x) __builtin_bswap64(x)
-#else
-static inline uint16_t BSWAP16(uint16_t x) {
-    return (x >> 8) | (x << 8);
-}
-
-static inline uint32_t BSWAP32(uint32_t x) {
-    return ((x << 24) | ((x << 8) & 0x00FF0000) | ((x >> 8) & 0x0000FF00) | (x >> 24));
-}
-
-static inline uint64_t BSWAP64(uint64_t x) {
-    x = (x & 0x00000000FFFFFFFF) << 32 | (x & 0xFFFFFFFF00000000) >> 32;
-    x = (x & 0x0000FFFF0000FFFF) << 16 | (x & 0xFFFF0000FFFF0000) >> 16;
-    x = (x & 0x00FF00FF00FF00FF) << 8 | (x & 0xFF00FF00FF00FF00) >> 8;
-    return x;
-}
-#endif
+namespace {
+    uint8_t *allocate_buffer(const size_t p_length) {
+        if (p_length == 0) {
+            return nullptr;
+        }
+        void *storage = std::malloc(p_length);
+        if (!storage) {
+            std::abort();
+        }
+        return static_cast<uint8_t *>(storage);
+    }
+} // namespace
 
 constexpr size_t GROW_SIZE = 1024;
 
@@ -52,17 +44,25 @@ uint8_t Lowl::Buffer::read_u8() {
 }
 
 uint16_t Lowl::Buffer::read_u16() {
-    uint8_t b0 = read_u8();
-    uint8_t b1 = read_u8();
-    return static_cast<uint16_t>(b0 | (b1 << 8));
+    const uint8_t b0 = read_u8();
+    const uint8_t b1 = read_u8();
+    if (endianness == Endianness::Big) {
+        return static_cast<uint16_t>((static_cast<uint16_t>(b0) << 8) | b1);
+    }
+    return static_cast<uint16_t>(b0 | (static_cast<uint16_t>(b1) << 8));
 }
 
 uint32_t Lowl::Buffer::read_u32() {
-    uint8_t b0 = read_u8();
-    uint8_t b1 = read_u8();
-    uint8_t b2 = read_u8();
-    uint8_t b3 = read_u8();
-    return static_cast<uint32_t>(b0 | (b1 << 8) | (b2 << 16) | (b3 << 24));
+    const uint8_t b0 = read_u8();
+    const uint8_t b1 = read_u8();
+    const uint8_t b2 = read_u8();
+    const uint8_t b3 = read_u8();
+    if (endianness == Endianness::Big) {
+        return (static_cast<uint32_t>(b0) << 24) | (static_cast<uint32_t>(b1) << 16) |
+               (static_cast<uint32_t>(b2) << 8) | static_cast<uint32_t>(b3);
+    }
+    return static_cast<uint32_t>(b0) | (static_cast<uint32_t>(b1) << 8) | (static_cast<uint32_t>(b2) << 16) |
+           (static_cast<uint32_t>(b3) << 24);
 }
 
 void Lowl::Buffer::read_data(void *p_dst, size_t p_length) {
@@ -131,13 +131,23 @@ void Lowl::Buffer::set_length(size_t p_length) {
     virtual_length = p_length;
 }
 
+void Lowl::Buffer::set_endianness(const Endianness p_endianness) {
+    endianness = p_endianness;
+}
+
+Lowl::Buffer::Endianness Lowl::Buffer::get_endianness() const {
+    return endianness;
+}
+
 size_t Lowl::Buffer::get_available() const {
     return virtual_length - position;
 }
 
-Lowl::Buffer *Lowl::Buffer::slice(size_t p_length) const {
-    Buffer *buffer = new Buffer(&data[position], p_length);
-    return buffer;
+std::unique_ptr<Lowl::Buffer> Lowl::Buffer::slice(size_t p_length) const {
+    const size_t available = position <= virtual_length ? virtual_length - position : 0;
+    const size_t slice_length = std::min(p_length, available);
+    const void *slice_data = (data != nullptr && slice_length > 0) ? static_cast<const void *>(data + position) : nullptr;
+    return std::make_unique<Buffer>(slice_data, slice_length, endianness);
 }
 
 void Lowl::Buffer::grow(const size_t p_length) {
@@ -150,21 +160,64 @@ void Lowl::Buffer::grow(const size_t p_length) {
     real_length = new_real_length;
 }
 
-Lowl::Buffer::Buffer(const void *p_data, const size_t p_length) {
+Lowl::Buffer::Buffer(const void *p_data, const size_t p_length, const Endianness p_endianness) {
     real_length = p_length;
-    data = static_cast<uint8_t *>(malloc(real_length));
+    data = allocate_buffer(real_length);
     position = 0;
     virtual_length = 0;
+    endianness = p_endianness;
+    if (p_length == 0) {
+        return;
+    }
+    if (p_data == nullptr) {
+        std::memset(data, 0, p_length);
+        virtual_length = p_length;
+        return;
+    }
     write_data(p_data, p_length);
 }
 
-Lowl::Buffer::Buffer() {
+Lowl::Buffer::Buffer(const Endianness p_endianness) {
     real_length = GROW_SIZE;
-    data = static_cast<uint8_t *>(malloc(real_length));
+    data = allocate_buffer(real_length);
     position = 0;
     virtual_length = 0;
+    endianness = p_endianness;
+}
+
+Lowl::Buffer::Buffer(Buffer &&p_other) noexcept
+    : position(p_other.position),
+      virtual_length(p_other.virtual_length),
+      real_length(p_other.real_length),
+      data(p_other.data),
+      endianness(p_other.endianness) {
+    p_other.position = 0;
+    p_other.virtual_length = 0;
+    p_other.real_length = 0;
+    p_other.data = nullptr;
+    p_other.endianness = Endianness::Little;
+}
+
+Lowl::Buffer &Lowl::Buffer::operator=(Buffer &&p_other) noexcept {
+    if (this == &p_other) {
+        return *this;
+    }
+
+    std::free(data);
+    position = p_other.position;
+    virtual_length = p_other.virtual_length;
+    real_length = p_other.real_length;
+    data = p_other.data;
+    endianness = p_other.endianness;
+
+    p_other.position = 0;
+    p_other.virtual_length = 0;
+    p_other.real_length = 0;
+    p_other.data = nullptr;
+    p_other.endianness = Endianness::Little;
+    return *this;
 }
 
 Lowl::Buffer::~Buffer() {
-    free(data);
+    std::free(data);
 }

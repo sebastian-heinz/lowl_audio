@@ -15,8 +15,8 @@ message("[LOWL] CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 # config - start
 set(LOWL_DEBUG TRUE)
 set(LOWL_DRIVER_DUMMY TRUE)
-set(LOWL_DRIVER_CORE_AUDIO TRUE)
-set(LOWL_DRIVER_WASAPI TRUE)
+set(LOWL_DRIVER_CORE_AUDIO FALSE)
+set(LOWL_DRIVER_WASAPI FALSE)
 set(LOWL_TYPE_SAMPLE_64 FALSE)
 # config - end
 
@@ -72,12 +72,14 @@ ENDIF ()
 
 if (WIN32)
     message("[LOWL] WIN32")
+    set(LOWL_DRIVER_WASAPI TRUE)
     IF (LOWL_DRIVER_WASAPI)
         target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_WASAPI)
         target_link_libraries(${LOWL_LIB_MAIN} PUBLIC avrt)
     ENDIF ()
 endif ()
 if (APPLE)
+    set(LOWL_DRIVER_CORE_AUDIO TRUE)
     if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
         message("[LOWL] APPLE arm64")
         set(CMAKE_OSX_ARCHITECTURES "arm64")
@@ -170,12 +172,14 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
             -Wthread-safety-beta
             -Wcomma
     )
-    target_link_options(${LOWL_LIB_MAIN} PRIVATE
-            LINKER:-z,relro
-            LINKER:-z,now
-            LINKER:-z,noexecstack
-            LINKER:-z,separate-code
-    )
+    if (UNIX AND NOT APPLE)
+        target_link_options(${LOWL_LIB_MAIN} PRIVATE
+                LINKER:-z,relro
+                LINKER:-z,now
+                LINKER:-z,noexecstack
+                LINKER:-z,separate-code
+        )
+    endif ()
 endif ()
 
 # Third Party

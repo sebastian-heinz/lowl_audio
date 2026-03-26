@@ -3,14 +3,22 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 namespace Lowl {
     class Buffer {
+    public:
+        enum class Endianness : uint8_t {
+            Little = 0,
+            Big = 1,
+        };
+
     private:
-        size_t position;
-        size_t virtual_length;
-        size_t real_length;
-        uint8_t *data;
+        size_t position = 0;
+        size_t virtual_length = 0;
+        size_t real_length = 0;
+        uint8_t *data = nullptr;
+        Endianness endianness = Endianness::Little;
 
         void grow(size_t p_length);
 
@@ -37,13 +45,22 @@ namespace Lowl {
 
         void set_length(size_t p_length);
 
+        void set_endianness(Endianness p_endianness);
+
+        Endianness get_endianness() const;
+
         size_t get_available() const;
 
-        Buffer *slice(size_t p_length) const;
+        std::unique_ptr<Buffer> slice(size_t p_length) const;
 
-        Buffer(const void *p_data, size_t p_length);
+        Buffer(const Buffer &) = delete;
+        Buffer &operator=(const Buffer &) = delete;
+        Buffer(Buffer &&p_other) noexcept;
+        Buffer &operator=(Buffer &&p_other) noexcept;
 
-        Buffer();
+        Buffer(const void *p_data, size_t p_length, Endianness p_endianness = Endianness::Little);
+
+        Buffer(Endianness p_endianness = Endianness::Little);
 
         ~Buffer();
     };

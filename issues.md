@@ -35,13 +35,13 @@
 | 14 | Medium | Performance | **Fixed** | Mixer linear scan over 1024 slots on the real-time thread |
 | 15 | Medium | Lifecycle | Open | Playback slot and asset-id monotonic exhaustion |
 | 16 | Medium | Resource | Open | CoreAudio `get_num_channel` memory leak and wrong allocation |
-| 17 | Medium | Build | Open | ELF-only linker flags applied on macOS Clang builds |
-| 18 | Low | Bug | Open | `format_log()` argument order inconsistency between size pass and format pass |
-| 19 | Low | Quality | Open | `Buffer` class: dead code, Rule-of-Five violation, raw `slice()` pointer |
-| 20 | Low | Quality | Open | `SampleConverter` C-style casts, misnamed variable, `_INLINE_` misuse |
-| 21 | Low | Quality | Open | `AudioDeviceProperties` uninitialized members; `get_closest_properties()` stub |
-| 22 | Low | Quality | Open | `Timer` uses raw `new std::thread`; minor resource hygiene |
-| 23 | Low | Testing | Open | Driver test conflates platform availability with core regressions |
+| 17 | Medium | Build | **Fixed** | ELF-only linker flags applied on macOS Clang builds |
+| 18 | Low | Bug | **Fixed** | `format_log()` argument order inconsistency between size pass and format pass |
+| 19 | Low | Quality | **Fixed** | `Buffer` class: dead code, Rule-of-Five violation, raw `slice()` pointer |
+| 20 | Low | Quality | **Fixed** | `SampleConverter` C-style casts, misnamed variable, `_INLINE_` misuse |
+| 21 | Low | Quality | **Fixed** | `AudioDeviceProperties` uninitialized members; `get_closest_properties()` stub |
+| 22 | Low | Quality | **Fixed** | `Timer` uses raw `new std::thread`; minor resource hygiene |
+| 23 | Low | Testing | **Fixed** | Driver test conflates platform availability with core regressions |
 
 ---
 
@@ -656,7 +656,7 @@ AudioBufferList *audio_buffers = reinterpret_cast<AudioBufferList *>(buffer.get(
 
 ---
 
-## Issue 17 — ELF-Only Linker Flags Applied on macOS Clang Builds
+## Issue 17 — ELF-Only Linker Flags Applied on macOS Clang Builds — **FIXED**
 
 **Severity:** Medium
 **Files:** `CMakeLists.txt:173-178`
@@ -692,9 +692,11 @@ Use `check_linker_flag(CXX "-z,relro" HAS_Z_RELRO)` and conditionally apply.
 
 Additionally, `set(LOWL_DRIVER_WASAPI TRUE)` on line 19 is set unconditionally but only used on Windows. While harmless (the sources are `#ifdef`-guarded), it would be cleaner to set it inside `if(WIN32)`.
 
+**Fix applied:** Guarded the `-z` linker flags with `if (UNIX AND NOT APPLE)` and moved `LOWL_DRIVER_WASAPI` / `LOWL_DRIVER_CORE_AUDIO` enablement into the platform-specific branches.
+
 ---
 
-## Issue 18 — `format_log()` Argument Order Inconsistency
+## Issue 18 — `format_log()` Argument Order Inconsistency — **FIXED**
 
 **Severity:** Low
 **Files:** `src/lowl_logger.cpp:107-127`
@@ -715,9 +717,11 @@ Replace the two-pass `snprintf` with `Lowl::Logger::format_arguments()` (which a
 
 **Solution A.** It's a one-line swap. The two-pass snprintf pattern is fine; just make the arguments consistent.
 
+**Fix applied:** Made the size-measurement call use the same `message, function_name, file_name, line` order as the formatting call, and returned the formatted string without the trailing null terminator.
+
 ---
 
-## Issue 19 — `Buffer` Class: Dead Code, Rule-of-Five Violation, Raw Pointer from `slice()`
+## Issue 19 — `Buffer` Class: Dead Code, Rule-of-Five Violation, Raw Pointer from `slice()` — **FIXED**
 
 **Severity:** Low
 **Files:** `src/lowl_buffer.h`, `src/lowl_buffer.cpp`
@@ -742,9 +746,11 @@ Make `Buffer` non-copyable, add move constructor/assignment, change `slice()` to
 
 **Solution A — delete it.** Verify first with a grep that no code in `src/` or `test/` references `Lowl::Buffer`. If it's truly unused, removing dead code is better than maintaining it. If some external code (the Godot wrapper) uses it, apply Solution B.
 
+**Fix applied:** Chose Solution B to avoid deleting a still-public type. `Buffer` is now non-copyable, movable, returns `std::unique_ptr<Buffer>` from `slice()`, clamps slice length to available bytes, and drops the unused byte-swap macros.
+
 ---
 
-## Issue 20 — `SampleConverter` C-Style Casts, Misnamed Variable, `_INLINE_` Misuse
+## Issue 20 — `SampleConverter` C-Style Casts, Misnamed Variable, `_INLINE_` Misuse — **FIXED**
 
 **Severity:** Low
 **Files:** `src/audio/convert/lowl_audio_sample_converter.h`, `src/audio/lowl_audio_sample_format.h`
@@ -767,9 +773,11 @@ Audit all `_INLINE_` uses. Reserve it for functions that are (a) trivial, (b) ca
 
 **Solution A for the immediate fixes, Solution B as a follow-up.** The cast and variable name fixes are obvious correctness improvements. The `_INLINE_` audit is a separate cleanup pass.
 
+**Fix applied:** Replaced the C-style casts in `SampleConverter` with `static_cast`, renamed the `sample_to_int8` local to `int8_value`, and removed `_INLINE_` from `sample_format_to_string()`.
+
 ---
 
-## Issue 21 — `AudioDeviceProperties` Uninitialized Members; `get_closest_properties()` Stub
+## Issue 21 — `AudioDeviceProperties` Uninitialized Members; `get_closest_properties()` Stub — **FIXED**
 
 **Severity:** Low
 **Files:** `src/audio/backend/lowl_audio_device_properties.h`, `src/audio/backend/lowl_audio_device.cpp`
@@ -799,11 +807,13 @@ Force all construction to use designated initializers or brace-init with explici
 
 ### Recommendation
 
-**Solution A.** Default member initializers are zero-cost and prevent accidental use of garbage values. The `get_closest_properties()` stub should remain a tracked TODO — it's a feature gap, not a bug, since the CoreAudio backend currently enumerates all supported properties and callers select one explicitly.
+**Solution A.** Default member initializers are zero-cost and prevent accidental use of garbage values. A small deterministic closest-match heuristic is sufficient here and much better than leaving the method as a stub.
+
+**Fix applied:** Added default member initializers, default-initialized the WASAPI extension fields, and implemented `get_closest_properties()` with a stable best-match heuristic that prefers supported candidates with matching channel / format / map / exclusivity and the nearest sample rate.
 
 ---
 
-## Issue 22 — `Timer` Uses Raw `new std::thread`
+## Issue 22 — `Timer` Uses Raw `new std::thread` — **FIXED**
 
 **Severity:** Low
 **Files:** `src/lowl_timer.h`
@@ -824,9 +834,11 @@ Replace `std::thread *thread` with `std::unique_ptr<std::thread>`. `stop()` call
 
 **Solution A.** The project targets C++17, so `std::jthread` is not available. `unique_ptr<std::thread>` is the minimal RAII fix.
 
+**Fix applied:** Replaced the raw thread pointer with `std::unique_ptr<std::thread>` and kept `stop()` responsible for joining/resetting the thread object safely.
+
 ---
 
-## Issue 23 — Driver Test Conflates Platform Availability with Core Regressions
+## Issue 23 — Driver Test Conflates Platform Availability with Core Regressions — **FIXED**
 
 **Severity:** Low
 **Files:** `test/test_driver.cpp`
@@ -848,6 +860,8 @@ Instead of `REQUIRE(error.ok())`, use `CHECK` or `WARN` for backend-specific ini
 ### Recommendation
 
 **Solution A.** Clean separation makes it obvious what broke. The dummy driver should always be available and testable regardless of platform. Device-specific tests can be gated on a runtime check (e.g., `driver->get_devices().empty()`).
+
+**Fix applied:** Split the driver coverage into a core enumeration test and a separate environment-dependent backend initialization test that records unavailable backends without failing the whole suite.
 
 ---
 

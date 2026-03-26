@@ -1,9 +1,35 @@
 #include "lowl_audio_device.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
+#include <tuple>
 
 #include "audio/convert/lowl_audio_sample_converter.h"
+
+namespace {
+    auto make_property_score(const Lowl::Audio::AudioDeviceProperties &p_requested,
+                             const Lowl::Audio::AudioDeviceProperties &p_candidate) {
+        const bool channel_mismatch =
+            p_requested.channel != Lowl::Audio::AudioChannel::None && p_candidate.channel != p_requested.channel;
+        const bool format_mismatch = p_requested.sample_format != Lowl::Audio::SampleFormat::Unknown &&
+                                     p_candidate.sample_format != p_requested.sample_format;
+        const bool channel_map_mismatch = p_requested.channel_map != Lowl::Audio::AudioChannelMask::NONE &&
+                                          p_candidate.channel_map != p_requested.channel_map;
+        const double sample_rate_distance =
+            p_requested.sample_rate > Lowl::NO_SAMPLE_RATE &&
+                    !Lowl::Audio::sample_rates_equal(p_requested.sample_rate, p_candidate.sample_rate)
+                ? std::abs(p_candidate.sample_rate - p_requested.sample_rate)
+                : 0.0;
+
+        return std::make_tuple(!p_candidate.is_supported,
+                               channel_mismatch,
+                               format_mismatch,
+                               channel_map_mismatch,
+                               p_candidate.exclusive_mode != p_requested.exclusive_mode,
+                               sample_rate_distance);
+    }
+} // namespace
 
 std::string Lowl::Audio::AudioDevice::get_name() const {
     return name;
@@ -25,12 +51,19 @@ Lowl::Audio::AudioDeviceProperties
 Lowl::Audio::AudioDevice::get_closest_properties(AudioDeviceProperties p_audio_device_properties, Error &error) const {
     if (properties_list.empty()) {
         error.set_error(ErrorCode::DeviceHasNoAudioProperties);
-        return AudioDeviceProperties();
+        return AudioDeviceProperties{};
     }
-    for (AudioDeviceProperties property : properties_list) {
+
+    auto best_property = properties_list.begin();
+    auto best_score = make_property_score(p_audio_device_properties, *best_property);
+    for (auto property = std::next(properties_list.begin()); property != properties_list.end(); ++property) {
+        const auto property_score = make_property_score(p_audio_device_properties, *property);
+        if (property_score < best_score) {
+            best_property = property;
+            best_score = property_score;
+        }
     }
-    // TODO find best match between `property` and `p_audio_device_properties`
-    return properties_list[0];
+    return *best_property;
 }
 
 std::vector<Lowl::Audio::AudioDeviceProperties> Lowl::Audio::AudioDevice::get_properties_list() const {

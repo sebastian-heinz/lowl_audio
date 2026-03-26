@@ -73,6 +73,10 @@ namespace {
             render_to_device_buffer(p_dst, p_frames_per_buffer, p_bytes_per_frame);
         }
 
+        void set_properties_list(std::vector<Lowl::Audio::AudioDeviceProperties> p_properties_list) {
+            properties_list = std::move(p_properties_list);
+        }
+
         void start(
             Lowl::Audio::AudioDeviceProperties,
             std::shared_ptr<Lowl::Audio::AudioSource>,
@@ -86,6 +90,65 @@ namespace {
 }
 
 TEST_CASE("AudioDevice") {
+    SUBCASE("AudioDeviceProperties - default initialization is safe") {
+        Lowl::Audio::AudioDeviceProperties properties;
+        REQUIRE_FALSE(properties.is_supported);
+        REQUIRE_EQ(properties.sample_rate, Lowl::NO_SAMPLE_RATE);
+        REQUIRE_EQ(properties.channel, Lowl::Audio::AudioChannel::None);
+        REQUIRE_EQ(properties.sample_format, Lowl::Audio::SampleFormat::Unknown);
+        REQUIRE_EQ(properties.channel_map, Lowl::Audio::AudioChannelMask::NONE);
+        REQUIRE_FALSE(properties.exclusive_mode);
+        REQUIRE_EQ(properties.wasapi.valid_bits_per_sample, 0);
+    }
+
+    SUBCASE("AudioDevice - get_closest_properties prefers exact structural matches") {
+        TestAudioDevice device;
+
+        Lowl::Audio::AudioDeviceProperties exact{};
+        exact.is_supported = true;
+        exact.sample_rate = 48000.0;
+        exact.channel = Lowl::Audio::AudioChannel::Stereo;
+        exact.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
+        exact.channel_map = Lowl::Audio::AudioChannelMask::LEFT | Lowl::Audio::AudioChannelMask::RIGHT;
+        exact.exclusive_mode = false;
+
+        Lowl::Audio::AudioDeviceProperties wrong_channel = exact;
+        wrong_channel.channel = Lowl::Audio::AudioChannel::Mono;
+
+        Lowl::Audio::AudioDeviceProperties wrong_format = exact;
+        wrong_format.sample_format = Lowl::Audio::SampleFormat::INT_16;
+
+        device.set_properties_list({wrong_channel, wrong_format, exact});
+
+        Lowl::Error error;
+        const Lowl::Audio::AudioDeviceProperties selected = device.get_closest_properties(exact, error);
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE_EQ(selected, exact);
+    }
+
+    SUBCASE("AudioDevice - get_closest_properties falls back to nearest sample rate") {
+        TestAudioDevice device;
+
+        Lowl::Audio::AudioDeviceProperties requested{};
+        requested.is_supported = true;
+        requested.sample_rate = 50000.0;
+        requested.channel = Lowl::Audio::AudioChannel::Stereo;
+        requested.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
+
+        Lowl::Audio::AudioDeviceProperties low = requested;
+        low.sample_rate = 48000.0;
+
+        Lowl::Audio::AudioDeviceProperties high = requested;
+        high.sample_rate = 96000.0;
+
+        device.set_properties_list({high, low});
+
+        Lowl::Error error;
+        const Lowl::Audio::AudioDeviceProperties selected = device.get_closest_properties(requested, error);
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE_EQ(selected.sample_rate, doctest::Approx(48000.0));
+    }
+
     SUBCASE("AudioDevice - write_frames only zero-fills missing frames") {
         constexpr unsigned long frames_per_buffer = 3;
         constexpr unsigned long channels = 2;

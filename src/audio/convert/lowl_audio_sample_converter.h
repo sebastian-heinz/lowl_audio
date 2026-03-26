@@ -49,17 +49,16 @@ namespace Lowl::Audio {
         }
 
         static _INLINE_ int32_t sample_to_int24(Lowl::Sample p_sample) {
-            return lround(p_sample * 0x7FFFFF) & 0xFFFFFF;
+            return static_cast<int32_t>(std::lround(p_sample * 0x7FFFFF)) & 0xFFFFFF;
         }
 
         static _INLINE_ int32_t sample_to_int32(Lowl::Sample p_sample) {
-            double scaled = p_sample * 0x7FFFFFFF;
-            return (int32_t)scaled;
+            const double scaled = p_sample * 0x7FFFFFFF;
+            return static_cast<int32_t>(scaled);
         }
 
         static _INLINE_ int16_t sample_to_int16(Lowl::Sample p_sample) {
-            int16_t int16 = (int16_t)(p_sample * (32767.0f));
-            return int16;
+            return static_cast<int16_t>(p_sample * 32767.0f);
         }
 
         static _INLINE_ float sample_to_float(Lowl::Sample p_sample) {
@@ -72,8 +71,8 @@ namespace Lowl::Audio {
         }
 
         static _INLINE_ int8_t sample_to_int8(Lowl::Sample p_sample) {
-            int8_t int16 = (int8_t)(p_sample * (127.0f));
-            return int16;
+            const int8_t int8_value = static_cast<int8_t>(p_sample * 127.0f);
+            return int8_value;
         }
 
         static _INLINE_ void
@@ -81,15 +80,15 @@ namespace Lowl::Audio {
             {
                 switch (p_sample_format) {
                     case SampleFormat::INT_16: {
-                        int16_t sample = sample_to_int16(p_sample);
-                        int16_t *dst = (int16_t *)*p_dst;
+                        const int16_t sample = sample_to_int16(p_sample);
+                        int16_t *dst = static_cast<int16_t *>(*p_dst);
                         *dst++ = sample;
                         *p_dst = dst;
                         break;
                     }
                     case SampleFormat::INT_24: {
-                        int32_t sample = sample_to_int24(p_sample);
-                        uint8_t *dst = (uint8_t *)*p_dst;
+                        const int32_t sample = sample_to_int24(p_sample);
+                        uint8_t *dst = static_cast<uint8_t *>(*p_dst);
                         *dst++ = static_cast<uint8_t>(sample);        // bits 0-7
                         *dst++ = static_cast<uint8_t>(sample >> 8);   // bits 8-15
                         *dst++ = static_cast<uint8_t>(sample >> 16);  // bits 16-23
@@ -97,22 +96,22 @@ namespace Lowl::Audio {
                         break;
                     }
                     case SampleFormat::INT_32: {
-                        int32_t sample = sample_to_int32(p_sample);
-                        int32_t *dst = (int32_t *)*p_dst;
+                        const int32_t sample = sample_to_int32(p_sample);
+                        int32_t *dst = static_cast<int32_t *>(*p_dst);
                         *dst++ = sample;
                         *p_dst = dst;
                         break;
                     }
                     case SampleFormat::FLOAT_32: {
-                        float sample = sample_to_float(p_sample);
-                        float *dst = (float *)*p_dst;
+                        const float sample = sample_to_float(p_sample);
+                        float *dst = static_cast<float *>(*p_dst);
                         *dst++ = sample;
                         *p_dst = dst;
                         break;
                     }
                     case SampleFormat::U_INT_8: {
-                        uint8_t sample = sample_to_uint8(p_sample);
-                        uint8_t *dst = (uint8_t *)*p_dst;
+                        const uint8_t sample = sample_to_uint8(p_sample);
+                        uint8_t *dst = static_cast<uint8_t *>(*p_dst);
                         *dst++ = sample;
                         *p_dst = dst;
                         break;
@@ -121,12 +120,13 @@ namespace Lowl::Audio {
                         break;
                     case SampleFormat::FLOAT_64:
                         break;
-                    case SampleFormat::INT_8:
-                        int8_t sample = sample_to_int8(p_sample);
-                        int8_t *dst = (int8_t *)*p_dst;
+                    case SampleFormat::INT_8: {
+                        const int8_t sample = sample_to_int8(p_sample);
+                        int8_t *dst = static_cast<int8_t *>(*p_dst);
                         *dst++ = sample;
                         *p_dst = dst;
                         break;
+                    }
                 }
             }
         }
