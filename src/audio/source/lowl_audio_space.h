@@ -110,7 +110,9 @@ namespace Lowl::Audio {
 
         void seek_frame(AudioPlaybackHandle p_audio_playback_handle, size_t p_frame);
 
-        AudioSpace(SampleRate p_sample_rate, AudioChannel p_channel);
+        AudioSpace(SampleRate p_sample_rate,
+                   AudioChannel p_channel,
+                   uint32_t p_mixer_scratch_buffer_capacity = AudioMixer::DefaultScratchBufferCapacity);
 
         ~AudioSpace() override;
     };

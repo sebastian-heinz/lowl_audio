@@ -18,7 +18,6 @@ namespace Lowl::Audio {
      */
     class AudioMixer : public AudioSource {
     private:
-        static constexpr uint32_t SCRATCH_BUFFER_CAPACITY = 8192;
         static constexpr size_t MAX_ACTIVE_SOURCES = 1024;
         static constexpr size_t MAX_ACK_OWNERS = 64;
         static constexpr size_t InvalidSourceIndex = MAX_ACTIVE_SOURCES;
@@ -45,10 +44,15 @@ namespace Lowl::Audio {
         size_t find_free_source_index() const;
         void add_source(size_t p_source_index, AudioMixerHandle p_handle, AudioSource *p_audio_source);
         void remove_source(size_t p_source_index);
+        void process_events();
+        RenderResult render_mixed_block(AudioBlockView p_block);
+        RenderResult render_chunked_block(AudioBlockView p_block, uint32_t p_chunk_frame_count);
         void enqueue_ack(const AudioMixerAck &p_ack);
         void clear_ack_queue(AckOwnerSlot &p_owner_slot);
 
     public:
+        static constexpr uint32_t DefaultScratchBufferCapacity = 16384;
+
         size_l get_frames_remaining() const override;
 
         size_l get_frame_position() const override;
@@ -77,7 +81,9 @@ namespace Lowl::Audio {
         void unregister_ack_owner(uint16_l p_owner_id);
         bool try_dequeue_ack(uint16_l p_owner_id, AudioMixerAck &p_ack);
 
-        AudioMixer(SampleRate p_sample_rate, AudioChannel p_channel);
+        AudioMixer(SampleRate p_sample_rate,
+                   AudioChannel p_channel,
+                   uint32_t p_scratch_buffer_capacity = DefaultScratchBufferCapacity);
 
         ~AudioMixer() override = default;
     };

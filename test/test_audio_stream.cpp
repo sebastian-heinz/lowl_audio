@@ -5,12 +5,58 @@
 
 #include <iostream>
 #include <memory>
+#include <vector>
 
 namespace {
     struct StereoSample {
         Lowl::Sample left;
         Lowl::Sample right;
     };
+
+    std::unique_ptr<Lowl::Audio::AudioData>
+    make_audio_data(Lowl::Audio::AudioChannel p_channel, const std::vector<Lowl::Sample> &p_interleaved_frames) {
+        const size_t channel_count = Lowl::Audio::get_channel_num(p_channel);
+        const size_t frame_count = channel_count == 0 ? 0 : p_interleaved_frames.size() / channel_count;
+        std::unique_ptr<Lowl::Sample[]> storage;
+        if (frame_count > 0 && channel_count > 0) {
+            storage = std::make_unique<Lowl::Sample[]>(frame_count * channel_count);
+            for (size_t frame_index = 0; frame_index < frame_count; frame_index++) {
+                for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
+                    storage[channel_index * frame_count + frame_index] =
+                        p_interleaved_frames[frame_index * channel_count + channel_index];
+                }
+            }
+        }
+        return std::make_unique<Lowl::Audio::AudioData>(std::move(storage), frame_count, 44100.0, p_channel);
+    }
+
+    std::unique_ptr<Lowl::Audio::AudioData> make_stereo_audio_data(const std::vector<StereoSample> &p_frames) {
+        const size_t frame_count = p_frames.size();
+        std::unique_ptr<Lowl::Sample[]> storage;
+        if (frame_count > 0) {
+            storage = std::make_unique<Lowl::Sample[]>(frame_count * 2);
+            for (size_t frame_index = 0; frame_index < frame_count; frame_index++) {
+                storage[frame_index] = p_frames[frame_index].left;
+                storage[frame_count + frame_index] = p_frames[frame_index].right;
+            }
+        }
+        return std::make_unique<Lowl::Audio::AudioData>(
+            std::move(storage),
+            frame_count,
+            44100.0,
+            Lowl::Audio::AudioChannel::Stereo
+        );
+    }
+
+    Lowl::AudioPlaybackHandle add_asset_and_create_playback(Lowl::Audio::AudioSpace &p_audio_space,
+                                                            std::unique_ptr<Lowl::Audio::AudioData> p_audio_data,
+                                                            Lowl::Error &p_error) {
+        const Lowl::AudioAssetId asset_id = p_audio_space.add_audio(std::move(p_audio_data), p_error);
+        if (p_error.has_error() || asset_id == Lowl::Audio::AudioSpace::InvalidAudioAssetId) {
+            return Lowl::Audio::AudioSpace::InvalidAudioPlaybackHandle;
+        }
+        return p_audio_space.create_playback(asset_id);
+    }
 
     class MixerDetachProbe final : public Lowl::Audio::AudioSource {
     public:
@@ -214,9 +260,22 @@ TEST_CASE("AudioStream") {
 
         Lowl::Audio::AudioSource::RenderResult result = mono_stream.render(stereo_block);
         REQUIRE_EQ(result.frames_produced, 0U);
-        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Starved);
+        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Error);
         REQUIRE_EQ(stereo_block.channel(0)[0], doctest::Approx(0.0f));
         REQUIRE_EQ(stereo_block.channel(1)[0], doctest::Approx(0.0f));
+    }
+
+    SUBCASE("AudioMixer - render rejects mismatched channel block") {
+        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::AudioChannel::Stereo);
+
+        Lowl::Audio::AudioBuffer mono_buffer(1, 1);
+        Lowl::Audio::AudioBlockView mono_block = mono_buffer.view(1);
+        mono_buffer.clear(1);
+
+        Lowl::Audio::AudioSource::RenderResult result = mixer.render(mono_block);
+        REQUIRE_EQ(result.frames_produced, 0U);
+        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Error);
+        REQUIRE_EQ(mono_block.channel(0)[0], doctest::Approx(0.0f));
     }
 
     SUBCASE("AudioMixer - mix rejects mismatched channel source") {
@@ -256,5 +315,108 @@ TEST_CASE("AudioStream") {
         REQUIRE_EQ(second_result.state, Lowl::Audio::AudioSource::RenderState::Ok);
         REQUIRE_EQ(block.channel(0)[0], doctest::Approx(1.0f));
         REQUIRE_EQ(block.channel(1)[0], doctest::Approx(1.0f));
+    }
+
+    SUBCASE("AudioMixer - render chunks blocks larger than scratch capacity") {
+        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::AudioChannel::Stereo, 2);
+        Lowl::Audio::AudioStream stereo_stream(44100.0, Lowl::Audio::AudioChannel::Stereo, 8);
+        const Lowl::Sample samples[] = {
+            0.1f, -0.1f,
+            0.2f, -0.2f,
+            0.3f, -0.3f,
+            0.4f, -0.4f,
+            0.5f, -0.5f,
+        };
+
+        REQUIRE_EQ(stereo_stream.write_interleaved(samples, 5), 5U);
+        mixer.mix(&stereo_stream);
+
+        Lowl::Audio::AudioBuffer buffer(5, 2);
+        Lowl::Audio::AudioBlockView block = buffer.view(5);
+        buffer.clear(5);
+
+        Lowl::Audio::AudioSource::RenderResult result = mixer.render(block);
+        REQUIRE_EQ(result.frames_produced, 5U);
+        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Ok);
+        REQUIRE_EQ(block.channel(0)[0], doctest::Approx(0.1f));
+        REQUIRE_EQ(block.channel(1)[0], doctest::Approx(-0.1f));
+        REQUIRE_EQ(block.channel(0)[1], doctest::Approx(0.2f));
+        REQUIRE_EQ(block.channel(1)[1], doctest::Approx(-0.2f));
+        REQUIRE_EQ(block.channel(0)[2], doctest::Approx(0.3f));
+        REQUIRE_EQ(block.channel(1)[2], doctest::Approx(-0.3f));
+        REQUIRE_EQ(block.channel(0)[3], doctest::Approx(0.4f));
+        REQUIRE_EQ(block.channel(1)[3], doctest::Approx(-0.4f));
+        REQUIRE_EQ(block.channel(0)[4], doctest::Approx(0.5f));
+        REQUIRE_EQ(block.channel(1)[4], doctest::Approx(-0.5f));
+    }
+
+    SUBCASE("AudioMixer - nested mixers sum multichannel AudioSpace and AudioStream inputs correctly") {
+        constexpr Lowl::Audio::AudioChannel channel = Lowl::Audio::AudioChannel::Surround5_1;
+        constexpr uint32_t frame_count = 10;
+        constexpr uint8_t channel_count = 6;
+
+        auto make_interleaved_frames = [](int p_base, int p_channel_scale, int p_frame_scale) {
+            std::vector<Lowl::Sample> frames(frame_count * channel_count);
+            for (uint32_t frame_index = 0; frame_index < frame_count; frame_index++) {
+                for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
+                    const int value = p_base + p_channel_scale * static_cast<int>(channel_index + 1) +
+                                      p_frame_scale * static_cast<int>(frame_index);
+                    frames[frame_index * channel_count + channel_index] = static_cast<Lowl::Sample>(value) / 1000.0f;
+                }
+            }
+            return frames;
+        };
+
+        Lowl::Error error;
+        Lowl::Audio::AudioSpace audio_space(44100.0, channel);
+        Lowl::Audio::AudioMixer mixer_a(44100.0, channel, 3);
+        Lowl::Audio::AudioMixer mixer_b(44100.0, channel);
+        Lowl::Audio::AudioMixer mixer_c(44100.0, channel);
+        Lowl::Audio::AudioStream stream_a(44100.0, channel, 16);
+        Lowl::Audio::AudioStream stream_b0(44100.0, channel, 16);
+        Lowl::Audio::AudioStream stream_b1(44100.0, channel, 16);
+
+        const std::vector<Lowl::Sample> space_frames = make_interleaved_frames(100, 10, 1);
+        const std::vector<Lowl::Sample> stream_a_frames = make_interleaved_frames(20, 4, 2);
+        const std::vector<Lowl::Sample> stream_b0_frames = make_interleaved_frames(-30, 2, 1);
+        const std::vector<Lowl::Sample> stream_b1_frames = make_interleaved_frames(5, -1, 3);
+
+        const Lowl::AudioPlaybackHandle playback_handle = add_asset_and_create_playback(
+            audio_space,
+            make_audio_data(channel, space_frames),
+            error
+        );
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE(playback_handle.is_valid());
+
+        REQUIRE_EQ(stream_a.write_interleaved(stream_a_frames.data(), frame_count), frame_count);
+        REQUIRE_EQ(stream_b0.write_interleaved(stream_b0_frames.data(), frame_count), frame_count);
+        REQUIRE_EQ(stream_b1.write_interleaved(stream_b1_frames.data(), frame_count), frame_count);
+
+        audio_space.play(playback_handle);
+
+        mixer_a.mix(&audio_space);
+        mixer_a.mix(&stream_a);
+        mixer_b.mix(&stream_b0);
+        mixer_b.mix(&stream_b1);
+        mixer_c.mix(&mixer_a);
+        mixer_c.mix(&mixer_b);
+
+        Lowl::Audio::AudioBuffer buffer(frame_count, channel_count);
+        Lowl::Audio::AudioBlockView block = buffer.view(frame_count);
+        buffer.clear(frame_count);
+
+        Lowl::Audio::AudioSource::RenderResult result = mixer_c.render(block);
+        REQUIRE_EQ(result.frames_produced, frame_count);
+        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Ok);
+        for (uint32_t frame_index = 0; frame_index < frame_count; frame_index++) {
+            for (uint8_t current_channel = 0; current_channel < channel_count; current_channel++) {
+                const size_t sample_index = static_cast<size_t>(frame_index) * channel_count + current_channel;
+                const Lowl::Sample expected = space_frames[sample_index] + stream_a_frames[sample_index] +
+                                              stream_b0_frames[sample_index] + stream_b1_frames[sample_index];
+                REQUIRE_EQ(block.channel(current_channel)[frame_index], doctest::Approx(expected));
+            }
+        }
     }
 }

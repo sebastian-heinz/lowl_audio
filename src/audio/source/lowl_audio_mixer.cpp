@@ -6,9 +6,25 @@
 #include "audio/lowl_audio_utilities.h"
 #include "lowl_logger.h"
 
-Lowl::Audio::AudioMixer::AudioMixer(SampleRate p_sample_rate, AudioChannel p_channel)
+namespace {
+    Lowl::Audio::AudioBlockView make_sub_block_view(Lowl::Audio::AudioBlockView p_block,
+                                                    const uint32_t p_frame_offset,
+                                                    const uint32_t p_frame_count) {
+        Lowl::Audio::AudioBlockView sub_block{};
+        sub_block.frame_count = p_frame_count;
+        sub_block.channel_count = p_block.channel_count;
+        for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
+            sub_block.channels[static_cast<size_t>(channel_index)] = p_block.channel(channel_index) + p_frame_offset;
+        }
+        return sub_block;
+    }
+} // namespace
+
+Lowl::Audio::AudioMixer::AudioMixer(const SampleRate p_sample_rate,
+                                    const AudioChannel p_channel,
+                                    const uint32_t p_scratch_buffer_capacity)
     : AudioSource(p_sample_rate, p_channel),
-      scratch_buffer(SCRATCH_BUFFER_CAPACITY, static_cast<uint8_t>(get_channel_num())) {
+      scratch_buffer(std::max<uint32_t>(1U, p_scratch_buffer_capacity), static_cast<uint8_t>(get_channel_num())) {
     sources.fill(ActiveSourceSlot{});
     events = std::make_unique<moodycamel::ConcurrentQueue<AudioMixerEvent>>();
 }
@@ -103,7 +119,7 @@ void Lowl::Audio::AudioMixer::enqueue_ack(const AudioMixerAck &p_ack) {
     owner_slot.acknowledgements->enqueue(p_ack);
 }
 
-Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render(AudioBlockView p_block) {
+void Lowl::Audio::AudioMixer::process_events() {
     AudioMixerEvent event;
     while (events->try_dequeue(event)) {
         switch (event.type) {
@@ -144,29 +160,14 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render(AudioBloc
             }
         }
     }
+}
 
-    if (!playback_enabled.load(std::memory_order_relaxed)) {
-        return {0, RenderState::Starved};
-    }
-
-    const uint8_t expected_channel_count = static_cast<uint8_t>(get_channel_num());
-    if (p_block.channel_count != expected_channel_count) {
-        for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
-            std::fill_n(p_block.channel(channel_index), p_block.frame_count, static_cast<Sample>(0));
-        }
-        return {0, RenderState::Starved};
-    }
-
+Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render_mixed_block(AudioBlockView p_block) {
+    AudioBlockView scratch_view = scratch_buffer.view(p_block.frame_count);
+    uint32_t produced_frames = 0;
     bool has_output = false;
     bool has_sources = false;
-    uint32_t produced_frames = 0;
-    AudioBlockView scratch_view = scratch_buffer.view(p_block.frame_count);
-    const uint32_t scratch_frames = scratch_view.frame_count;
-
-    for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
-        Sample *dst = p_block.channel(channel_index);
-        std::fill_n(dst, p_block.frame_count, static_cast<Sample>(0));
-    }
+    bool has_error = false;
 
     size_t remaining_active_sources = active_source_count;
     for (size_t source_index = 0; source_index < sources.size() && remaining_active_sources > 0; source_index++) {
@@ -176,10 +177,10 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render(AudioBloc
         }
         remaining_active_sources--;
         has_sources = true;
-        scratch_buffer.clear(scratch_frames);
+        scratch_buffer.clear(p_block.frame_count);
         RenderResult render_result = source->render(scratch_view);
         if (render_result.frames_produced > 0) {
-            const uint32_t frames_to_mix = std::min(render_result.frames_produced, scratch_frames);
+            const uint32_t frames_to_mix = std::min(render_result.frames_produced, p_block.frame_count);
             for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
                 Sample *dst = p_block.channel(channel_index);
                 Sample *src = scratch_view.channel(channel_index);
@@ -204,9 +205,16 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render(AudioBloc
             }
             continue;
         }
+
+        if (render_result.state == RenderState::Error) {
+            has_error = true;
+        }
     }
 
     if (!has_output) {
+        if (has_error) {
+            return {0, RenderState::Error};
+        }
         return {0, has_sources ? RenderState::Starved : RenderState::Finished};
     }
 
@@ -214,8 +222,70 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render(AudioBloc
     produced_block.frame_count = produced_frames;
     process_volume(produced_block);
     process_panning(produced_block);
+    return {produced_frames, has_error ? RenderState::Error : RenderState::Ok};
+}
 
+Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render_chunked_block(AudioBlockView p_block,
+                                                                                     const uint32_t p_chunk_frame_count) {
+    bool has_output = false;
+    bool has_sources = false;
+    bool has_error = false;
+    uint32_t produced_frames = 0;
+
+    for (uint32_t frame_offset = 0; frame_offset < p_block.frame_count; frame_offset += p_chunk_frame_count) {
+        const uint32_t chunk_frames = std::min<uint32_t>(p_block.frame_count - frame_offset, p_chunk_frame_count);
+        const AudioBlockView output_chunk = make_sub_block_view(p_block, frame_offset, chunk_frames);
+        const RenderResult chunk_result = render_mixed_block(output_chunk);
+        if (chunk_result.state == RenderState::Finished) {
+            continue;
+        }
+        has_sources = true;
+        if (chunk_result.state == RenderState::Error) {
+            has_error = true;
+        }
+        if (chunk_result.state != RenderState::Ok && chunk_result.state != RenderState::Error) {
+            continue;
+        }
+        produced_frames = std::max(produced_frames, frame_offset + chunk_result.frames_produced);
+        has_output = has_output || chunk_result.frames_produced > 0;
+    }
+
+    if (has_error) {
+        return {produced_frames, RenderState::Error};
+    }
+
+    if (!has_output) {
+        return {0, has_sources ? RenderState::Starved : RenderState::Finished};
+    }
     return {produced_frames, RenderState::Ok};
+}
+
+Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render(AudioBlockView p_block) {
+    process_events();
+
+    if (!playback_enabled.load(std::memory_order_relaxed)) {
+        return {0, RenderState::Starved};
+    }
+
+    const uint8_t expected_channel_count = static_cast<uint8_t>(get_channel_num());
+    if (p_block.channel_count != expected_channel_count) {
+        for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
+            std::fill_n(p_block.channel(channel_index), p_block.frame_count, static_cast<Sample>(0));
+        }
+        return {0, RenderState::Error};
+    }
+
+    const uint32_t scratch_frames = scratch_buffer.get_frame_capacity();
+
+    for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
+        Sample *dst = p_block.channel(channel_index);
+        std::fill_n(dst, p_block.frame_count, static_cast<Sample>(0));
+    }
+
+    if (p_block.frame_count <= scratch_frames) {
+        return render_mixed_block(p_block);
+    }
+    return render_chunked_block(p_block, scratch_frames);
 }
 
 void Lowl::Audio::AudioMixer::mix(AudioSource *p_audio_source) {

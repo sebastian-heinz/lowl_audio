@@ -20,9 +20,11 @@ namespace {
     }
 } // namespace
 
-Lowl::Audio::AudioSpace::AudioSpace(SampleRate p_sample_rate, AudioChannel p_channel)
+Lowl::Audio::AudioSpace::AudioSpace(const SampleRate p_sample_rate,
+                                    const AudioChannel p_channel,
+                                    const uint32_t p_mixer_scratch_buffer_capacity)
     : AudioSource(p_sample_rate, p_channel) {
-    mixer = std::make_unique<AudioMixer>(sample_rate, channel);
+    mixer = std::make_unique<AudioMixer>(sample_rate, channel, p_mixer_scratch_buffer_capacity);
     mixer_owner_id = mixer->register_ack_owner();
     current_audio_asset_id = FirstAudioAssetId;
     current_audio_playback_slot_id = FirstPlaybackSlotId;

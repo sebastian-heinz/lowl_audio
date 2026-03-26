@@ -21,6 +21,7 @@ namespace Lowl::Audio {
             Starved = 1,
             Finished = 2,
             Remove = 3,
+            Error = 4,
         };
 
         struct RenderResult {

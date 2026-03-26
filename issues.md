@@ -27,7 +27,7 @@
 | 6  | High | Bug | **Fixed** | `Buffer::read_u16()` / `read_u32()` unsequenced side effects |
 | 7  | High | Semantic | **Fixed** | `AudioVoice` constructor pauses by default, breaking standalone use |
 | 8  | High | Semantic | **Fixed** | Reset/seek/stop do not immediately update query state |
-| 9  | High | Semantic | Open | Mixer scratch buffer truncates blocks larger than 8192 frames |
+| 9  | High | Semantic | **Fixed** | Mixer scratch buffer truncates blocks larger than 8192 frames |
 | 10 | High | Semantic | Open | `AudioSpace::render()` ignores `playback_enabled` gate |
 | 11 | High | Thread | **Fixed** | `Lowl::Lib::drivers` data race between `initialize()` and readers |
 | 12 | High | Thread | Open | `AudioSource::name` data race between control and render threads |
@@ -412,7 +412,7 @@ Specifically:
 
 ---
 
-## Issue 9 — Mixer Scratch Buffer Truncates Blocks Larger Than 8192 Frames
+## Issue 9 — Mixer Scratch Buffer Truncates Blocks Larger Than 8192 Frames — **FIXED**
 
 **Severity:** High
 **Files:** `src/audio/source/lowl_audio_mixer.cpp`
@@ -431,7 +431,7 @@ Accept a `max_frames_per_buffer` parameter and allocate the scratch buffer to ma
 
 ### Recommendation
 
-**Solution A.** It is RT-safe (no allocation), works regardless of the device's buffer size, and doesn't require the mixer to know the device's configuration. The outer loop in `render()` advances a write offset through `p_block` in chunks:
+**Solution A for correctness, plus Solution B for configurability.** Chunked processing is the important semantic fix because it guarantees correctness for any callback size without allocating on the render thread. A constructor-configurable scratch capacity is still worthwhile because the mixer can avoid splitting when the caller knows a larger expected callback size up front.
 
 ```cpp
 uint32_t total_produced = 0;
@@ -446,6 +446,8 @@ while (remaining > 0) {
 ```
 
 Event processing (Mix/Remove) should happen only once at the top of `render()`, not inside the chunk loop.
+
+**Fix applied:** Combined Solution A + B — `AudioMixer` now accepts a configurable scratch capacity in its constructor with a larger default, `AudioSpace` forwards an optional mixer scratch-capacity argument, and `render()` processes oversized blocks in chunks of at most the configured scratch capacity.
 
 ---
 

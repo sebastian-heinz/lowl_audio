@@ -111,7 +111,7 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioStream::render(AudioBlo
         for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
             std::fill_n(p_block.channel(channel_index), p_block.frame_count, static_cast<Sample>(0));
         }
-        return {0, RenderState::Starved};
+        return {0, RenderState::Error};
     }
 
     const size_t current_read = read_position.load(std::memory_order_relaxed);

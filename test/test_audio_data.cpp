@@ -87,6 +87,17 @@ TEST_CASE("AudioData") {
         REQUIRE_EQ(read3.right, 0.5);
     }
 
+    SUBCASE("AudioVoice - render rejects mismatched channel block") {
+        Lowl::Audio::AudioBuffer mono_buffer(1, 1);
+        Lowl::Audio::AudioBlockView mono_block = mono_buffer.view(1);
+        mono_buffer.clear(1);
+
+        Lowl::Audio::AudioSource::RenderResult result = audio_voice.render(mono_block);
+        REQUIRE_EQ(result.frames_produced, 0U);
+        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Error);
+        REQUIRE_EQ(mono_block.channel(0)[0], doctest::Approx(0.0f));
+    }
+
     SUBCASE("AudioData - stores planar samples") {
         std::unique_ptr<Lowl::Audio::AudioData> planar_audio_data = make_stereo_audio_data({
             StereoSample{0.25f, -0.50f},
