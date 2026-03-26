@@ -49,6 +49,8 @@ namespace Lowl::Audio {
 
         virtual RenderResult render(AudioBlockView p_block) = 0;
 
+        virtual void on_added_to_mixer();
+
         virtual void on_removed_from_mixer();
 
         virtual size_l get_frames_remaining() const = 0;

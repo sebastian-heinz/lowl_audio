@@ -32,9 +32,28 @@ namespace Lowl {
     static_assert(std::atomic<Sample>::is_always_lock_free,
                   "std::atomic<Sample> must be lock-free for real-time audio safety");
 
-    typedef uint16_l SpaceId;
+    typedef uint16_l AudioAssetId;
+    typedef uint16_l AudioPlaybackId;
     typedef double_l TimeSeconds;
     typedef uint32_l SampleCount;
+
+    struct AudioMixerHandle {
+        uint16_l owner_id = 0;
+        uint16_l slot_index = 0;
+        uint16_l generation = 0;
+
+        bool is_valid() const {
+            return owner_id != 0 && slot_index != 0 && generation != 0;
+        }
+
+        bool operator==(const AudioMixerHandle &p_other) const {
+            return owner_id == p_other.owner_id && slot_index == p_other.slot_index && generation == p_other.generation;
+        }
+
+        bool operator!=(const AudioMixerHandle &p_other) const {
+            return !(*this == p_other);
+        }
+    };
 
     typedef double_l SampleRate;
     static constexpr SampleRate NO_SAMPLE_RATE = 0;

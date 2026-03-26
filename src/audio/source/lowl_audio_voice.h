@@ -31,6 +31,7 @@ namespace Lowl::Audio {
         void seek_frame(size_t p_frame);
         bool is_detached() const;
 
+        void on_added_to_mixer() override;
         void on_removed_from_mixer() override;
     };
 } // namespace Lowl::Audio

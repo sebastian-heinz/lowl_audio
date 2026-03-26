@@ -23,6 +23,9 @@ Lowl::Audio::SampleFormat Lowl::Audio::AudioSource::get_sample_format() const {
     return SampleFormat::FLOAT_32;
 }
 
+void Lowl::Audio::AudioSource::on_added_to_mixer() {
+}
+
 void Lowl::Audio::AudioSource::on_removed_from_mixer() {
 }
 

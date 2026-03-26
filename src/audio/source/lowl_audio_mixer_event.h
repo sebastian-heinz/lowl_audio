@@ -14,7 +14,20 @@ namespace Lowl::Audio {
         };
 
         Type type = Type::Mix;
+        AudioMixerHandle handle{};
         AudioSource *audio_source = nullptr;
+        bool acknowledge_removal = false;
+    };
+
+    struct AudioMixerAck {
+        enum class Type : uint8_t {
+            Removed = 0,
+            Finished = 1,
+            Rejected = 2,
+        };
+
+        Type type = Type::Removed;
+        AudioMixerHandle handle{};
     };
 } // namespace Lowl::Audio
 

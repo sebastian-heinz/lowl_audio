@@ -110,6 +110,10 @@ bool Lowl::Audio::AudioVoice::is_detached() const {
     return detached.load(std::memory_order_relaxed);
 }
 
+void Lowl::Audio::AudioVoice::on_added_to_mixer() {
+    detached.store(false, std::memory_order_relaxed);
+}
+
 void Lowl::Audio::AudioVoice::on_removed_from_mixer() {
     detached.store(true, std::memory_order_relaxed);
 }

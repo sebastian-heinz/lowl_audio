@@ -3,6 +3,7 @@
 
 #include <string>
 
+#include "audio/lowl_audio_sample_format.h"
 #include "audio/lowl_audio_utilities.h"
 
 namespace Lowl::Audio {
