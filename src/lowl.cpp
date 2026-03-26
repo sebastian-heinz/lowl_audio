@@ -15,14 +15,15 @@
 
 std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>> Lowl::Lib::drivers =
     std::vector<std::shared_ptr<Audio::AudioDriver>>();
-std::atomic_flag Lowl::Lib::initialized = ATOMIC_FLAG_INIT;
+std::once_flag Lowl::Lib::initialized;
 
 std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>> Lowl::Lib::get_drivers(Error &error) {
+    initialize(error);
     return drivers;
 }
 
 void Lowl::Lib::initialize(Lowl::Error &error) {
-    if (!initialized.test_and_set()) {
+    std::call_once(initialized, []() {
 #ifdef LOWL_DRIVER_DUMMY
         drivers.push_back(std::make_shared<Lowl::Audio::AudioDriverDummy>());
 #endif
@@ -36,7 +37,7 @@ void Lowl::Lib::initialize(Lowl::Error &error) {
             drivers.push_back(std::make_shared<Lowl::Audio::WasapiDriver>());
         }
 #endif
-    }
+    });
 }
 
 void Lowl::Lib::terminate(Error &error) {
@@ -65,6 +66,7 @@ std::unique_ptr<Lowl::Audio::AudioData> Lowl::Lib::create_data(const std::string
 }
 
 std::shared_ptr<Lowl::Audio::AudioDevice> Lowl::Lib::get_default_device(Lowl::Error &error) {
+    initialize(error);
     // This might be a bit opinionated if we have multiple drivers.
     // Iterates the drivers in reverse order, prioritizing the last added driver.
     // In the future it might be possible that a user can push a driver in the list

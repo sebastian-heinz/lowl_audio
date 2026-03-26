@@ -1,6 +1,7 @@
 #ifndef LOWL_H
 #define LOWL_H
 
+#include <mutex>
 #include <vector>
 
 #include "audio/backend/lowl_audio_device.h"
@@ -18,7 +19,7 @@ namespace Lowl {
     // TODO move this to lowl_audio as it only audio related
     class Lib {
     private:
-        static std::atomic_flag initialized;
+        static std::once_flag initialized;
         static std::vector<std::shared_ptr<Audio::AudioDriver>> drivers;
 
     public:

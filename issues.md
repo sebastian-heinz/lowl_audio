@@ -29,10 +29,10 @@
 | 8  | High | Semantic | **Fixed** | Reset/seek/stop do not immediately update query state |
 | 9  | High | Semantic | Open | Mixer scratch buffer truncates blocks larger than 8192 frames |
 | 10 | High | Semantic | Open | `AudioSpace::render()` ignores `playback_enabled` gate |
-| 11 | High | Thread | Open | `Lowl::Lib::drivers` data race between `initialize()` and readers |
+| 11 | High | Thread | **Fixed** | `Lowl::Lib::drivers` data race between `initialize()` and readers |
 | 12 | High | Thread | Open | `AudioSource::name` data race between control and render threads |
 | 13 | Medium | Thread | Open | `Logger` static state unprotected across threads |
-| 14 | Medium | Performance | Open | Mixer linear scan over 1024 slots on the real-time thread |
+| 14 | Medium | Performance | **Fixed** | Mixer linear scan over 1024 slots on the real-time thread |
 | 15 | Medium | Lifecycle | Open | Playback slot and asset-id monotonic exhaustion |
 | 16 | Medium | Resource | Open | CoreAudio `get_num_channel` memory leak and wrong allocation |
 | 17 | Medium | Build | Open | ELF-only linker flags applied on macOS Clang builds |
@@ -483,7 +483,7 @@ RenderResult Lowl::Audio::AudioSpace::render(AudioBlockView p_block) {
 
 ---
 
-## Issue 11 — `Lowl::Lib::drivers` Data Race
+## Issue 11 — `Lowl::Lib::drivers` Data Race — **FIXED**
 
 **Severity:** High
 **Files:** `src/lowl.cpp`
@@ -513,6 +513,8 @@ void Lowl::Lib::initialize(Error &error) {
     });
 }
 ```
+
+**Fix applied:** Solution A with reader participation — replaced the `atomic_flag` with `std::once_flag` / `std::call_once`, and made `get_drivers()` / `get_default_device()` call `initialize(error)` before reading `drivers` so readers synchronize with the one-time population path.
 
 ---
 
@@ -562,7 +564,7 @@ Document that `set_log_level` and `register_log_receiver` must be called before 
 
 ---
 
-## Issue 14 — Mixer Linear Scan Over 1024 Slots on Real-Time Thread
+## Issue 14 — Mixer Linear Scan Over 1024 Slots on Real-Time Thread — **FIXED**
 
 **Severity:** Medium
 **Files:** `src/audio/source/lowl_audio_mixer.cpp`
@@ -582,6 +584,8 @@ Maintain a stack/ring of free indices. On add, pop a free index. On remove, push
 ### Recommendation
 
 **Solution A.** It's the minimal change: add one `size_t active_source_count` member, increment/decrement on add/remove, use it to bound the scan in `find_source_index` loops. In practice, with < 32 active sources, the scan terminates almost immediately. A free-list (Solution B) is better in theory but adds complexity to a real-time code path for a case (1024 simultaneous sources) that is unlikely in practice.
+
+**Fix applied:** Solution A, extended slightly — added `active_source_count`, centralized slot add/remove bookkeeping, bounded `find_source_index()` / `find_free_source_index()` by the active count, and used the same count to stop the per-block source walk once all active slots for that block have been visited.
 
 ---
 

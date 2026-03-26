@@ -40,6 +40,38 @@ namespace {
 
         bool detached = false;
     };
+
+    class ConstantMixerSource final : public Lowl::Audio::AudioSource {
+    public:
+        explicit ConstantMixerSource(const StereoSample p_sample)
+            : AudioSource(44100.0, Lowl::Audio::AudioChannel::Stereo),
+              sample(p_sample) {
+        }
+
+        RenderResult render(Lowl::Audio::AudioBlockView p_block) override {
+            if (p_block.channel_count != 2 || p_block.frame_count == 0) {
+                return {0, RenderState::Starved};
+            }
+            p_block.channel(0)[0] = sample.left;
+            p_block.channel(1)[0] = sample.right;
+            return {1, RenderState::Ok};
+        }
+
+        Lowl::size_l get_frames_remaining() const override {
+            return 1;
+        }
+
+        Lowl::size_l get_frame_position() const override {
+            return 0;
+        }
+
+        Lowl::size_l get_frame_count() const override {
+            return 1;
+        }
+
+    private:
+        StereoSample sample{};
+    };
 }
 
 TEST_CASE("AudioStream") {
@@ -194,5 +226,35 @@ TEST_CASE("AudioStream") {
         mixer.mix(&mono_probe);
 
         REQUIRE(mono_probe.detached);
+    }
+
+    SUBCASE("AudioMixer - remove reuses a freed slot") {
+        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::AudioChannel::Stereo);
+        ConstantMixerSource source_a({0.25f, 0.25f});
+        ConstantMixerSource source_b({0.50f, 0.50f});
+        ConstantMixerSource source_c({0.75f, 0.75f});
+
+        Lowl::Audio::AudioBuffer buffer(1, 2);
+        Lowl::Audio::AudioBlockView block = buffer.view(1);
+
+        mixer.mix(&source_a);
+        mixer.mix(&source_b);
+
+        buffer.clear(1);
+        Lowl::Audio::AudioSource::RenderResult first_result = mixer.render(block);
+        REQUIRE_EQ(first_result.frames_produced, 1U);
+        REQUIRE_EQ(first_result.state, Lowl::Audio::AudioSource::RenderState::Ok);
+        REQUIRE_EQ(block.channel(0)[0], doctest::Approx(0.75f));
+        REQUIRE_EQ(block.channel(1)[0], doctest::Approx(0.75f));
+
+        mixer.remove(&source_b);
+        mixer.mix(&source_c);
+
+        buffer.clear(1);
+        Lowl::Audio::AudioSource::RenderResult second_result = mixer.render(block);
+        REQUIRE_EQ(second_result.frames_produced, 1U);
+        REQUIRE_EQ(second_result.state, Lowl::Audio::AudioSource::RenderState::Ok);
+        REQUIRE_EQ(block.channel(0)[0], doctest::Approx(1.0f));
+        REQUIRE_EQ(block.channel(1)[0], doctest::Approx(1.0f));
     }
 }

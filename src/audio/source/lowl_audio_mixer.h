@@ -38,10 +38,13 @@ namespace Lowl::Audio {
         std::unique_ptr<moodycamel::ConcurrentQueue<AudioMixerEvent>> events;
         std::mutex ack_owner_mutex;
         AudioBuffer scratch_buffer;
+        size_t active_source_count = 0;
 
         size_t find_source_index(AudioMixerHandle p_handle) const;
         size_t find_source_index(const AudioSource *p_audio_source) const;
         size_t find_free_source_index() const;
+        void add_source(size_t p_source_index, AudioMixerHandle p_handle, AudioSource *p_audio_source);
+        void remove_source(size_t p_source_index);
         void enqueue_ack(const AudioMixerAck &p_ack);
         void clear_ack_queue(AckOwnerSlot &p_owner_slot);
 
