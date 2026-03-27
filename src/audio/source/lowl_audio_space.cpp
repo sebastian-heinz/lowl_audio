@@ -398,6 +398,9 @@ Lowl::Audio::AudioSpace::get_playback_slot_locked(const AudioPlaybackHandle p_au
 }
 
 Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioSpace::render(AudioBlockView p_block) {
+    if (!playback_enabled.load(std::memory_order_relaxed)) {
+        return {0, RenderState::Starved};
+    }
     RenderResult result = mixer->render(p_block);
     if (result.frames_produced > 0) {
         AudioBlockView produced_block = p_block;

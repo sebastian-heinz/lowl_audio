@@ -2,6 +2,7 @@
 #define LOWL_LOGGER_H
 
 #include <chrono>
+#include <mutex>
 #include <string>
 
 namespace Lowl {
@@ -25,6 +26,7 @@ namespace Lowl {
         typedef void (*LogMessageReceiver)(const Log &p_log, void *p_user_data);
 
     private:
+        static std::recursive_mutex state_mutex;
         static LogMessageReceiver receiver;
         static void *user_data;
         static Level log_level;

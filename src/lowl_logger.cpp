@@ -1,6 +1,7 @@
 #include "lowl_logger.h"
 
 #include <cstdarg>
+#include <ctime>
 #include <iostream>
 #include <vector>
 
@@ -10,15 +11,18 @@
 #define LOGGER_PREFIX "LOWL"
 
 namespace Lowl {
+    std::recursive_mutex Logger::state_mutex;
     Logger::LogMessageReceiver Logger::receiver = nullptr;
     void *Logger::user_data = nullptr;
     Logger::Level Logger::log_level = Level::Info;
 
     void Logger::set_log_level(const Level p_level) {
+        std::lock_guard<std::recursive_mutex> lock(state_mutex);
         log_level = p_level;
     }
 
     void Logger::register_log_receiver(LogMessageReceiver p_receiver, void *p_user_data) {
+        std::lock_guard<std::recursive_mutex> lock(state_mutex);
         receiver = p_receiver;
         user_data = p_user_data;
     }
@@ -29,6 +33,7 @@ namespace Lowl {
     }
 
     void Logger::std_out_log_receiver(const Log &p_log, void *p_user_data) {
+        (void)p_user_data;
         if (p_log.level < log_level) {
             return;
         }
@@ -37,6 +42,7 @@ namespace Lowl {
     }
 
     void Logger::write(const Log &p_log) {
+        std::lock_guard<std::recursive_mutex> lock(state_mutex);
         if (!receiver) {
             return;
         }
@@ -60,10 +66,14 @@ namespace Lowl {
     std::string Logger::pretty_time() {
         auto tp = std::chrono::system_clock::now();
         std::time_t current_time = std::chrono::system_clock::to_time_t(tp);
-        // this function use static global pointer. so it is not thread safe solution
-        std::tm *time_info = std::localtime(&current_time);
+        std::tm time_info{};
+#if defined(_WIN32)
+        localtime_s(&time_info, &current_time);
+#else
+        localtime_r(&current_time, &time_info);
+#endif
         char buffer[128];
-        size_t string_size = strftime(buffer, sizeof(buffer), LOGGER_PRETTY_TIME_FORMAT, time_info);
+        size_t string_size = strftime(buffer, sizeof(buffer), LOGGER_PRETTY_TIME_FORMAT, &time_info);
         int ms = to_ms(tp) % 1000;
         string_size +=
             (size_t)std::snprintf(buffer + string_size, sizeof(buffer) - string_size, LOGGER_PRETTY_MS_FORMAT, ms);

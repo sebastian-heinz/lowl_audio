@@ -11,7 +11,7 @@
 - `./build/test/lowl_audio_test --test-case="AudioData"` passes.
 - `./build/test/lowl_audio_test --test-case="AudioSpace"` passes.
 - `./build/test/lowl_audio_test --test-case="AudioStream"` passes.
-- `./build/test/lowl_audio_test` also fails in `Driver`, but that failure is environment-dependent.
+- `./build/test/lowl_audio_test` passes.
 
 ---
 
@@ -28,10 +28,10 @@
 | 7  | High | Semantic | **Fixed** | `AudioVoice` constructor pauses by default, breaking standalone use |
 | 8  | High | Semantic | **Fixed** | Reset/seek/stop do not immediately update query state |
 | 9  | High | Semantic | **Fixed** | Mixer scratch buffer truncates blocks larger than 8192 frames |
-| 10 | High | Semantic | Open | `AudioSpace::render()` ignores `playback_enabled` gate |
+| 10 | High | Semantic | **Fixed** | `AudioSpace::render()` ignores `playback_enabled` gate |
 | 11 | High | Thread | **Fixed** | `Lowl::Lib::drivers` data race between `initialize()` and readers |
 | 12 | High | Thread | Open | `AudioSource::name` data race between control and render threads |
-| 13 | Medium | Thread | Open | `Logger` static state unprotected across threads |
+| 13 | Medium | Thread | **Fixed** | `Logger` static state unprotected across threads |
 | 14 | Medium | Performance | **Fixed** | Mixer linear scan over 1024 slots on the real-time thread |
 | 15 | Medium | Lifecycle | Open | Playback slot and asset-id monotonic exhaustion |
 | 16 | Medium | Resource | Open | CoreAudio `get_num_channel` memory leak and wrong allocation |
@@ -451,7 +451,7 @@ Event processing (Mix/Remove) should happen only once at the top of `render()`, 
 
 ---
 
-## Issue 10 — `AudioSpace::render()` Ignores `playback_enabled` Gate
+## Issue 10 — `AudioSpace::render()` Ignores `playback_enabled` Gate — **FIXED**
 
 **Severity:** High
 **Files:** `src/audio/source/lowl_audio_space.cpp:398-407`
@@ -460,7 +460,7 @@ Event processing (Mix/Remove) should happen only once at the top of `render()`, 
 
 `AudioSpace` inherits from `AudioSource` which provides `pause()` / `play()` controlling `playback_enabled`. But `AudioSpace::render()` delegates directly to `mixer->render()` without checking the gate. Calling `space->pause()` has no effect on rendering.
 
-Additionally, `get_frames_remaining()`, `get_frame_position()`, and `get_frame_count()` return placeholder constants (`1`, `0`, `0`) that don't reflect actual state.
+The aggregate query placeholders (`get_frames_remaining()`, `get_frame_position()`, `get_frame_count()`) are still simplistic, but that is separate from the render gate bug itself.
 
 ### Solution A — Add the gate check; keep placeholder query values
 
@@ -482,6 +482,8 @@ RenderResult Lowl::Audio::AudioSpace::render(AudioBlockView p_block) {
     // ... existing delegation to mixer ...
 }
 ```
+
+**Fix applied:** Added the early render gate in `AudioSpace::render()` and a regression test that pauses/resumes `AudioSpace` through the base `AudioSource` interface so playback does not advance while gated.
 
 ---
 
@@ -543,7 +545,7 @@ Use `std::mutex` around name access, or store name as `std::shared_ptr<const std
 
 ---
 
-## Issue 13 — `Logger` Static State Unprotected
+## Issue 13 — `Logger` Static State Unprotected — **FIXED**
 
 **Severity:** Medium
 **Files:** `src/lowl_logger.h`, `src/lowl_logger.cpp`
@@ -563,6 +565,8 @@ Document that `set_log_level` and `register_log_receiver` must be called before 
 ### Recommendation
 
 **Solution A for the atomics, Solution B's mindset for configuration.** Making `log_level` and `receiver` atomic is trivial and has no performance cost (they're read once per log call, not per sample). Replacing `localtime` with the reentrant variant is a platform ifdef but straightforward. The logger is a debug facility — don't over-engineer it, but do make it not-UB.
+
+**Fix applied:** Protected logger configuration and dispatch with a `std::recursive_mutex`, switched `pretty_time()` to `localtime_r` / `localtime_s`, and added a concurrent reconfiguration stress test for the logger.
 
 ---
 
