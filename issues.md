@@ -34,7 +34,7 @@
 | 13 | Medium | Thread | **Fixed** | `Logger` static state unprotected across threads |
 | 14 | Medium | Performance | **Fixed** | Mixer linear scan over 1024 slots on the real-time thread |
 | 15 | Medium | Lifecycle | Open | Playback slot and asset-id monotonic exhaustion |
-| 16 | Medium | Resource | Open | CoreAudio `get_num_channel` memory leak and wrong allocation |
+| 16 | Medium | Resource | **Fixed** | CoreAudio `get_num_channel` memory leak and wrong allocation |
 | 17 | Medium | Build | **Fixed** | ELF-only linker flags applied on macOS Clang builds |
 | 18 | Low | Bug | **Fixed** | `format_log()` argument order inconsistency between size pass and format pass |
 | 19 | Low | Quality | **Fixed** | `Buffer` class: dead code, Rule-of-Five violation, raw `slice()` pointer |
@@ -625,7 +625,7 @@ Implementation for playback reuse:
 
 ---
 
-## Issue 16 — CoreAudio `get_num_channel` Memory Leak and Wrong Allocation
+## Issue 16 — CoreAudio `get_num_channel` Memory Leak and Wrong Allocation — **FIXED**
 
 **Severity:** Medium
 **Files:** `src/audio/backend/coreaudio/lowl_audio_core_audio_utilities.cpp:82-98`
@@ -654,9 +654,9 @@ auto buffer = std::make_unique<uint8_t[]>(stream_config_data_size);
 AudioBufferList *audio_buffers = reinterpret_cast<AudioBufferList *>(buffer.get());
 ```
 
-### Recommendation
+### Fix applied
 
-**Solution A.** `std::vector` is idiomatic, exception-safe, and the buffer is stack-local so there's no ownership ambiguity. Replace `delete[] audio_buffers` at line 96 with nothing (RAII handles it).
+**Solution A.** `get_num_channel()` now allocates a `std::vector<uint8_t>` sized to CoreAudio's reported byte count, reinterprets that storage as an `AudioBufferList`, and relies on RAII for cleanup. This fixes both the wrong allocation unit and the early-return leak.
 
 ---
 

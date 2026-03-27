@@ -1,6 +1,7 @@
 #ifdef LOWL_DRIVER_CORE_AUDIO
 
 #include "lowl_audio_core_audio_utilities.h"
+#include "lowl_audio_core_audio_layout.h"
 
 #include <algorithm>
 
@@ -79,12 +80,12 @@ uint32_t Lowl::Audio::CoreAudioUtilities::get_num_channel(AudioObjectID p_device
         return 0;
     }
 
-    AudioBufferList *audio_buffers = new AudioBufferList[stream_config_data_size];
+    std::vector<uint8_t> stream_config_buffer(stream_config_data_size);
+    AudioBufferList *audio_buffers = reinterpret_cast<AudioBufferList *>(stream_config_buffer.data());
 
     result = AudioObjectGetPropertyData(
         p_device_id, &stream_config_property, 0, nullptr, &stream_config_data_size, audio_buffers);
     if (result != kAudioHardwareNoError) {
-        // TODO memory leak ?audio_buffers?
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return 0;
     }
@@ -93,9 +94,53 @@ uint32_t Lowl::Audio::CoreAudioUtilities::get_num_channel(AudioObjectID p_device
     for (int i = 0; i < audio_buffers->mNumberBuffers; ++i) {
         num_channel += audio_buffers->mBuffers[i].mNumberChannels;
     }
-    delete[] audio_buffers;
 
     return num_channel;
+}
+
+Lowl::Audio::AudioChannelMask Lowl::Audio::CoreAudioUtilities::get_channel_layout(AudioObjectID p_device_id,
+                                                                                  AudioObjectPropertyScope p_scope,
+                                                                                  Lowl::Error &error) {
+    AudioObjectPropertyAddress channel_layout_property = {
+        kAudioDevicePropertyPreferredChannelLayout, p_scope, kAudioObjectPropertyElementMain};
+    uint32_t channel_layout_size = 0;
+    OSStatus result =
+        AudioObjectGetPropertyDataSize(p_device_id, &channel_layout_property, 0, nullptr, &channel_layout_size);
+    if (result != kAudioHardwareNoError) {
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return AudioChannelMask::NONE;
+    }
+    if (channel_layout_size < sizeof(AudioChannelLayout)) {
+        return AudioChannelMask::NONE;
+    }
+
+    std::vector<uint8_t> channel_layout_buffer(channel_layout_size);
+    AudioChannelLayout *channel_layout = reinterpret_cast<AudioChannelLayout *>(channel_layout_buffer.data());
+    result =
+        AudioObjectGetPropertyData(p_device_id, &channel_layout_property, 0, nullptr, &channel_layout_size, channel_layout);
+    if (result != kAudioHardwareNoError) {
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return AudioChannelMask::NONE;
+    }
+
+    return CoreAudioLayout::to_channel_mask(*channel_layout);
+}
+
+void Lowl::Audio::CoreAudioUtilities::set_audio_unit_channel_layout(AudioUnit p_audio_unit,
+                                                                    AudioUnitScope p_scope,
+                                                                    AudioUnitElement p_element,
+                                                                    const void *p_channel_layout_data,
+                                                                    UInt32 p_channel_layout_size,
+                                                                    Lowl::Error &error) {
+    const OSStatus result = AudioUnitSetProperty(p_audio_unit,
+                                                 kAudioUnitProperty_AudioChannelLayout,
+                                                 p_scope,
+                                                 p_element,
+                                                 p_channel_layout_data,
+                                                 p_channel_layout_size);
+    if (result != noErr) {
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+    }
 }
 
 std::vector<AudioObjectID> Lowl::Audio::CoreAudioUtilities::get_device_ids(Lowl::Error &error) {

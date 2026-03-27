@@ -36,6 +36,7 @@ set(LOWL_SOURCES
 
         src/audio/backend/coreaudio/lowl_audio_core_audio_driver.cpp
         src/audio/backend/coreaudio/lowl_audio_core_audio_device.cpp
+        src/audio/backend/coreaudio/lowl_audio_core_audio_layout.cpp
         src/audio/backend/coreaudio/lowl_audio_core_audio_utilities.cpp
 
         src/audio/backend/dummy/lowl_audio_dummy_driver.cpp

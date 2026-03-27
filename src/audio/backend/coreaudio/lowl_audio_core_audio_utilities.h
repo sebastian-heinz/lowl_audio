@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "audio/lowl_audio_channel.h"
 #include "lowl_error.h"
 #include "lowl_typedef.h"
 
@@ -34,6 +35,16 @@ namespace Lowl::Audio {
 
         static uint32_t
         get_num_channel(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope, Lowl::Error &error);
+
+        static AudioChannelMask
+        get_channel_layout(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope, Lowl::Error &error);
+
+        static void set_audio_unit_channel_layout(AudioUnit _Nonnull p_audio_unit,
+                                                  AudioUnitScope p_scope,
+                                                  AudioUnitElement p_element,
+                                                  const void *_Nonnull p_channel_layout_data,
+                                                  UInt32 p_channel_layout_size,
+                                                  Lowl::Error &error);
 
         static void
         set_input_sample_rate(AudioUnit _Nonnull p_audio_unit, SampleRate p_sample_rate, Lowl::Error &error);
