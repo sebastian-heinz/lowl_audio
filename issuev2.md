@@ -18,14 +18,14 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 5  | FIXED | Critical | Thread | Core | `Timer::thread_interval` uses `atomic_flag::test_and_set` incorrectly |
 | 6  | FIXED | Critical | Thread | Core | `ReleasePool` destructor races with timer callback (use-after-free) |
 | 7  | FIXED | Critical | Bug | Core | `Lib::initialize` swallows errors inside `call_once` |
-| 8  | DEFERRED | Critical | Thread | Core | `Lib::terminate` not thread-safe; no re-initialization gate |
+| 8  | FIXED | Critical | Thread | Core | `Lib::terminate` not thread-safe; no re-initialization gate |
 | 9  | FIXED | Critical | Bug | Backend | WASAPI: off-by-one heap buffer overflow in `construct` |
 | 10 | ALREADY FIXED | Critical | Bug | Backend | WASAPI: `device->properties` assigns to wrong member |
 | 11 | FIXED | Critical | Bug | Backend | WASAPI: `closest_match` COM memory leak |
-| 12 | DEFERRED | Critical | Bug | Backend | CoreAudio: `stop()` ignores all errors and never uninitializes |
-| 13 | DEFERRED | Critical | Bug | Backend | CoreAudio: `start()` leaks resources on partial failure |
+| 12 | FIXED | Critical | Bug | Backend | CoreAudio: `stop()` ignores all errors and never uninitializes |
+| 13 | FIXED | Critical | Bug | Backend | CoreAudio: `start()` leaks resources on partial failure |
 | 14 | FIXED | Critical | Bug | Backend | CoreAudio: `get_device_name` returns `nullptr` for `std::string` (UB crash) |
-| 15 | DEFERRED | Critical | Bug | C API | Entire C API is dead code and does not compile |
+| 15 | FIXED | Critical | Bug | C API | Entire C API is dead code and does not compile |
 | 16 | DEFERRED | Critical | Thread | Source | `AudioMixer` stores raw `AudioSource*` with no lifetime guarantee |
 | 17 | FIXED | High | Bug | Converter | `sample_to_int32` UB on out-of-range samples |
 | 18 | FIXED | High | Bug | Source | `AudioVoice::seek_time` -- negative time causes UB in `static_cast<size_t>` |
@@ -47,12 +47,12 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 34 | FIXED | High | Bug | Backend | WASAPI: `cbSize` set to wrong value for `WAVEFORMATEXTENSIBLE` |
 | 35 | FIXED | High | Bug | Backend | WASAPI: destructor does not stop audio thread before releasing resources |
 | 36 | FIXED | High | Bug | Backend | WASAPI: no `CoInitializeEx` on audio callback thread |
-| 37 | DEFERRED | High | Bug | Backend | CoreAudio: `create_device_properties` leaks test AudioUnit |
-| 38 | DEFERRED | High | Bug | Backend | CoreAudio: `get_latency_*` / `set_frames_per_buffer` don't short-circuit on error |
+| 37 | FIXED | High | Bug | Backend | CoreAudio: `create_device_properties` leaks test AudioUnit |
+| 38 | FIXED | High | Bug | Backend | CoreAudio: `get_latency_*` / `set_frames_per_buffer` don't short-circuit on error |
 | 39 | FIXED | High | Bug | Core | `File::read_buffer` truncates `size_t` to `long`; loses partial reads at EOF |
 | 40 | FIXED | High | Bug | Core | Logger level filter only applied to built-in receiver, not custom receivers |
-| 41 | DEFERRED | High | Bug | C API | Dangling pointer from `get_name()` returning `c_str()` of temporary |
-| 42 | DEFERRED | High | Bug | C API | Virtual C++ structs exposed as C API -- not ABI-stable or C-compatible |
+| 41 | FIXED | High | Bug | C API | Dangling pointer from `get_name()` returning `c_str()` of temporary |
+| 42 | FIXED | High | Bug | C API | Virtual C++ structs exposed as C API -- not ABI-stable or C-compatible |
 | 43 | DEFERRED | High | Bug | Demo | Off-by-one: `device_property_index > size()` should be `>=` |
 | 44 | DEFERRED | High | Build | Build | `cmake_minimum_required(VERSION 3.31)` is too aggressive |
 | 45 | FIXED | High | Build | Build | `test/CMakeLists.txt` typo: `CMAKE_CSS_STANDARD_LIBRARIES` |
@@ -79,7 +79,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 66 | OPEN | Medium | Build | Build | `CMAKE_OSX_ARCHITECTURES` set after `project()` -- may be too late |
 | 67 | OPEN | Medium | Build | Build | `LOWL_DEBUG` defined as `PUBLIC`, leaking into consumers |
 | 68 | OPEN | Medium | Architecture | Architecture | No Linux audio backend (PulseAudio / ALSA / PipeWire) |
-| 69 | OPEN | Medium | Architecture | Architecture | `Lib::terminate` does not clear `drivers` or allow re-initialization |
+| 69 | FIXED | Medium | Architecture | Architecture | `Lib::terminate` does not clear `drivers` or allow re-initialization |
 | 70 | OPEN | Medium | Bug | Demo | `std::stoi` on user input with no exception handling |
 | 71 | OPEN | Low | Quality | Source | `AudioSource` value-initializes atomics then re-stores in constructor |
 | 72 | OPEN | Low | Quality | Source | `AudioBlockView::channel()` has no bounds check |
@@ -106,14 +106,14 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 5 -- FIXED.** Options considered: replace `atomic_flag` with `atomic<bool>`, keep `atomic_flag` and restructure the loop, or replace the timer with a condition-variable based worker. Decision: `atomic<bool>` was the clearest low-risk correction and removed the re-arming bug.
 - **Issue 6 -- FIXED.** Options considered: keep detach semantics and rely on caller discipline, make `stop()` always synchronize with thread exit, or redesign `ReleasePool` to avoid callbacks on `this`. Decision: removing the detach path from normal shutdown and making `stop()` wait from external threads fit the current `ReleasePool` usage best.
 - **Issue 7 -- FIXED.** Options considered: capture the caller error into `call_once`, store initialization state in static error storage, or replace `call_once` entirely with a resettable state machine. Decision: static `initialization_error` storage fixed the swallowed-error behavior without taking on Issue 8’s larger lifecycle redesign.
-- **Issue 8 -- DEFERRED.** Options considered: keep `once_flag` and document one-shot lifetime, replace it with a mutex-protected state machine, or split initialization/termination per backend. Decision: this needs a broader library-lifetime policy, especially around re-initialization and shared static driver state, so I did not patch it opportunistically.
+- **Issue 8 -- FIXED.** Options considered: keep `once_flag` and document one-shot lifetime, replace it with a mutex-protected state machine, or split initialization/termination per backend. Decision: keep the one-shot lifetime, document `terminate()` as process-shutdown only, and reject later `initialize()` / `get_drivers()` / `get_default_device()` calls explicitly.
 - **Issue 9 -- FIXED.** Options considered: fix the off-by-one index, wrap the allocation in `std::wstring`, or remove the unused device-id copy entirely. Decision: removing the unused allocation was best because it eliminated both the overflow and the leak.
 - **Issue 10 -- VERIFIED ALREADY FIXED.** Options considered: change the assignment, add a compatibility alias, or verify current code. Decision: current code already assigns to `properties_list`, so no source change was needed.
 - **Issue 11 -- FIXED.** Options considered: free `closest_match` inline at each return, add a small local cleanup helper, or wrap the COM allocation. Decision: explicit `CoTaskMemFree` on all exit paths was the least invasive fix.
-- **Issue 12 -- DEFERRED.** Options considered: minimally add error checks, fully uninitialize/remove listeners/callbacks, or rebuild CoreAudio device shutdown around RAII. Decision: the correct fix touches the whole CoreAudio lifecycle, so I left it for a dedicated pass.
-- **Issue 13 -- DEFERRED.** Options considered: patch individual early returns, add scope guards around startup resources, or restructure `start()` into staged RAII objects. Decision: partial edits risked missing paths; this wants a full CoreAudio startup cleanup pass.
+- **Issue 12 -- FIXED.** Options considered: minimally add error checks, fully uninitialize/remove listeners and dispose the `AudioUnit`, or rebuild the backend around RAII wrappers. Decision: a centralized cleanup helper in `CoreAudioDevice` was the best fit for the current architecture because it made `stop()` perform real teardown and report the first cleanup error.
+- **Issue 13 -- FIXED.** Options considered: patch each early return individually, add scope guards around startup resources, or route all failure paths through the same teardown helper used by `stop()`. Decision: a shared `cleanup_failed_start()` path was the safest choice because it removed the leak risk without duplicating cleanup logic across `start()`.
 - **Issue 14 -- FIXED.** Options considered: return `""`, return `std::string()`, or propagate a separate failure object. Decision: returning an empty string is enough to remove the UB and preserve the current API.
-- **Issue 15 -- DEFERRED.** Options considered: delete the C API, patch it enough to compile, or redesign it around opaque C handles. Decision: this is outside the current `src/` core-library pass and needs an intentional API decision first.
+- **Issue 15 -- FIXED.** Options considered: delete the C API, patch it enough to compile, or redesign it around opaque C handles. Decision: remove it entirely. There is no active consumer, it was never built, and the current surface is not salvageable without a full redesign.
 - **Issue 16 -- DEFERRED.** Options considered: convert mixer ownership to `shared_ptr`, make the raw-pointer contract explicit with acknowledgement requirements, or hide direct mixer usage behind `AudioSpace`. Decision: that is a public API/lifetime contract decision, not a safe opportunistic patch.
 - **Issue 17 -- FIXED.** Options considered: clamp in `sample_to_int32`, clamp before every caller writes, or switch to a saturating helper. Decision: clamping inside `sample_to_int32` fixed the UB at the source.
 - **Issue 18 -- FIXED.** Options considered: clamp negative seconds to zero, reject negative input, or switch to signed frame math first. Decision: clamping to zero matches the existing seek semantics and removes the undefined cast.
@@ -135,12 +135,12 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 34 -- FIXED.** Options considered: leave `cbSize` as-is, set it to the documented extensible payload size, or special-case per format. Decision: the documented `sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX)` value was the right direct fix.
 - **Issue 35 -- FIXED.** Options considered: trust callers to stop before destruction, stop in the destructor, or move thread ownership out of the device. Decision: calling `stop()` in the destructor is the minimal correct safety fix.
 - **Issue 36 -- FIXED.** Options considered: initialize COM on the callback thread, rely on the creating thread’s COM state, or move callback work behind a COM-aware wrapper. Decision: explicit callback-thread `CoInitializeEx` was the correct per-thread fix.
-- **Issue 37 -- DEFERRED.** Options considered: add local disposal calls, wrap test units in RAII, or redesign CoreAudio probing. Decision: this belongs with the broader CoreAudio resource-management pass.
-- **Issue 38 -- DEFERRED.** Options considered: add immediate `error.has_error()` short-circuits, change the helpers to return richer result types, or restructure CoreAudio utility composition. Decision: this is best handled together with the other CoreAudio cleanup work.
+- **Issue 37 -- FIXED.** Options considered: add manual dispose calls on every return, wrap the probe unit in a local RAII owner, or redesign property probing. Decision: explicit local cleanup at the end and on the early error paths was enough here and kept the probing logic unchanged.
+- **Issue 38 -- FIXED.** Options considered: add `error.has_error()` short-circuits, change the helpers to return richer result objects, or leave the current implicit overwrite behavior. Decision: short-circuiting on the existing `Error` object was the smallest correct fix and matched the rest of the utility layer.
 - **Issue 39 -- FIXED.** Options considered: cast to `std::streamsize`, chunk large reads manually, or leave the API and only fix EOF handling. Decision: switching to `std::streamsize` and preserving `gcount()` on EOF solved the concrete bug without redesigning file I/O.
 - **Issue 40 -- FIXED.** Options considered: keep filtering only in the stdout receiver, push the filter into `Logger::write`, or require custom receivers to filter themselves. Decision: central filtering in `Logger::write` gives consistent behavior for all receivers.
-- **Issue 41 -- DEFERRED.** Options considered: store stable C strings, rewrite around opaque handles, or remove the C API. Decision: this is part of the larger C API rewrite/removal decision and stayed out of the current pass.
-- **Issue 42 -- DEFERRED.** Options considered: patch ABI details piecemeal, redesign as a real C API, or remove it. Decision: only a full redesign/removal is credible here, so I did not make partial edits.
+- **Issue 41 -- FIXED.** Options considered: store stable C strings, rewrite around opaque handles, or remove the C API. Decision: remove the C API entirely; that eliminates the dangling-pointer surface instead of trying to patch a dead ABI.
+- **Issue 42 -- FIXED.** Options considered: patch ABI details piecemeal, redesign as a real C API, or remove it. Decision: remove it. A proper C ABI would need a clean opaque-handle redesign, not incremental fixes to the existing code.
 - **Issue 43 -- DEFERRED.** Options considered: fix the demo bounds check, remove the demo code, or leave demos out of the core pass. Decision: demo code is outside the current repository-local scope for this pass.
 - **Issue 44 -- DEFERRED.** Options considered: lower the root CMake version, split minimum versions per subtree, or leave build requirements unchanged. Decision: root build files were outside this pass’s scope.
 - **Issue 45 -- FIXED.** Options considered: leave the typo, correct the variable in place, or restructure MinGW link flags entirely. Decision: correcting the typo was safe and directly improved the test build.
@@ -279,7 +279,7 @@ Capture `&error` in the lambda, or store the init error in a static member and r
 
 ---
 
-## Issue 8 -- `Lib::terminate` Not Thread-Safe; No Re-Initialization Gate -- OPEN
+## Issue 8 -- `Lib::terminate` Not Thread-Safe; No Re-Initialization Gate -- FIXED
 
 **Severity:** Critical
 **Category:** Thread Safety
@@ -291,7 +291,7 @@ Capture `&error` in the lambda, or store the init error in a static member and r
 
 ### Fix
 
-Clear the `drivers` vector in `terminate()`, add a mutex for the static state, and use a resettable mechanism instead of `std::once_flag`.
+Adopt one-shot lifetime semantics: document `terminate()` as process-shutdown only, require callers to quiesce library use before calling it, and reject later `initialize()` / driver access attempts instead of pretending re-initialization is supported.
 
 ---
 
@@ -343,7 +343,7 @@ Add `CoTaskMemFree(closest_match);` after using it.
 
 ---
 
-## Issue 12 -- CoreAudio: `stop()` Ignores All Errors and Never Uninitializes -- OPEN
+## Issue 12 -- CoreAudio: `stop()` Ignores All Errors and Never Uninitializes -- FIXED
 
 **Severity:** Critical
 **Category:** Bug
@@ -359,7 +359,7 @@ Check return values, call `AudioUnitUninitialize`, remove listeners and callback
 
 ---
 
-## Issue 13 -- CoreAudio: `start()` Leaks Resources on Partial Failure -- OPEN
+## Issue 13 -- CoreAudio: `start()` Leaks Resources on Partial Failure -- FIXED
 
 **Severity:** Critical
 **Category:** Bug (Resource Leak)
@@ -391,7 +391,7 @@ Return `std::string()` or `""`.
 
 ---
 
-## Issue 15 -- C API Is Dead Code and Does Not Compile -- OPEN
+## Issue 15 -- C API Is Dead Code and Does Not Compile -- FIXED
 
 **Severity:** Critical
 **Category:** Bug / Architecture
@@ -403,7 +403,7 @@ Both files are wrapped in `#ifdef LOWL_LIBRARY`, which is never defined in the b
 
 ### Fix
 
-Either remove the C API entirely, or rewrite using opaque handles and free functions with platform-portable export macros.
+Remove the current C API entirely. If cross-language or ABI-stable access is needed later, replace it with a fresh opaque-handle C API instead of reviving these files.
 
 ---
 
@@ -743,7 +743,7 @@ Call `CoInitializeEx(nullptr, COINIT_MULTITHREADED)` at the start of `audio_call
 
 ---
 
-## Issue 37 -- CoreAudio: `create_device_properties` Leaks Test AudioUnit -- OPEN
+## Issue 37 -- CoreAudio: `create_device_properties` Leaks Test AudioUnit -- FIXED
 
 **Severity:** High
 **Category:** Bug (Resource Leak)
@@ -759,7 +759,7 @@ Add `AudioComponentInstanceDispose(test_audio_unit)` before return on all paths.
 
 ---
 
-## Issue 38 -- CoreAudio: Utility Functions Don't Short-Circuit on Error -- OPEN
+## Issue 38 -- CoreAudio: Utility Functions Don't Short-Circuit on Error -- FIXED
 
 **Severity:** High
 **Category:** Bug
@@ -807,7 +807,7 @@ Apply the level filter in `Logger::write()` before dispatching to the receiver.
 
 ---
 
-## Issue 41 -- C API: Dangling Pointer from `get_name()` -- OPEN
+## Issue 41 -- C API: Dangling Pointer from `get_name()` -- FIXED
 
 **Severity:** High
 **Category:** Bug
@@ -819,11 +819,11 @@ Apply the level filter in `Logger::write()` before dispatching to the receiver.
 
 ### Fix
 
-Store the name as a member and return a pointer to the stored copy.
+Resolved by removing the dead C API surface.
 
 ---
 
-## Issue 42 -- C API: Virtual C++ Structs Exposed as C API -- OPEN
+## Issue 42 -- C API: Virtual C++ Structs Exposed as C API -- FIXED
 
 **Severity:** High
 **Category:** API Design / Architecture
@@ -835,7 +835,7 @@ The C API uses `struct` with `public:` and `virtual` methods -- these are C++ po
 
 ### Fix
 
-Use opaque handles and free functions for C interop. Add platform-portable export macros.
+Resolved by removing the dead C API surface. If a real C API is ever needed, build it around opaque handles and flat functions.
 
 ---
 
@@ -1255,7 +1255,7 @@ Add at least one Linux backend (PipeWire is the modern choice).
 
 ---
 
-## Issue 69 -- `Lib::terminate` Does Not Clear State or Allow Re-Init -- OPEN
+## Issue 69 -- `Lib::terminate` Does Not Clear State or Allow Re-Init -- FIXED
 
 **Severity:** Medium
 **Category:** Architecture
@@ -1267,7 +1267,7 @@ Add at least one Linux backend (PipeWire is the modern choice).
 
 ### Fix
 
-Clear `drivers` in `terminate()`. Use a resettable init mechanism.
+Keep one-shot lifetime semantics and document that `terminate()` is final process shutdown, not a reset API. After termination, later `Lib` initialization/access calls should fail explicitly rather than returning stale state.
 
 ---
 

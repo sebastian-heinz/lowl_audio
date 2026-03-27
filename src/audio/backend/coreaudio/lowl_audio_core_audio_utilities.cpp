@@ -235,9 +235,21 @@ Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::get_latency_high(AudioObjectI
                                                                     AudioObjectPropertyScope p_scope,
                                                                     Lowl::Error &error) {
     SampleCount device_latency = get_device_latency(p_device_id, p_scope, error);
+    if (error.has_error()) {
+        return 0;
+    }
     SampleCount stream_latency = get_stream_latency(p_stream_id, p_scope, error);
+    if (error.has_error()) {
+        return 0;
+    }
     SampleCount safety_offset = get_safety_offset(p_device_id, p_scope, error);
+    if (error.has_error()) {
+        return 0;
+    }
     SampleCount buffer_frame_size = get_buffer_frame_size(p_device_id, p_scope, error);
+    if (error.has_error()) {
+        return 0;
+    }
     return device_latency + stream_latency + safety_offset + buffer_frame_size;
 }
 
@@ -247,9 +259,21 @@ Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::get_latency_low(UInt32 desire
                                                                    AudioObjectPropertyScope p_scope,
                                                                    Lowl::Error &error) {
     SampleCount device_latency = get_device_latency(p_device_id, p_scope, error);
+    if (error.has_error()) {
+        return 0;
+    }
     SampleCount stream_latency = get_stream_latency(p_stream_id, p_scope, error);
+    if (error.has_error()) {
+        return 0;
+    }
     SampleCount safety_offset = get_safety_offset(p_device_id, p_scope, error);
+    if (error.has_error()) {
+        return 0;
+    }
     AudioValueRange audio_range = get_buffer_frame_size_range(p_device_id, p_scope, error);
+    if (error.has_error()) {
+        return 0;
+    }
 
     desired_size = std::max(desired_size, (UInt32)audio_range.mMinimum);
     desired_size = std::min(desired_size, (UInt32)audio_range.mMaximum);
@@ -372,6 +396,22 @@ void Lowl::Audio::CoreAudioUtilities::add_property_listener(AudioObjectID p_devi
     }
 }
 
+void Lowl::Audio::CoreAudioUtilities::remove_property_listener(AudioObjectID p_device_id,
+                                                               AudioObjectPropertySelector p_property,
+                                                               AudioObjectPropertyScope p_scope,
+                                                               AudioObjectPropertyListenerProc p_proc,
+                                                               void *p_user_data,
+                                                               Lowl::Error &error) {
+    AudioObjectPropertyAddress property = {p_property, p_scope, kAudioObjectPropertyElementMain};
+    OSStatus result = AudioObjectRemovePropertyListener(p_device_id, &property, p_proc, p_user_data);
+    if (result == kAudioHardwareIllegalOperationError) {
+        return;
+    }
+    if (result != noErr) {
+        error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+    }
+}
+
 void Lowl::Audio::CoreAudioUtilities::set_render_quality(AudioUnit p_audio_unit,
                                                          AudioUnitScope p_scope,
                                                          AudioUnitElement p_element,
@@ -452,13 +492,22 @@ Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::set_frames_per_buffer(AudioOb
     SampleCount actual_frames_per_buffer = 0;
     CoreAudioUtilities::set_buffer_frame_size(
         p_device_id, kAudioDevicePropertyScopeOutput, requested_frames_per_buffer, error);
+    if (error.has_error()) {
+        return 0;
+    }
     actual_frames_per_buffer =
         CoreAudioUtilities::get_buffer_frame_size(p_device_id, kAudioDevicePropertyScopeOutput, error);
+    if (error.has_error()) {
+        return 0;
+    }
 
     // Did we get the size we asked for?
     if (actual_frames_per_buffer != requested_frames_per_buffer) {
         AudioValueRange range =
             CoreAudioUtilities::get_buffer_frame_size_range(p_device_id, kAudioDevicePropertyScopeOutput, error);
+        if (error.has_error()) {
+            return 0;
+        }
         if (requested_frames_per_buffer < range.mMinimum) {
             requested_frames_per_buffer = static_cast<UInt32>(range.mMinimum);
         } else if (requested_frames_per_buffer > range.mMaximum) {
@@ -466,8 +515,14 @@ Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::set_frames_per_buffer(AudioOb
         }
         CoreAudioUtilities::set_buffer_frame_size(
             p_device_id, kAudioDevicePropertyScopeOutput, requested_frames_per_buffer, error);
+        if (error.has_error()) {
+            return 0;
+        }
         actual_frames_per_buffer =
             CoreAudioUtilities::get_buffer_frame_size(p_device_id, kAudioDevicePropertyScopeOutput, error);
+        if (error.has_error()) {
+            return 0;
+        }
     }
     return actual_frames_per_buffer;
 }

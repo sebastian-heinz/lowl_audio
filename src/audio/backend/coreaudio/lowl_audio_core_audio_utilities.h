@@ -108,6 +108,13 @@ namespace Lowl::Audio {
                                           void *_Nullable p_user_data,
                                           Lowl::Error &error);
 
+        static void remove_property_listener(AudioObjectID p_device_id,
+                                             AudioObjectPropertySelector p_property,
+                                             AudioObjectPropertyScope p_scope,
+                                             AudioObjectPropertyListenerProc _Nonnull p_proc,
+                                             void *_Nullable p_user_data,
+                                             Lowl::Error &error);
+
         static pid_t get_output_hog_pid(AudioObjectID p_device_id, Lowl::Error &error);
 
         static void set_output_hog_device_pid(AudioObjectID p_device_id, pid_t p_hog_pid, Lowl::Error &error);

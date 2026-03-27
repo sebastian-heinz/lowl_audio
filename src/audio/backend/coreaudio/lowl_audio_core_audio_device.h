@@ -14,6 +14,9 @@ namespace Lowl::Audio {
         AudioObjectID device_id;
         AudioUnit _Nullable audio_unit;
         pid_t hog_pid;
+        bool device_property_listener_registered;
+        bool running_listener_registered;
+        bool audio_unit_initialized;
 
         static std::vector<Lowl::Audio::AudioDeviceProperties> create_device_properties(AudioObjectID p_device_id);
 
@@ -25,6 +28,10 @@ namespace Lowl::Audio {
                                            AudioUnit _Nullable p_audio_unit,
                                            AudioDeviceProperties p_properties,
                                            bool silent = true);
+
+        void cleanup_audio_unit(Error &error);
+
+        void cleanup_failed_start();
 
         void release_hog();
 

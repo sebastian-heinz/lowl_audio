@@ -1,6 +1,7 @@
 #ifndef LOWL_H
 #define LOWL_H
 
+#include <atomic>
 #include <mutex>
 #include <vector>
 
@@ -20,14 +21,22 @@ namespace Lowl {
     class Lib {
     private:
         static std::once_flag initialized;
+        static std::atomic<bool> terminated;
         static std::vector<std::shared_ptr<Audio::AudioDriver>> drivers;
         static Error initialization_error;
 
     public:
+        // One-shot library initialization. After terminate() the library is considered
+        // shut down for the rest of the process lifetime and initialize() will fail.
         static std::vector<std::shared_ptr<Audio::AudioDriver>> get_drivers(Error &error);
 
+        // Safe to call multiple times before terminate(); later calls reuse the first
+        // initialization result.
         static void initialize(Error &error);
 
+        // Process-shutdown only. This is not a concurrent hot-reload API: callers must
+        // ensure no other threads are using Lib, drivers, or devices when terminate() runs.
+        // Once called, Lib stays terminated for the rest of the process lifetime.
         static void terminate(Error &error);
 
         static std::unique_ptr<Audio::AudioData>
