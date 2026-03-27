@@ -15,6 +15,7 @@ set(LOWL_TEST_FILES
         test_audio_utilities.cpp
         test_sample_converter.cpp
         test_file.cpp
+        test_core.cpp
         )
 
 add_executable(${LOWL_TEST_MAIN} ${LOWL_TEST_FILES})

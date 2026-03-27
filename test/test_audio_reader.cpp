@@ -14,6 +14,21 @@
 #include <vector>
 
 namespace {
+    std::vector<uint8_t> make_minimal_wav_bytes() {
+        return {
+            'R','I','F','F', 38,0,0,0, 'W','A','V','E',
+            'f','m','t',' ', 16,0,0,0, 1,0, 1,0,
+            0x44,0xAC,0x00,0x00, 0x88,0x58,0x01,0x00, 2,0, 16,0,
+            'd','a','t','a', 2,0,0,0, 0x00,0x40
+        };
+    }
+
+    std::unique_ptr<uint8_t[]> copy_bytes(const std::vector<uint8_t> &p_bytes) {
+        std::unique_ptr<uint8_t[]> buffer = std::make_unique<uint8_t[]>(p_bytes.size());
+        std::memcpy(buffer.get(), p_bytes.data(), p_bytes.size());
+        return buffer;
+    }
+
     class TestAudioReader final : public Lowl::Audio::AudioReader {
     public:
         using AudioReader::create_audio_data;
@@ -152,5 +167,31 @@ TEST_CASE("AudioReader") {
 
         REQUIRE_FALSE(error.has_error());
         REQUIRE_EQ(format, Lowl::FileFormat::MP3);
+    }
+
+    SUBCASE("Lib - create_data decodes an in-memory WAV buffer through the facade") {
+        const std::vector<uint8_t> wav_bytes = make_minimal_wav_bytes();
+        Lowl::Error error;
+        std::unique_ptr<Lowl::Audio::AudioData> audio_data =
+            Lowl::Lib::create_data(copy_bytes(wav_bytes), wav_bytes.size(), Lowl::FileFormat::WAV, error);
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE(audio_data != nullptr);
+        REQUIRE_EQ(audio_data->get_channel_count(), 1U);
+        REQUIRE_EQ(audio_data->get_frame_count(), 1U);
+        REQUIRE_EQ(audio_data->get_channel_data(0)[0], doctest::Approx(0.5f).epsilon(0.01));
+    }
+
+    SUBCASE("Lib - create_data decodes an extensionless WAV file through sniffed detection") {
+        const std::vector<uint8_t> wav_bytes = make_minimal_wav_bytes();
+        ScopedTempFile temp_file(std::string(reinterpret_cast<const char *>(wav_bytes.data()), wav_bytes.size()));
+
+        Lowl::Error error;
+        std::unique_ptr<Lowl::Audio::AudioData> audio_data = Lowl::Lib::create_data(temp_file.get_path(), error);
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE(audio_data != nullptr);
+        REQUIRE_EQ(audio_data->get_channel_count(), 1U);
+        REQUIRE_EQ(audio_data->get_frame_count(), 1U);
     }
 }

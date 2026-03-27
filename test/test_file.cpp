@@ -38,6 +38,15 @@ namespace {
 } // namespace
 
 TEST_CASE("File") {
+    SUBCASE("File - opening a missing file reports an error") {
+        Lowl::File file;
+        Lowl::Error error;
+        file.open("/tmp/lowl_audio_missing_file_that_should_not_exist", error);
+
+        REQUIRE(error.has_error());
+        REQUIRE_EQ(error.get_error(), Lowl::ErrorCode::FileStreamOpenFailed);
+    }
+
     SUBCASE("File - unopened file reports eof and empty reads") {
         Lowl::File file;
         size_t length = 4;
@@ -66,5 +75,26 @@ TEST_CASE("File") {
         REQUIRE_EQ(static_cast<char>(data[1]), 'b');
         REQUIRE_EQ(static_cast<char>(data[2]), 'c');
         REQUIRE(file.is_eof());
+    }
+
+    SUBCASE("File - seek and get_position track the cursor") {
+        ScopedTempFile temp_file("abcdef");
+
+        Lowl::File file;
+        Lowl::Error error;
+        file.open(temp_file.get_path(), error);
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE(file.seek(2));
+
+        size_t position = 0;
+        REQUIRE(file.get_position(position));
+        REQUIRE_EQ(position, 2U);
+
+        size_t length = 2;
+        std::unique_ptr<uint8_t[]> data = file.read_buffer(length);
+        REQUIRE_EQ(length, 2U);
+        REQUIRE_EQ(static_cast<char>(data[0]), 'c');
+        REQUIRE_EQ(static_cast<char>(data[1]), 'd');
     }
 }

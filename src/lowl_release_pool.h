@@ -40,10 +40,14 @@ namespace Lowl {
             pool.template emplace_back<>(object);
         }
 
-        ReleasePool() {
+        template <typename Rep, typename Period>
+        explicit ReleasePool(const std::chrono::duration<Rep, Period> p_interval) {
             timer = std::make_unique<Timer>();
             pool = std::vector<std::shared_ptr<void>>();
-            timer->start_interval(std::bind(&ReleasePool::release_callback, this), std::chrono::seconds(10));
+            timer->start_interval(std::bind(&ReleasePool::release_callback, this), p_interval);
+        }
+
+        ReleasePool() : ReleasePool(std::chrono::seconds(10)) {
         }
 
         ~ReleasePool() {

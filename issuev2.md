@@ -93,7 +93,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 80 | FIXED | Low | Quality | Core | `File` has undeclared `test()` method (dead declaration) |
 | 81 | FIXED | Low | Build | Build | No compiler warning flags for GCC or MSVC |
 | 82 | FIXED | Low | Quality | Demo | Global variables, inconsistent arg parsing, no `--help` |
-| 83 | DEFERRED | Low | Testing | Testing | Multiple test coverage gaps (see section below) |
+| 83 | FIXED | Low | Testing | Testing | Added deterministic coverage for core utility, source, mixer, and facade gaps |
 
 ---
 
@@ -1479,30 +1479,42 @@ Moved demo process state into a config struct, made the prefix parsing consisten
 
 ---
 
-## Issue 83 -- Test Coverage Gaps -- DEFERRED
+## Issue 83 -- Test Coverage Gaps -- FIXED
 
 **Severity:** Low
 **Category:** Testing
 
-### Missing Coverage
+### Problem
 
-1. **`File` class** -- no tests at all (open, read, seek, EOF, error paths)
-2. **`Timer` class** -- no tests (interval, stop, stop-from-callback, destructor)
-3. **`ReleasePool` class** -- no tests (add/release cycle, timer cleanup, thread safety)
-4. **`Buffer` error paths** -- no tests for read past end, underflow, growth behavior
-5. **`Error` class** -- no tests for vendor errors, clear, text formatting
-6. **`AudioData::create_slice` edge cases** -- negative seconds, zero length, single channel
-7. **`AudioStream` capacity exhaustion** -- no test for writing to a full ring buffer
-8. **`AudioStream` concurrent read/write** -- the SPSC guarantee is untested
-9. **`AudioMixer` limits** -- no test for >1024 sources, ack owner lifecycle, deduplication
-10. **`Lib` static API** -- `create_data`, `detect_format` untested through the facade
+Core utility classes and several source-layer edge cases had little or no deterministic coverage. The gaps were concentrated in file/stream utilities, timer-driven helpers, and the public `Lib` facade.
 
-### Status
+### Options Considered
 
-Deferred as an umbrella backlog item. This pass added direct `detect_format` coverage, plus a small `Lib::detect_format` facade test, but the broader gaps listed above are still real and should stay tracked as ongoing test work rather than being marked fixed.
-11. **`AudioSpace` thread safety** -- concurrent `render()` + `play()`/`stop()` untested
-12. **Volume/panning** -- `process_volume` with non-default values untested; multichannel panning untested
-13. **Test utilities** -- `StereoSample` / `make_stereo_audio_data` duplicated across 5 test files; should be a shared header
+1. Leave the issue open as a generic test-backlog umbrella. This keeps pressure on coverage, but it is too vague to say what is actually still untested.
+2. Split every missing test seam into separate follow-up issues before adding coverage. This gives cleaner tracking, but delays useful regression protection.
+3. Add deterministic tests for the concrete low-risk gaps now and close this issue once the original missing coverage is present.
+
+### Fix
+
+Chose option 3. Added deterministic tests for:
+
+1. **`File`** open failure, empty/unopened reads, EOF short reads, seek, and cursor reporting
+2. **`Timer`** one-shot execution, stop-from-callback behavior, and destructor shutdown
+3. **`ReleasePool`** delayed release, duplicate adds, and concurrent adds
+4. **`Buffer`** read-past-end behavior, guarded invalid reads, and growth while preserving contents
+5. **`Error`** clear/reset behavior, vendor errors, and error text/code reporting
+6. **`AudioData::create_slice`** negative begin time, zero-length slices, and mono slices
+7. **`AudioStream`** full-ring writes and single-producer/single-consumer ordering
+8. **`AudioMixer`** duplicate mix idempotence, stale/released handles, owner lifecycle, and >1024-source rejection
+9. **`Lib` facade** `detect_format` and both `create_data` entry points
+10. **Volume/panning behavior** at `AudioVoice`, `AudioSpace`, and multichannel source boundaries
+
+### Follow-up Notes
+
+Two items are still worthwhile, but they no longer justify keeping this issue open:
+
+1. **`AudioSpace` stress concurrency** could use a targeted render/control-thread stress test later
+2. **Shared test helpers** could reduce duplication across test files, but that is cleanup rather than a missing-coverage bug
 
 ---
 

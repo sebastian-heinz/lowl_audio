@@ -216,6 +216,30 @@ TEST_CASE("AudioData") {
         REQUIRE_EQ(slice->get_channel_data(1)[1], doctest::Approx(0.40f));
     }
 
+    SUBCASE("AudioData - create_slice supports zero-length slices") {
+        std::unique_ptr<Lowl::Audio::AudioData> sliced_source = make_stereo_audio_data({
+            StereoSample{0.10f, 0.20f},
+            StereoSample{0.30f, 0.40f},
+        });
+
+        std::unique_ptr<Lowl::Audio::AudioData> slice = sliced_source->create_slice(0.1, 0.1);
+        REQUIRE(slice != nullptr);
+        REQUIRE_EQ(slice->get_frame_count(), 0U);
+        REQUIRE_EQ(slice->get_channel_count(), 2U);
+    }
+
+    SUBCASE("AudioData - create_slice preserves mono channel data") {
+        std::unique_ptr<Lowl::Audio::AudioData> mono_audio =
+            std::move(make_audio_data(Lowl::Audio::ChannelLayout::Mono, {0.1f, 0.2f, 0.3f}));
+
+        std::unique_ptr<Lowl::Audio::AudioData> slice = mono_audio->create_slice(1.0 / 44100.0, 3.0 / 44100.0);
+        REQUIRE(slice != nullptr);
+        REQUIRE_EQ(slice->get_channel_count(), 1U);
+        REQUIRE_EQ(slice->get_frame_count(), 2U);
+        REQUIRE_EQ(slice->get_channel_data(0)[0], doctest::Approx(0.2f));
+        REQUIRE_EQ(slice->get_channel_data(0)[1], doctest::Approx(0.3f));
+    }
+
     SUBCASE("AudioVoice - seek_time clamps negative seconds to the start") {
         std::shared_ptr<Lowl::Audio::AudioData> long_audio = std::move(make_stereo_audio_data({
             StereoSample{0.10f, 0.20f},

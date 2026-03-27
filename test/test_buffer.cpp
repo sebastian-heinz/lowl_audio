@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <memory>
 #include <utility>
+#include <vector>
 
 TEST_CASE("Buffer") {
     SUBCASE("Buffer - reads little endian values by default") {
@@ -79,5 +80,49 @@ TEST_CASE("Buffer") {
         buffer.set_length(1);
 
         REQUIRE_EQ(buffer.get_available(), 0U);
+    }
+
+    SUBCASE("Buffer - reads past the end return zero without advancing") {
+        const uint8_t bytes[] = {0xAA};
+        Lowl::Buffer buffer(bytes, sizeof(bytes));
+        buffer.seek(1);
+
+        REQUIRE_EQ(buffer.read_u8(), 0U);
+        REQUIRE_EQ(buffer.get_position(), 1U);
+    }
+
+    SUBCASE("Buffer - guarded read helpers leave destinations unchanged on invalid requests") {
+        const uint8_t bytes[] = {1, 2, 3};
+        Lowl::Buffer buffer(bytes, sizeof(bytes));
+
+        uint8_t read_target[2] = {9, 9};
+        buffer.read_data(read_target, 5);
+        REQUIRE_EQ(read_target[0], 9U);
+        REQUIRE_EQ(read_target[1], 9U);
+
+        uint8_t copy_target[2] = {7, 7};
+        buffer.get_data(2, 2, copy_target, sizeof(copy_target));
+        REQUIRE_EQ(copy_target[0], 7U);
+        REQUIRE_EQ(copy_target[1], 7U);
+
+        uint8_t whole_target[2] = {5, 5};
+        buffer.get_all_data(whole_target, sizeof(whole_target));
+        REQUIRE_EQ(whole_target[0], 5U);
+        REQUIRE_EQ(whole_target[1], 5U);
+    }
+
+    SUBCASE("Buffer - write_data grows and preserves appended contents") {
+        Lowl::Buffer buffer;
+        std::vector<uint8_t> payload(1500);
+        for (size_t index = 0; index < payload.size(); index++) {
+            payload[index] = static_cast<uint8_t>(index % 251);
+        }
+
+        buffer.write_data(payload.data(), payload.size());
+        REQUIRE_EQ(buffer.get_length(), payload.size());
+
+        std::vector<uint8_t> copied(payload.size(), 0);
+        buffer.get_all_data(copied.data(), copied.size());
+        REQUIRE(copied == payload);
     }
 }

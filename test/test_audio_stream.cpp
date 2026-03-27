@@ -4,7 +4,9 @@
 #include "audio/lowl_audio_buffer.h"
 
 #include <iostream>
+#include <chrono>
 #include <memory>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -271,6 +273,71 @@ TEST_CASE("AudioStream") {
         REQUIRE_EQ(read3.right, doctest::Approx(-0.4f));
     }
 
+    SUBCASE("AudioStream - writes stop at capacity and resume after reads") {
+        Lowl::Audio::AudioStream small_stream(44100.0, Lowl::Audio::ChannelLayout::Stereo, 2);
+        const Lowl::Sample first_block[] = {0.1f, -0.1f, 0.2f, -0.2f, 0.3f, -0.3f};
+        REQUIRE_EQ(small_stream.write_interleaved(first_block, 3), 2U);
+
+        auto [result0, read0] = render_one_frame(small_stream);
+        REQUIRE_EQ(result0.frames_produced, 1U);
+        REQUIRE_EQ(read0.left, doctest::Approx(0.1f));
+        REQUIRE_EQ(read0.right, doctest::Approx(-0.1f));
+
+        const Lowl::Sample second_block[] = {0.4f, -0.4f};
+        REQUIRE_EQ(small_stream.write_interleaved(second_block, 1), 1U);
+
+        auto [result1, read1] = render_one_frame(small_stream);
+        REQUIRE_EQ(result1.frames_produced, 1U);
+        REQUIRE_EQ(read1.left, doctest::Approx(0.2f));
+        REQUIRE_EQ(read1.right, doctest::Approx(-0.2f));
+
+        auto [result2, read2] = render_one_frame(small_stream);
+        REQUIRE_EQ(result2.frames_produced, 1U);
+        REQUIRE_EQ(read2.left, doctest::Approx(0.4f));
+        REQUIRE_EQ(read2.right, doctest::Approx(-0.4f));
+    }
+
+    SUBCASE("AudioStream - concurrent single producer and single consumer preserve frame order") {
+        constexpr size_t total_frames = 64;
+        Lowl::Audio::AudioStream stream(44100.0, Lowl::Audio::ChannelLayout::Stereo, 4);
+        std::vector<StereoSample> expected_frames(total_frames);
+        for (size_t frame_index = 0; frame_index < total_frames; frame_index++) {
+            expected_frames[frame_index] = {
+                static_cast<Lowl::Sample>(frame_index) / 100.0f,
+                static_cast<Lowl::Sample>(-static_cast<int>(frame_index)) / 100.0f
+            };
+        }
+
+        std::thread writer([&]() {
+            for (size_t frame_index = 0; frame_index < total_frames;) {
+                const Lowl::Sample frame[] = {
+                    expected_frames[frame_index].left,
+                    expected_frames[frame_index].right,
+                };
+                if (stream.write_interleaved(frame, 1) == 1U) {
+                    frame_index++;
+                } else {
+                    std::this_thread::yield();
+                }
+            }
+        });
+
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        for (size_t frame_index = 0; frame_index < total_frames; ) {
+            REQUIRE(std::chrono::steady_clock::now() < deadline);
+            auto [result, frame] = render_one_frame(stream);
+            if (result.frames_produced == 0U) {
+                std::this_thread::yield();
+                continue;
+            }
+            REQUIRE_EQ(frame.left, doctest::Approx(expected_frames[frame_index].left));
+            REQUIRE_EQ(frame.right, doctest::Approx(expected_frames[frame_index].right));
+            frame_index++;
+        }
+
+        writer.join();
+    }
+
     SUBCASE("AudioStream - render rejects mismatched channel block") {
         Lowl::Audio::AudioStream mono_stream(44100.0, Lowl::Audio::ChannelLayout::Mono, 3);
         const Lowl::Sample samples[] = {0.5f};
@@ -380,6 +447,28 @@ TEST_CASE("AudioStream") {
         REQUIRE_EQ(block.channel(1)[0], doctest::Approx(0.25f));
     }
 
+    SUBCASE("AudioMixer - duplicate mix events for the same handle and source are idempotent") {
+        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        ConstantMixerSource source({0.25f, 0.25f});
+        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
+        const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer, owner_id);
+
+        mixer.mix(handle, &source);
+        mixer.mix(handle, &source);
+
+        Lowl::Audio::AudioBuffer buffer(1, 2);
+        Lowl::Audio::AudioBlockView block = buffer.view(1);
+        buffer.clear(1);
+
+        Lowl::Audio::AudioSource::RenderResult result = mixer.render(block);
+        REQUIRE_EQ(result.frames_produced, 1U);
+        REQUIRE_EQ(block.channel(0)[0], doctest::Approx(0.25f));
+        REQUIRE_EQ(block.channel(1)[0], doctest::Approx(0.25f));
+
+        Lowl::Audio::AudioMixerAck ack{};
+        REQUIRE_FALSE(mixer.try_dequeue_ack(owner_id, ack));
+    }
+
     SUBCASE("AudioMixer - released handles are rejected") {
         Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
         ConstantMixerSource source({0.25f, 0.25f});
@@ -390,6 +479,57 @@ TEST_CASE("AudioStream") {
         mixer.mix(handle, &source);
 
         expect_mixer_ack(mixer, owner_id, handle, Lowl::Audio::AudioMixerAck::Type::Rejected);
+    }
+
+    SUBCASE("AudioMixer - ack owner lifecycle invalidates old handles and allows reuse") {
+        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
+        const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer, owner_id);
+
+        mixer.unregister_ack_owner(owner_id);
+
+        Lowl::Audio::AudioMixerAck ack{};
+        REQUIRE_FALSE(mixer.try_dequeue_ack(owner_id, ack));
+        REQUIRE_FALSE(mixer.allocate_handle(owner_id).is_valid());
+
+        const Lowl::uint16_l reused_owner_id = register_mixer_owner(mixer);
+        REQUIRE_NE(reused_owner_id, 0);
+        REQUIRE(allocate_mixer_handle(mixer, reused_owner_id).is_valid());
+    }
+
+    SUBCASE("AudioMixer - rejects sources beyond the active source limit") {
+        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
+
+        std::vector<Lowl::AudioMixerHandle> handles;
+        std::vector<std::unique_ptr<ConstantMixerSource>> sources;
+        handles.reserve(1025);
+        sources.reserve(1025);
+
+        for (size_t index = 0; index < 1025; index++) {
+            handles.push_back(allocate_mixer_handle(mixer, owner_id));
+            sources.push_back(std::make_unique<ConstantMixerSource>(StereoSample{1.0f, 1.0f}));
+            mixer.mix(handles.back(), sources.back().get());
+        }
+
+        Lowl::Audio::AudioBuffer buffer(1, 2);
+        Lowl::Audio::AudioBlockView block = buffer.view(1);
+        buffer.clear(1);
+
+        Lowl::Audio::AudioSource::RenderResult result = mixer.render(block);
+        REQUIRE_EQ(result.frames_produced, 1U);
+        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Ok);
+        REQUIRE_EQ(block.channel(0)[0], doctest::Approx(1024.0f));
+        REQUIRE_EQ(block.channel(1)[0], doctest::Approx(1024.0f));
+
+        int rejected_count = 0;
+        Lowl::Audio::AudioMixerAck ack{};
+        while (mixer.try_dequeue_ack(owner_id, ack)) {
+            if (ack.type == Lowl::Audio::AudioMixerAck::Type::Rejected) {
+                rejected_count++;
+            }
+        }
+        REQUIRE_EQ(rejected_count, 1);
     }
 
     SUBCASE("AudioMixer - render chunks blocks larger than scratch capacity") {
