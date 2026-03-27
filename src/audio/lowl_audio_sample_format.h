@@ -1,5 +1,5 @@
-#ifndef LOWL_SAMPLE_FORMAT
-#define LOWL_SAMPLE_FORMAT
+#ifndef LOWL_AUDIO_SAMPLE_FORMAT_H
+#define LOWL_AUDIO_SAMPLE_FORMAT_H
 
 #include <cstddef>
 #include <string_view>

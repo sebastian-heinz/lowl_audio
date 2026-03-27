@@ -1,10 +1,16 @@
 #include <doctest/doctest.h>
 
+#include <lowl.h>
+
 #include "audio/reader/lowl_audio_reader.h"
 #include "audio/convert/lowl_audio_re_sampler_r8b.h"
 
+#include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <memory>
+#include <string>
+#include <unistd.h>
 #include <vector>
 
 namespace {
@@ -19,6 +25,36 @@ namespace {
 
         bool support(Lowl::FileFormat) const override {
             return false;
+        }
+    };
+
+    class ScopedTempFile {
+    private:
+        std::string path;
+
+    public:
+        explicit ScopedTempFile(const std::string &p_contents, const std::string &p_suffix = {}) {
+            std::string pattern = "/tmp/lowl_audio_reader_XXXXXX" + p_suffix;
+            std::vector<char> temp_path(pattern.begin(), pattern.end());
+            temp_path.push_back('\0');
+
+            const int fd = p_suffix.empty() ? mkstemp(temp_path.data()) : mkstemps(temp_path.data(), p_suffix.size());
+            REQUIRE(fd >= 0);
+            close(fd);
+            path = temp_path.data();
+
+            std::ofstream out(path, std::ios::binary);
+            out.write(p_contents.data(), static_cast<std::streamsize>(p_contents.size()));
+        }
+
+        ~ScopedTempFile() {
+            if (!path.empty()) {
+                std::remove(path.c_str());
+            }
+        }
+
+        const std::string &get_path() const {
+            return path;
         }
     };
 }
@@ -86,5 +122,35 @@ TEST_CASE("AudioReader") {
     SUBCASE("ReSampler - null input returns nullptr") {
         std::unique_ptr<Lowl::Audio::AudioData> audio_data = Lowl::Audio::ReSamplerR8b::resample(nullptr, 48000.0);
         REQUIRE(audio_data == nullptr);
+    }
+
+    SUBCASE("AudioReader - detect_format sniffs WAV magic without relying on extension") {
+        ScopedTempFile temp_file("RIFF1234WAVE");
+
+        Lowl::Error error;
+        const Lowl::FileFormat format = Lowl::Audio::AudioReader::detect_format(temp_file.get_path(), error);
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE_EQ(format, Lowl::FileFormat::WAV);
+    }
+
+    SUBCASE("AudioReader - detect_format prefers FLAC magic over a misleading extension") {
+        ScopedTempFile temp_file("fLaC", ".mp3");
+
+        Lowl::Error error;
+        const Lowl::FileFormat format = Lowl::Audio::AudioReader::detect_format(temp_file.get_path(), error);
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE_EQ(format, Lowl::FileFormat::FLAC);
+    }
+
+    SUBCASE("Lib - detect_format uses the same magic-byte fallback") {
+        ScopedTempFile temp_file("ID3");
+
+        Lowl::Error error;
+        const Lowl::FileFormat format = Lowl::Lib::detect_format(temp_file.get_path(), error);
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE_EQ(format, Lowl::FileFormat::MP3);
     }
 }

@@ -46,10 +46,12 @@ namespace Lowl::Audio {
             if (rhs.is_supported < is_supported) {
                 return false;
             }
-            if (sample_rate < rhs.sample_rate) {
+            const uint32_l lhs_sample_rate = Lowl::Audio::normalize_sample_rate(sample_rate);
+            const uint32_l rhs_sample_rate = Lowl::Audio::normalize_sample_rate(rhs.sample_rate);
+            if (lhs_sample_rate < rhs_sample_rate) {
                 return true;
             }
-            if (rhs.sample_rate < sample_rate) {
+            if (rhs_sample_rate < lhs_sample_rate) {
                 return false;
             }
             if (channel_layout.channel_count < rhs.channel_layout.channel_count) {

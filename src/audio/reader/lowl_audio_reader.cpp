@@ -11,6 +11,71 @@
 #include "audio/reader/lowl_audio_reader_wav.h"
 #include "lowl_file.h"
 
+namespace {
+    Lowl::FileFormat detect_format_from_extension(const std::string &p_path) {
+        const std::string::size_type idx = p_path.rfind('.');
+        if (idx == std::string::npos) {
+            return Lowl::FileFormat::UNKNOWN;
+        }
+
+        std::string extension = p_path.substr(idx + 1);
+        std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
+        if (extension == "wav") {
+            return Lowl::FileFormat::WAV;
+        }
+        if (extension == "mp3") {
+            return Lowl::FileFormat::MP3;
+        }
+        if (extension == "flac") {
+            return Lowl::FileFormat::FLAC;
+        }
+        if (extension == "ogg") {
+            return Lowl::FileFormat::OGG;
+        }
+        if (extension == "opus") {
+            return Lowl::FileFormat::OPUS;
+        }
+        return Lowl::FileFormat::UNKNOWN;
+    }
+
+    bool starts_with_bytes(const uint8_t *p_buffer, const size_t p_size, const char *p_magic, const size_t p_magic_size) {
+        return p_buffer != nullptr && p_size >= p_magic_size &&
+               std::memcmp(p_buffer, p_magic, p_magic_size) == 0;
+    }
+
+    bool contains_bytes(const uint8_t *p_buffer, const size_t p_size, const char *p_magic, const size_t p_magic_size) {
+        if (p_buffer == nullptr || p_size < p_magic_size) {
+            return false;
+        }
+        for (size_t offset = 0; offset + p_magic_size <= p_size; offset++) {
+            if (std::memcmp(p_buffer + offset, p_magic, p_magic_size) == 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    Lowl::FileFormat detect_format_from_magic(const uint8_t *p_buffer, const size_t p_size) {
+        if (starts_with_bytes(p_buffer, p_size, "RIFF", 4) &&
+            p_size >= 12 && std::memcmp(p_buffer + 8, "WAVE", 4) == 0) {
+            return Lowl::FileFormat::WAV;
+        }
+        if (starts_with_bytes(p_buffer, p_size, "fLaC", 4)) {
+            return Lowl::FileFormat::FLAC;
+        }
+        if (starts_with_bytes(p_buffer, p_size, "OggS", 4)) {
+            return contains_bytes(p_buffer, p_size, "OpusHead", 8) ? Lowl::FileFormat::OPUS : Lowl::FileFormat::OGG;
+        }
+        if (starts_with_bytes(p_buffer, p_size, "ID3", 3)) {
+            return Lowl::FileFormat::MP3;
+        }
+        if (p_buffer != nullptr && p_size >= 2 && p_buffer[0] == 0xFF && (p_buffer[1] & 0xE0u) == 0xE0u) {
+            return Lowl::FileFormat::MP3;
+        }
+        return Lowl::FileFormat::UNKNOWN;
+    }
+} // namespace
+
 std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioReader::read_file(const std::string &p_path,
                                                                             Lowl::Error &error) {
     std::unique_ptr<Lowl::File> file = std::make_unique<Lowl::File>();
@@ -288,22 +353,22 @@ std::unique_ptr<Lowl::Audio::AudioReader> Lowl::Audio::AudioReader::create_reade
 }
 
 Lowl::FileFormat Lowl::Audio::AudioReader::detect_format(const std::string &p_path, Lowl::Error &error) {
-    std::string::size_type idx;
-    idx = p_path.rfind('.');
-    if (idx != std::string::npos) {
-        std::string extension = p_path.substr(idx + 1);
-        std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
-        if (extension == "wav") {
-            return Lowl::FileFormat::WAV;
-        } else if (extension == "mp3") {
-            return Lowl::FileFormat::MP3;
-        } else if (extension == "flac") {
-            return Lowl::FileFormat::FLAC;
-        } else if (extension == "ogg") {
-            return Lowl::FileFormat::OGG;
-        } else if (extension == "opus") {
-            return Lowl::FileFormat::OPUS;
+    const Lowl::FileFormat extension_format = detect_format_from_extension(p_path);
+
+    Lowl::File file;
+    Lowl::Error file_error;
+    file.open(p_path, file_error);
+    if (!file_error.has_error()) {
+        size_t sniff_length = 64;
+        std::unique_ptr<uint8_t[]> buffer = file.read_buffer(sniff_length);
+        const Lowl::FileFormat sniffed_format = detect_format_from_magic(buffer.get(), sniff_length);
+        if (sniffed_format != Lowl::FileFormat::UNKNOWN) {
+            return sniffed_format;
         }
+    }
+
+    if (extension_format != Lowl::FileFormat::UNKNOWN) {
+        return extension_format;
     }
     error.set_error(Lowl::ErrorCode::ReaderUndetectedFormat);
     return Lowl::FileFormat::UNKNOWN;

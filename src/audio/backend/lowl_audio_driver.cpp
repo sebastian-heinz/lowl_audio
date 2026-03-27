@@ -1,6 +1,6 @@
 #include "lowl_audio_driver.h"
 
-std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>> Lowl::Audio::AudioDriver::get_devices() const {
+const std::vector<std::shared_ptr<Lowl::Audio::AudioDevice>> &Lowl::Audio::AudioDriver::get_devices() const {
     return devices;
 }
 

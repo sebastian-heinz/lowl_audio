@@ -1,5 +1,5 @@
-#ifndef LOWL_FILE_FORMAT
-#define LOWL_FILE_FORMAT
+#ifndef LOWL_FILE_FORMAT_H
+#define LOWL_FILE_FORMAT_H
 
 namespace Lowl {
     enum class FileFormat {

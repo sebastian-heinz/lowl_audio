@@ -80,20 +80,20 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 67 | OPEN | Medium | Build | Build | `LOWL_DEBUG` defined as `PUBLIC`, leaking into consumers |
 | 68 | OPEN | Medium | Architecture | Architecture | No Linux audio backend (PulseAudio / ALSA / PipeWire) |
 | 69 | FIXED | Medium | Architecture | Architecture | `Lib::terminate` does not clear `drivers` or allow re-initialization |
-| 70 | OPEN | Medium | Bug | Demo | `std::stoi` on user input with no exception handling |
-| 71 | OPEN | Low | Quality | Source | `AudioSource` value-initializes atomics then re-stores in constructor |
-| 72 | OPEN | Low | Quality | Source | `AudioBlockView::channel()` has no bounds check |
-| 73 | OPEN | Low | Quality | Source | `AudioVoice` defaults to `Playing`; `AudioSpace` immediately stops it |
-| 74 | OPEN | Low | Quality | Source | `get_frames_remaining()` returns 1 while `get_frame_count()` returns 0 |
-| 75 | OPEN | Low | Quality | Reader | `detect_format` is extension-only; no magic-byte fallback |
-| 76 | OPEN | Low | Quality | Reader | FLAC reader: `DR_FLAC_NO_CRC` disables integrity checks |
-| 77 | OPEN | Low | Quality | Backend | `AudioDeviceProperties::operator<` inconsistent with fuzzy `operator==` |
-| 78 | OPEN | Low | Quality | Backend | `AudioDriver::get_devices()` returns vector by value |
-| 79 | OPEN | Low | Quality | Core | Include guards missing `_H` suffix across multiple headers |
-| 80 | OPEN | Low | Quality | Core | `File` has undeclared `test()` method (dead declaration) |
-| 81 | OPEN | Low | Build | Build | No compiler warning flags for GCC or MSVC |
-| 82 | OPEN | Low | Quality | Demo | Global variables, inconsistent arg parsing, no `--help` |
-| 83 | OPEN | Low | Testing | Testing | Multiple test coverage gaps (see section below) |
+| 70 | FIXED | Medium | Bug | Demo | `std::stoi` on user input with no exception handling |
+| 71 | FIXED | Low | Quality | Source | `AudioSource` value-initializes atomics then re-stores in constructor |
+| 72 | FIXED | Low | Quality | Source | `AudioBlockView::channel()` has no bounds check |
+| 73 | DEFERRED | Low | Quality | Source | `AudioVoice` defaults to `Playing`; `AudioSpace` immediately stops it |
+| 74 | DEFERRED | Low | Quality | Source | `get_frames_remaining()` returns 1 while `get_frame_count()` returns 0 |
+| 75 | FIXED | Low | Quality | Reader | `detect_format` is extension-only; no magic-byte fallback |
+| 76 | FIXED | Low | Quality | Reader | FLAC reader: `DR_FLAC_NO_CRC` disables integrity checks |
+| 77 | FIXED | Low | Quality | Backend | `AudioDeviceProperties::operator<` inconsistent with fuzzy `operator==` |
+| 78 | FIXED | Low | Quality | Backend | `AudioDriver::get_devices()` returns vector by value |
+| 79 | FIXED | Low | Quality | Core | Include guards missing `_H` suffix across multiple headers |
+| 80 | FIXED | Low | Quality | Core | `File` has undeclared `test()` method (dead declaration) |
+| 81 | FIXED | Low | Build | Build | No compiler warning flags for GCC or MSVC |
+| 82 | FIXED | Low | Quality | Demo | Global variables, inconsistent arg parsing, no `--help` |
+| 83 | DEFERRED | Low | Testing | Testing | Multiple test coverage gaps (see section below) |
 
 ---
 
@@ -1271,7 +1271,7 @@ Keep one-shot lifetime semantics and document that `terminate()` is final proces
 
 ---
 
-## Issue 70 -- Demo: `std::stoi` on User Input Without Exception Handling -- OPEN
+## Issue 70 -- Demo: `std::stoi` on User Input Without Exception Handling -- FIXED
 
 **Severity:** Medium
 **Category:** Bug
@@ -1283,11 +1283,11 @@ Keep one-shot lifetime semantics and document that `terminate()` is final proces
 
 ### Fix
 
-Wrap in try/catch or use a non-throwing parser.
+Replaced the throwing `std::stoi` call sites with shared checked parsing helpers in the demo. Invalid CLI values now print a usage error instead of throwing, and invalid interactive input is rejected and retried instead of crashing.
 
 ---
 
-## Issue 71 -- `AudioSource` Redundant Atomic Initialization -- OPEN
+## Issue 71 -- `AudioSource` Redundant Atomic Initialization -- FIXED
 
 **Severity:** Low
 **Category:** Quality
@@ -1299,11 +1299,11 @@ Wrap in try/catch or use a non-throwing parser.
 
 ### Fix
 
-Use `std::atomic<Volume> volume{DEFAULT_VOLUME}` in the class definition.
+Initialize `volume` and `panning` directly in the class definition and remove the redundant constructor stores.
 
 ---
 
-## Issue 72 -- `AudioBlockView::channel()` Has No Bounds Check -- OPEN
+## Issue 72 -- `AudioBlockView::channel()` Has No Bounds Check -- FIXED
 
 **Severity:** Low
 **Category:** Quality
@@ -1315,11 +1315,11 @@ Use `std::atomic<Volume> volume{DEFAULT_VOLUME}` in the class definition.
 
 ### Fix
 
-Add `assert(p_channel < channel_count)`.
+Added `assert(p_channel < channel_count)` to both `AudioBlockView::channel()` overloads.
 
 ---
 
-## Issue 73 -- `AudioVoice` Defaults to `Playing`; `AudioSpace` Immediately Stops It -- OPEN
+## Issue 73 -- `AudioVoice` Defaults to `Playing`; `AudioSpace` Immediately Stops It -- DEFERRED
 
 **Severity:** Low
 **Category:** Quality
@@ -1331,11 +1331,11 @@ The constructor sets `PlaybackState::Playing`, then `insert_playback_locked` imm
 
 ### Fix
 
-Default to `Stopped` state. Let `play()` transition to `Playing`.
+Proposal: start `AudioVoice` in a fully stopped state and require explicit playback start from direct users. I deferred it because that changes observable public behavior for direct `AudioVoice` use, not just `AudioSpace` internals.
 
 ---
 
-## Issue 74 -- Inconsistent `get_frames_remaining` / `get_frame_count` Semantics -- OPEN
+## Issue 74 -- Inconsistent `get_frames_remaining` / `get_frame_count` Semantics -- DEFERRED
 
 **Severity:** Low
 **Category:** Semantic
@@ -1347,11 +1347,11 @@ Both `AudioMixer` and `AudioSpace` return `get_frames_remaining() == 1` and `get
 
 ### Fix
 
-Document sentinel semantics for live/aggregate sources, or add an `is_live()` method.
+Proposal: either document the current sentinel semantics for live aggregate sources, or add an explicit `is_live()`/`is_streaming()` query and stop overloading the frame-count API. I deferred it because this is a contract change, not a local bug fix.
 
 ---
 
-## Issue 75 -- `detect_format` Is Extension-Only; No Magic-Byte Fallback -- OPEN
+## Issue 75 -- `detect_format` Is Extension-Only; No Magic-Byte Fallback -- FIXED
 
 **Severity:** Low
 **Category:** Quality
@@ -1363,11 +1363,11 @@ Format detection relies solely on file extension. A renamed file or a file with 
 
 ### Fix
 
-Fall back to magic-byte sniffing (RIFF, ID3/sync, fLaC, OggS).
+Added magic-byte sniffing for RIFF/WAVE, FLAC, Ogg/Opus, and MP3 (ID3 and frame-sync), with extension detection retained as a fallback. The detection path now handles extensionless files and prefers real file content over misleading extensions.
 
 ---
 
-## Issue 76 -- FLAC Reader: `DR_FLAC_NO_CRC` Disables Integrity Checks -- OPEN
+## Issue 76 -- FLAC Reader: `DR_FLAC_NO_CRC` Disables Integrity Checks -- FIXED
 
 **Severity:** Low
 **Category:** Quality
@@ -1379,11 +1379,11 @@ CRC validation is disabled. Corrupted FLAC data will produce garbled audio silen
 
 ### Fix
 
-Only define `DR_FLAC_NO_CRC` in performance-critical builds. Consider making it conditional.
+Removed `DR_FLAC_NO_CRC`, so FLAC decoding now keeps the library's default CRC validation behavior.
 
 ---
 
-## Issue 77 -- `AudioDeviceProperties::operator<` Inconsistent with Fuzzy `operator==` -- OPEN
+## Issue 77 -- `AudioDeviceProperties::operator<` Inconsistent with Fuzzy `operator==` -- FIXED
 
 **Severity:** Low
 **Category:** Semantic
@@ -1395,11 +1395,11 @@ Only define `DR_FLAC_NO_CRC` in performance-critical builds. Consider making it 
 
 ### Fix
 
-Use exact comparison in both, or make `operator<` consistent with the fuzzy `==`.
+Made `operator<` compare normalized sample rates, matching the rounded equality semantics already used by `operator==`.
 
 ---
 
-## Issue 78 -- `AudioDriver::get_devices()` Returns Vector by Value -- OPEN
+## Issue 78 -- `AudioDriver::get_devices()` Returns Vector by Value -- FIXED
 
 **Severity:** Low
 **Category:** Performance
@@ -1411,11 +1411,11 @@ Returns `std::vector<std::shared_ptr<AudioDevice>>` by value, copying the vector
 
 ### Fix
 
-Return `const std::vector<...>&`.
+Changed `AudioDriver::get_devices()` to return `const std::vector<...>&` and updated call sites that should avoid unnecessary copies.
 
 ---
 
-## Issue 79 -- Include Guards Missing `_H` Suffix -- OPEN
+## Issue 79 -- Include Guards Missing `_H` Suffix -- FIXED
 
 **Severity:** Low
 **Category:** Quality
@@ -1427,11 +1427,11 @@ Include guards use names like `LOWL_FILE_FORMAT` instead of `LOWL_FILE_FORMAT_H`
 
 ### Fix
 
-Add `_H` suffix.
+Updated the listed include guards to use `_H`-suffixed macro names.
 
 ---
 
-## Issue 80 -- `File` Has Declared `test()` Method That Is Never Defined -- OPEN
+## Issue 80 -- `File` Has Declared `test()` Method That Is Never Defined -- FIXED
 
 **Severity:** Low
 **Category:** Quality
@@ -1443,11 +1443,11 @@ Add `_H` suffix.
 
 ### Fix
 
-Remove the declaration.
+Removed the dead private declaration from `File`.
 
 ---
 
-## Issue 81 -- No Compiler Warning Flags for GCC or MSVC -- OPEN
+## Issue 81 -- No Compiler Warning Flags for GCC or MSVC -- FIXED
 
 **Severity:** Low
 **Category:** Build
@@ -1459,11 +1459,11 @@ Compiler flags are only set for Clang. GCC builds have no warnings beyond defaul
 
 ### Fix
 
-Add `-Wall -Wextra -Werror` for GCC and `/W4 /WX` for MSVC.
+Added warning flag blocks for GCC (`-Wall -Wextra -Wpedantic -Werror`) and MSVC (`/W4 /WX`) alongside the existing Clang configuration.
 
 ---
 
-## Issue 82 -- Demo: Global Variables, Inconsistent Arg Parsing, No `--help` -- OPEN
+## Issue 82 -- Demo: Global Variables, Inconsistent Arg Parsing, No `--help` -- FIXED
 
 **Severity:** Low
 **Category:** Quality
@@ -1475,11 +1475,11 @@ Add `-Wall -Wextra -Werror` for GCC and `/W4 /WX` for MSVC.
 
 ### Fix
 
-Wrap state in a config struct, add `--help`, use `const auto &` in range-for.
+Moved demo process state into a config struct, made the prefix parsing consistent, added `--help`/usage output, and cleaned up range loops to avoid unnecessary copying.
 
 ---
 
-## Issue 83 -- Test Coverage Gaps -- OPEN
+## Issue 83 -- Test Coverage Gaps -- DEFERRED
 
 **Severity:** Low
 **Category:** Testing
@@ -1496,6 +1496,10 @@ Wrap state in a config struct, add `--help`, use `const auto &` in range-for.
 8. **`AudioStream` concurrent read/write** -- the SPSC guarantee is untested
 9. **`AudioMixer` limits** -- no test for >1024 sources, ack owner lifecycle, deduplication
 10. **`Lib` static API** -- `create_data`, `detect_format` untested through the facade
+
+### Status
+
+Deferred as an umbrella backlog item. This pass added direct `detect_format` coverage, plus a small `Lib::detect_format` facade test, but the broader gaps listed above are still real and should stay tracked as ongoing test work rather than being marked fixed.
 11. **`AudioSpace` thread safety** -- concurrent `render()` + `play()`/`stop()` untested
 12. **Volume/panning** -- `process_volume` with non-default values untested; multichannel panning untested
 13. **Test utilities** -- `StereoSample` / `make_stereo_audio_data` duplicated across 5 test files; should be a shared header

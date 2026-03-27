@@ -1,5 +1,5 @@
-#ifndef LOWL_AUDIO_CHANNEL
-#define LOWL_AUDIO_CHANNEL
+#ifndef LOWL_AUDIO_CHANNEL_H
+#define LOWL_AUDIO_CHANNEL_H
 
 #include <cstdint>
 #include <string>

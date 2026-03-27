@@ -183,6 +183,23 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     endif ()
 endif ()
 
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    message("[LOWL] GCC")
+    target_compile_options(${LOWL_LIB_MAIN} PRIVATE
+            -Wall
+            -Wextra
+            -Wpedantic
+            -Werror
+    )
+endif ()
+
+if (MSVC)
+    target_compile_options(${LOWL_LIB_MAIN} PRIVATE
+            /W4
+            /WX
+    )
+endif ()
+
 # Third Party
 add_subdirectory(third_party)
 target_link_libraries(${LOWL_LIB_MAIN} PUBLIC lowl_third_party)

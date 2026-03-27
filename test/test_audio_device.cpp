@@ -147,6 +147,21 @@ TEST_CASE("AudioDevice") {
         REQUIRE_EQ(selected.sample_rate, doctest::Approx(48000.0));
     }
 
+    SUBCASE("AudioDeviceProperties - ordering treats rounded-equal sample rates as equal") {
+        Lowl::Audio::AudioDeviceProperties lhs{};
+        lhs.is_supported = true;
+        lhs.sample_rate = 48000.1;
+        lhs.channel_layout = Lowl::Audio::ChannelLayout::Stereo;
+        lhs.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
+
+        Lowl::Audio::AudioDeviceProperties rhs = lhs;
+        rhs.sample_rate = 48000.4;
+
+        REQUIRE(lhs == rhs);
+        REQUIRE_FALSE(lhs < rhs);
+        REQUIRE_FALSE(rhs < lhs);
+    }
+
     SUBCASE("AudioDevice - write_frames only zero-fills missing frames") {
         constexpr unsigned long frames_per_buffer = 3;
         constexpr unsigned long channels = 2;

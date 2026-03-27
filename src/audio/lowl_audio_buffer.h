@@ -1,6 +1,7 @@
 #ifndef LOWL_AUDIO_BUFFER_H
 #define LOWL_AUDIO_BUFFER_H
 
+#include <cassert>
 #include <array>
 #include <memory>
 
@@ -15,10 +16,12 @@ namespace Lowl::Audio {
         uint8_t channel_count = 0;
 
         _INLINE_ Sample *channel(const uint8_t p_channel) {
+            assert(p_channel < channel_count);
             return channels[static_cast<size_t>(p_channel)];
         }
 
         _INLINE_ const Sample *channel(const uint8_t p_channel) const {
+            assert(p_channel < channel_count);
             return channels[static_cast<size_t>(p_channel)];
         }
     };

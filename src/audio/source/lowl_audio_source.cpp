@@ -6,8 +6,6 @@
 
 Lowl::Audio::AudioSource::AudioSource(const SampleRate p_sample_rate, const ChannelLayout p_channel_layout)
     : sample_rate(p_sample_rate), channel_layout(p_channel_layout) {
-    volume.store(DEFAULT_VOLUME);
-    panning.store(DEFAULT_PANNING);
     name = std::string();
 }
 

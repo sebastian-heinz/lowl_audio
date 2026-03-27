@@ -1,5 +1,5 @@
-#ifndef LOWL_FILE
-#define LOWL_FILE
+#ifndef LOWL_FILE_H
+#define LOWL_FILE_H
 
 #include <fstream>
 
@@ -13,8 +13,6 @@ namespace Lowl {
         std::unique_ptr<std::ifstream> file_stream;
         std::string path;
         size_t file_size;
-        void test();
-
     public:
         void open(const std::string &p_path, Error &error);
 

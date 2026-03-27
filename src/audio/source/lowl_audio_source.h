@@ -31,8 +31,8 @@ namespace Lowl::Audio {
         };
 
     private:
-        std::atomic<Volume> volume{};
-        std::atomic<Volume> panning{};
+        std::atomic<Volume> volume{DEFAULT_VOLUME};
+        std::atomic<Volume> panning{DEFAULT_PANNING};
         mutable std::mutex name_mutex;
         std::string name;
 

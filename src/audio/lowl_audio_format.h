@@ -1,5 +1,5 @@
-#ifndef LOWL_AUDIO_FORMAT
-#define LOWL_AUDIO_FORMAT
+#ifndef LOWL_AUDIO_FORMAT_H
+#define LOWL_AUDIO_FORMAT_H
 
 namespace Lowl::Audio {
     enum class AudioFormat {

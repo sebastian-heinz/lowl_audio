@@ -18,7 +18,7 @@ namespace Lowl::Audio {
 
         virtual std::shared_ptr<AudioDevice> get_default_device() const;
 
-        std::vector<std::shared_ptr<AudioDevice>> get_devices() const;
+        const std::vector<std::shared_ptr<AudioDevice>> &get_devices() const;
 
         std::string get_name() const;
 
