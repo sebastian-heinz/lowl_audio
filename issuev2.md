@@ -33,10 +33,10 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 20 | FIXED | High | Bug | Source | `advance_id` wraps to 0 (invalid sentinel), permanently exhausting ID space |
 | 21 | ALREADY FIXED | High | Bug | Source | `process_panning` -- `sqrt` of negative value produces NaN on bad input |
 | 22 | FIXED | High | Semantic | Source | `AudioMixer::process_events` calls `on_removed_from_mixer` on never-added source |
-| 23 | DEFERRED | High | Semantic | Source | Double volume/panning application in `AudioSpace::render` |
-| 24 | DEFERRED | High | Thread | Source | `AudioVoice` compound state transitions observable in intermediate states |
+| 23 | FIXED | High | Semantic | Source | Double volume/panning application in `AudioSpace::render` |
+| 24 | FIXED | High | Thread | Source | `AudioVoice` compound state transitions observable in intermediate states |
 | 25 | FIXED | High | Thread | Source | `AudioData::name` data race (no mutex unlike `AudioSource`) |
-| 26 | DEFERRED | High | Bug | Reader | MP3 reader: VBR frame count may underestimate, silently losing frames |
+| 26 | FIXED | High | Bug | Reader | MP3 reader: VBR frame count may underestimate, silently losing frames |
 | 27 | FIXED | High | Bug | Reader | Opus reader: potential buffer overrun if `op_pcm_total` underestimates |
 | 28 | FIXED | High | Bug | Reader | Ogg reader: `assert(element_size == 1)` is no-op in release builds |
 | 29 | DEFERRED | High | Bug | Converter | `sample_to_int24` returns unsigned-masked value in signed return type |
@@ -121,10 +121,10 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 20 -- FIXED.** Options considered: wrap IDs to `1`, reserve a separate exhaustion state, or widen the ID type immediately. Decision: wrapping to `1` is the minimal correct fix and matches generation handling.
 - **Issue 21 -- VERIFIED ALREADY FIXED.** Options considered: add a clamp in `process_panning`, trust `set_panning`, or verify current code. Decision: current `process_panning` already clamps before `sqrt`, so no patch was needed.
 - **Issue 22 -- FIXED.** Options considered: keep calling `on_removed_from_mixer`, call a new rejection callback, or send only the rejection acknowledgement. Decision: rejection-only behavior matched the actual state transition and avoided lying to the source.
-- **Issue 23 -- DEFERRED.** Options considered: remove mixer gain, remove space gain, or document the hierarchy as intentional. Decision: this needs a product/API call about intended gain staging, so I did not change runtime behavior.
-- **Issue 24 -- DEFERRED.** Options considered: tighten memory ordering, collapse state transitions into a single publish point, or redesign playback state exposure. Decision: that needs a deliberate concurrency model review rather than a narrow patch.
+- **Issue 23 -- FIXED.** Options considered: remove the internal mixer gain stage, keep `AudioSpace` post-processing, or synchronize `AudioSpace` gain/pan onto the private mixer and remove the extra post-processing. Decision: `AudioSpace` should expose the public group controls, but the private mixer should own the final mixed block, so I synchronized the public state onto the mixer and removed the redundant post-processing in `AudioSpace::render`.
+- **Issue 24 -- FIXED.** Options considered: tighten memory ordering on the existing atomics, publish a coherent versioned snapshot for queryable state, or redesign the public query API around explicit snapshots. Decision: a versioned published snapshot was the best fit here; it removes impossible mixed query states without putting locks into the render path or changing the public API.
 - **Issue 25 -- FIXED.** Options considered: add a mutex around `AudioData::name`, make names immutable, or move naming outside the audio object. Decision: matching `AudioSource` and guarding the string with a mutex was the most consistent low-risk fix.
-- **Issue 26 -- DEFERRED.** Options considered: decode into a growable buffer, keep trimming and log truncation, or trust `drmp3_get_pcm_frame_count`. Decision: the correct behavior depends on whether silent truncation is acceptable for VBR input, so I left it open.
+- **Issue 26 -- FIXED.** Options considered: decode into a growable buffer, keep trimming and log truncation, or trust `drmp3_get_pcm_frame_count`. Decision: decode into a growable buffer was the correct fix. The MP3 reader already loads the whole asset into memory, so using the frame-count result only as a reserve hint removes silent truncation without changing the external reader API.
 - **Issue 27 -- FIXED.** Options considered: clamp each decoded chunk to the remaining capacity, switch Opus decoding to a growable buffer, or trust `op_pcm_total`. Decision: chunk clamping removes the overflow risk without changing the current fixed-allocation approach.
 - **Issue 28 -- FIXED.** Options considered: keep the assert, compute byte counts and return item counts correctly, or refuse non-1-byte reads outright. Decision: implementing correct item-sized reads made the callback valid in both debug and release builds.
 - **Issue 29 -- DEFERRED.** Options considered: keep the packed `int32_t` contract, change the return type to `uint32_t`, or add a separate sign-extended helper. Decision: the existing write path may rely on packed low-24-bit behavior, so this needs a contract decision.
@@ -519,7 +519,7 @@ Do not call `on_removed_from_mixer()` when the source was never added. Only send
 
 ---
 
-## Issue 23 -- Double Volume/Panning Application in `AudioSpace::render` -- OPEN
+## Issue 23 -- Double Volume/Panning Application in `AudioSpace::render` -- FIXED
 
 **Severity:** High
 **Category:** Semantic
@@ -531,11 +531,11 @@ Do not call `on_removed_from_mixer()` when the source was never added. Only send
 
 ### Fix
 
-If intentional, document the gain hierarchy. If not, remove the mixer's own volume/panning processing or the space's.
+Keep `AudioSpace` as the public place where callers set group volume/panning, but synchronize those values onto the private mixer before rendering and remove the extra `process_volume` / `process_panning` pass from `AudioSpace::render`. That preserves `AudioSpace` gain/pan behavior while ensuring the final mixed block is transformed only once.
 
 ---
 
-## Issue 24 -- `AudioVoice` Compound State Transitions Observable in Intermediate States -- OPEN
+## Issue 24 -- `AudioVoice` Compound State Transitions Observable in Intermediate States -- FIXED
 
 **Severity:** High
 **Category:** Thread Safety
@@ -547,7 +547,7 @@ If intentional, document the gain hierarchy. If not, remove the mixer's own volu
 
 ### Fix
 
-Use `memory_order_release` on the final store in compound transitions, or collapse multi-step logic so the render thread observes a consistent state.
+Keep the internal render cursor and pending seek as separate render-thread state, but collapse the queryable state into one versioned published snapshot (`position`, `playback_state`, `detached`). Control operations now publish one coherent snapshot update, and the render path only publishes progress when no newer control-thread revision has superseded it. That preserves immediate control/query behavior while removing the impossible mixed states caused by independently published atomics.
 
 ---
 
@@ -567,7 +567,7 @@ Add a mutex, or make `name` immutable (set only in constructor / factory).
 
 ---
 
-## Issue 26 -- MP3 Reader: VBR Frame Count May Underestimate -- OPEN
+## Issue 26 -- MP3 Reader: VBR Frame Count May Underestimate -- FIXED
 
 **Severity:** High
 **Category:** Bug
@@ -579,7 +579,7 @@ Add a mutex, or make `name` immutable (set only in constructor / factory).
 
 ### Fix
 
-Decode into a dynamically growing buffer, or log a warning on early loop exit.
+Use `drmp3_get_pcm_frame_count` only as a reserve hint, not as a hard decode limit. Decode until EOF into a growable interleaved sample buffer, then build the final `AudioData` from the actual decoded sample count. That removes silent truncation for VBR underestimates while preserving the existing whole-file reader model.
 
 ---
 
