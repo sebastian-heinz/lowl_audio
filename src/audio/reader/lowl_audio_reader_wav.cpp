@@ -52,7 +52,14 @@ Lowl::Audio::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
 
     size_t frames_read = bytes_read / bytes_per_frame;
     SampleRate sample_rate = wav.sampleRate;
-    AudioChannel channel = get_channel(wav.channels);
+    const ChannelLayout layout = wav.fmt.channelMask != 0
+                                     ? ChannelLayout::from_mask(wav.fmt.channelMask)
+                                     : ChannelLayout::from_count(static_cast<uint8_t>(wav.channels));
+    if (!layout.is_valid()) {
+        drwav_uninit(&wav);
+        error.set_error(ErrorCode::UnsupportedAudioFormat);
+        return nullptr;
+    }
     size_t bytes_per_sample = bytes_per_frame / wav.channels;
 
     /* Don't try to read more samples than can potentially fit in the output buffer. */
@@ -106,7 +113,7 @@ Lowl::Audio::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
     }
 
     std::unique_ptr<AudioData> audio_data =
-        create_audio_data(audio_format, sample_format, channel, sample_rate, pcm_frames, bytes_read, error);
+        create_audio_data(audio_format, sample_format, layout, sample_rate, pcm_frames, bytes_read, {}, error);
     drwav_uninit(&wav);
     return audio_data;
 }

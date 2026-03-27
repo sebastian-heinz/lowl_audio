@@ -29,13 +29,13 @@ namespace {
             std::move(storage),
             frame_count,
             44100.0,
-            Lowl::Audio::AudioChannel::Stereo
+            Lowl::Audio::ChannelLayout::Stereo
         );
     }
 
     std::pair<Lowl::Audio::AudioSource::RenderResult, StereoSample>
     render_one_frame(Lowl::Audio::AudioSpace &p_audio_space) {
-        Lowl::Audio::AudioBuffer buffer(1, static_cast<uint8_t>(p_audio_space.get_channel_num()));
+        Lowl::Audio::AudioBuffer buffer(1, p_audio_space.get_channel_count());
         Lowl::Audio::AudioBlockView block = buffer.view(1);
         buffer.clear(1);
         Lowl::Audio::AudioSource::RenderResult result = p_audio_space.render(block);
@@ -50,17 +50,17 @@ namespace {
     Lowl::AudioPlaybackHandle add_asset_and_create_playback(Lowl::Audio::AudioSpace &p_audio_space,
                                                             std::unique_ptr<Lowl::Audio::AudioData> p_audio_data,
                                                             Lowl::Error &p_error) {
-        const Lowl::AudioAssetId asset_id = p_audio_space.add_audio(std::move(p_audio_data), p_error);
-        if (p_error.has_error() || asset_id == Lowl::Audio::AudioSpace::InvalidAudioAssetId) {
+        const Lowl::AudioAssetHandle asset_handle = p_audio_space.add_audio(std::move(p_audio_data), p_error);
+        if (p_error.has_error() || !asset_handle.is_valid()) {
             return Lowl::Audio::AudioSpace::InvalidAudioPlaybackHandle;
         }
-        return p_audio_space.create_playback(asset_id);
+        return p_audio_space.create_playback(asset_handle);
     }
 }
 
 TEST_CASE("AudioSpace") {
     Lowl::Error error;
-    Lowl::Audio::AudioSpace audio_space(44100.0, Lowl::Audio::AudioChannel::Stereo);
+    Lowl::Audio::AudioSpace audio_space(44100.0, Lowl::Audio::ChannelLayout::Stereo);
 
     SUBCASE("AudioSpace - play restarts a playback from the beginning") {
         const Lowl::AudioPlaybackHandle playback_handle = add_asset_and_create_playback(
@@ -340,16 +340,16 @@ TEST_CASE("AudioSpace") {
     }
 
     SUBCASE("AudioSpace - multiple playbacks from one asset keep independent panning") {
-        const Lowl::AudioAssetId asset_id = audio_space.add_audio(
+        const Lowl::AudioAssetHandle asset_handle = audio_space.add_audio(
             make_stereo_audio_data({StereoSample{1.0f, 1.0f}}),
             error
         );
 
         REQUIRE_FALSE(error.has_error());
-        REQUIRE_NE(asset_id, Lowl::Audio::AudioSpace::InvalidAudioAssetId);
+        REQUIRE(asset_handle.is_valid());
 
-        const Lowl::AudioPlaybackHandle playback_left = audio_space.create_playback(asset_id);
-        const Lowl::AudioPlaybackHandle playback_right = audio_space.create_playback(asset_id);
+        const Lowl::AudioPlaybackHandle playback_left = audio_space.create_playback(asset_handle);
+        const Lowl::AudioPlaybackHandle playback_right = audio_space.create_playback(asset_handle);
 
         REQUIRE(playback_left.is_valid());
         REQUIRE(playback_right.is_valid());
@@ -371,12 +371,12 @@ TEST_CASE("AudioSpace") {
     SUBCASE("AudioSpace - clear_all_audio retires active playbacks safely") {
         auto audio_data = make_stereo_audio_data({StereoSample{0.5f, -0.5f}});
         audio_data->set_name("one-shot");
-        const Lowl::AudioAssetId asset_id = audio_space.add_audio(std::move(audio_data), error);
+        const Lowl::AudioAssetHandle asset_handle = audio_space.add_audio(std::move(audio_data), error);
 
         REQUIRE_FALSE(error.has_error());
-        REQUIRE_NE(asset_id, Lowl::Audio::AudioSpace::InvalidAudioAssetId);
+        REQUIRE(asset_handle.is_valid());
 
-        const Lowl::AudioPlaybackHandle playback_handle = audio_space.create_playback(asset_id);
+        const Lowl::AudioPlaybackHandle playback_handle = audio_space.create_playback(asset_handle);
         REQUIRE(playback_handle.is_valid());
 
         audio_space.play(playback_handle);
@@ -388,5 +388,118 @@ TEST_CASE("AudioSpace") {
         REQUIRE_EQ(frame.left, doctest::Approx(0.0f));
         REQUIRE_EQ(frame.right, doctest::Approx(0.0f));
         REQUIRE(audio_space.get_name_mapping().empty());
+    }
+
+    SUBCASE("AudioSpace - retired playback slots are reused with a new generation") {
+        const Lowl::AudioAssetHandle first_asset_handle = audio_space.add_audio(
+            make_stereo_audio_data({StereoSample{0.25f, 0.25f}}),
+            error
+        );
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE(first_asset_handle.is_valid());
+
+        const Lowl::AudioPlaybackHandle first_playback = audio_space.create_playback(first_asset_handle);
+        REQUIRE(first_playback.is_valid());
+
+        audio_space.play(first_playback);
+        audio_space.clear_all_audio();
+
+        auto [cleared_result, cleared_frame] = render_one_frame(audio_space);
+        REQUIRE_EQ(cleared_result.frames_produced, 0U);
+        REQUIRE_EQ(cleared_result.state, Lowl::Audio::AudioSource::RenderState::Finished);
+        REQUIRE_EQ(cleared_frame.left, doctest::Approx(0.0f));
+        REQUIRE_EQ(cleared_frame.right, doctest::Approx(0.0f));
+
+        const Lowl::AudioAssetHandle second_asset_handle = audio_space.add_audio(
+            make_stereo_audio_data({StereoSample{0.75f, -0.25f}}),
+            error
+        );
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE(second_asset_handle.is_valid());
+
+        const Lowl::AudioPlaybackHandle second_playback = audio_space.create_playback(second_asset_handle);
+        REQUIRE(second_playback.is_valid());
+        REQUIRE_EQ(second_playback.id, first_playback.id);
+        REQUIRE_NE(second_playback.generation, first_playback.generation);
+
+        audio_space.play(first_playback);
+
+        auto [stale_result, stale_frame] = render_one_frame(audio_space);
+        REQUIRE_EQ(stale_result.frames_produced, 0U);
+        REQUIRE_EQ(stale_result.state, Lowl::Audio::AudioSource::RenderState::Finished);
+        REQUIRE_EQ(stale_frame.left, doctest::Approx(0.0f));
+        REQUIRE_EQ(stale_frame.right, doctest::Approx(0.0f));
+
+        audio_space.play(second_playback);
+
+        auto [reused_result, reused_frame] = render_one_frame(audio_space);
+        REQUIRE_EQ(reused_result.frames_produced, 1U);
+        REQUIRE_EQ(reused_result.state, Lowl::Audio::AudioSource::RenderState::Ok);
+        REQUIRE_EQ(reused_frame.left, doctest::Approx(0.75f));
+        REQUIRE_EQ(reused_frame.right, doctest::Approx(-0.25f));
+    }
+
+    SUBCASE("AudioSpace - retired asset slots are reused with a new generation") {
+        const Lowl::AudioAssetHandle first_asset_handle = audio_space.add_audio(
+            make_stereo_audio_data({StereoSample{0.125f, 0.25f}}),
+            error
+        );
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE(first_asset_handle.is_valid());
+
+        const Lowl::AudioPlaybackHandle first_playback = audio_space.create_playback(first_asset_handle);
+        REQUIRE(first_playback.is_valid());
+
+        audio_space.clear_all_audio();
+
+        const Lowl::AudioAssetHandle second_asset_handle = audio_space.add_audio(
+            make_stereo_audio_data({StereoSample{0.5f, -0.5f}}),
+            error
+        );
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE(second_asset_handle.is_valid());
+        REQUIRE_EQ(second_asset_handle.id, first_asset_handle.id);
+        REQUIRE_NE(second_asset_handle.generation, first_asset_handle.generation);
+        REQUIRE_EQ(audio_space.create_playback(first_asset_handle), Lowl::Audio::AudioSpace::InvalidAudioPlaybackHandle);
+        REQUIRE(audio_space.create_playback(second_asset_handle).is_valid());
+    }
+
+    SUBCASE("AudioSpace - handles are rejected across spaces even when ids and generations match") {
+        Lowl::Error other_error;
+        Lowl::Audio::AudioSpace other_audio_space(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+
+        const Lowl::AudioAssetHandle first_asset_handle = audio_space.add_audio(
+            make_stereo_audio_data({StereoSample{0.125f, 0.25f}}),
+            error
+        );
+        const Lowl::AudioAssetHandle second_asset_handle = other_audio_space.add_audio(
+            make_stereo_audio_data({StereoSample{0.5f, -0.5f}}),
+            other_error
+        );
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE_FALSE(other_error.has_error());
+        REQUIRE(first_asset_handle.is_valid());
+        REQUIRE(second_asset_handle.is_valid());
+        REQUIRE_EQ(first_asset_handle.id, second_asset_handle.id);
+        REQUIRE_EQ(first_asset_handle.generation, second_asset_handle.generation);
+        REQUIRE_NE(first_asset_handle.owner_id, second_asset_handle.owner_id);
+        REQUIRE_EQ(other_audio_space.create_playback(first_asset_handle),
+                   Lowl::Audio::AudioSpace::InvalidAudioPlaybackHandle);
+
+        const Lowl::AudioPlaybackHandle first_playback = audio_space.create_playback(first_asset_handle);
+        const Lowl::AudioPlaybackHandle second_playback = other_audio_space.create_playback(second_asset_handle);
+
+        REQUIRE(first_playback.is_valid());
+        REQUIRE(second_playback.is_valid());
+        REQUIRE_EQ(first_playback.id, second_playback.id);
+        REQUIRE_EQ(first_playback.generation, second_playback.generation);
+        REQUIRE_NE(first_playback.owner_id, second_playback.owner_id);
+        REQUIRE_EQ(other_audio_space.get_frame_count(first_playback), 0U);
+        REQUIRE_GT(other_audio_space.get_frame_count(second_playback), 0U);
     }
 }

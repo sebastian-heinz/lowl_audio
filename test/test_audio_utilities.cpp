@@ -29,14 +29,14 @@ namespace {
             std::move(storage),
             frame_count,
             44100.0,
-            Lowl::Audio::AudioChannel::Stereo
+            Lowl::Audio::ChannelLayout::Stereo
         );
     }
 }
 
 TEST_CASE("AudioUtilities") {
     auto render_one_frame = [](Lowl::Audio::AudioStream &p_audio_stream) {
-        Lowl::Audio::AudioBuffer buffer(1, static_cast<uint8_t>(p_audio_stream.get_channel_num()));
+        Lowl::Audio::AudioBuffer buffer(1, p_audio_stream.get_channel_count());
         Lowl::Audio::AudioBlockView block = buffer.view(1);
         buffer.clear(1);
         Lowl::Audio::AudioSource::RenderResult result = p_audio_stream.render(block);
@@ -48,11 +48,9 @@ TEST_CASE("AudioUtilities") {
         return std::make_pair(result, frame);
     };
 
-    SUBCASE("AudioChannel helpers map 6 and 8 channel modes") {
-        REQUIRE_EQ(Lowl::Audio::get_channel_num(Lowl::Audio::AudioChannel::Surround5_1), 6);
-        REQUIRE_EQ(Lowl::Audio::get_channel_num(Lowl::Audio::AudioChannel::Surround7_1), 8);
-        REQUIRE_EQ(Lowl::Audio::get_channel(6), Lowl::Audio::AudioChannel::Surround5_1);
-        REQUIRE_EQ(Lowl::Audio::get_channel(8), Lowl::Audio::AudioChannel::Surround7_1);
+    SUBCASE("ChannelLayout from_count maps 6 and 8 channel modes") {
+        REQUIRE_EQ(Lowl::Audio::ChannelLayout::from_count(6), Lowl::Audio::ChannelLayout::Surround_5_1);
+        REQUIRE_EQ(Lowl::Audio::ChannelLayout::from_count(8), Lowl::Audio::ChannelLayout::Surround_7_1);
     }
 
     SUBCASE("AudioUtilities - to_stream preserves more than 100 frames") {
@@ -99,7 +97,7 @@ TEST_CASE("AudioUtilities") {
             std::move(storage),
             frame_count,
             48000.0,
-            Lowl::Audio::AudioChannel::Surround5_1
+            Lowl::Audio::ChannelLayout::Surround_5_1
         );
 
         Lowl::Error error;

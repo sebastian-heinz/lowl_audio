@@ -98,9 +98,9 @@ uint32_t Lowl::Audio::CoreAudioUtilities::get_num_channel(AudioObjectID p_device
     return num_channel;
 }
 
-Lowl::Audio::AudioChannelMask Lowl::Audio::CoreAudioUtilities::get_channel_layout(AudioObjectID p_device_id,
-                                                                                  AudioObjectPropertyScope p_scope,
-                                                                                  Lowl::Error &error) {
+Lowl::Audio::ChannelLayout Lowl::Audio::CoreAudioUtilities::get_channel_layout(AudioObjectID p_device_id,
+                                                                               AudioObjectPropertyScope p_scope,
+                                                                               Lowl::Error &error) {
     AudioObjectPropertyAddress channel_layout_property = {
         kAudioDevicePropertyPreferredChannelLayout, p_scope, kAudioObjectPropertyElementMain};
     uint32_t channel_layout_size = 0;
@@ -108,10 +108,10 @@ Lowl::Audio::AudioChannelMask Lowl::Audio::CoreAudioUtilities::get_channel_layou
         AudioObjectGetPropertyDataSize(p_device_id, &channel_layout_property, 0, nullptr, &channel_layout_size);
     if (result != kAudioHardwareNoError) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
-        return AudioChannelMask::NONE;
+        return {};
     }
     if (channel_layout_size < sizeof(AudioChannelLayout)) {
-        return AudioChannelMask::NONE;
+        return {};
     }
 
     std::vector<uint8_t> channel_layout_buffer(channel_layout_size);
@@ -120,10 +120,10 @@ Lowl::Audio::AudioChannelMask Lowl::Audio::CoreAudioUtilities::get_channel_layou
         AudioObjectGetPropertyData(p_device_id, &channel_layout_property, 0, nullptr, &channel_layout_size, channel_layout);
     if (result != kAudioHardwareNoError) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
-        return AudioChannelMask::NONE;
+        return {};
     }
 
-    return CoreAudioLayout::to_channel_mask(*channel_layout);
+    return CoreAudioLayout::to_channel_layout(*channel_layout);
 }
 
 void Lowl::Audio::CoreAudioUtilities::set_audio_unit_channel_layout(AudioUnit p_audio_unit,

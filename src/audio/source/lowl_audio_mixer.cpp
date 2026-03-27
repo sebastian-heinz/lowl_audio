@@ -21,10 +21,10 @@ namespace {
 } // namespace
 
 Lowl::Audio::AudioMixer::AudioMixer(const SampleRate p_sample_rate,
-                                    const AudioChannel p_channel,
+                                    const ChannelLayout p_channel_layout,
                                     const uint32_t p_scratch_buffer_capacity)
-    : AudioSource(p_sample_rate, p_channel),
-      scratch_buffer(std::max<uint32_t>(1U, p_scratch_buffer_capacity), static_cast<uint8_t>(get_channel_num())) {
+    : AudioSource(p_sample_rate, p_channel_layout),
+      scratch_buffer(std::max<uint32_t>(1U, p_scratch_buffer_capacity), get_channel_count()) {
     sources.fill(ActiveSourceSlot{});
     events = std::make_unique<moodycamel::ConcurrentQueue<AudioMixerEvent>>();
 }
@@ -267,7 +267,7 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render(AudioBloc
         return {0, RenderState::Starved};
     }
 
-    const uint8_t expected_channel_count = static_cast<uint8_t>(get_channel_num());
+    const uint8_t expected_channel_count = get_channel_count();
     if (p_block.channel_count != expected_channel_count) {
         for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
             std::fill_n(p_block.channel(channel_index), p_block.frame_count, static_cast<Sample>(0));
@@ -296,9 +296,9 @@ void Lowl::Audio::AudioMixer::mix(const AudioMixerHandle p_handle, AudioSource *
     if (p_audio_source == nullptr) {
         return;
     }
-    if (p_audio_source->get_channel() != channel) {
-        LOWL_LOG_ERROR("Lowl::AudioMixer::mix: p_audio_source(" + std::to_string(p_audio_source->get_channel_num()) +
-                       "ch) does not match mixer(" + std::to_string(get_channel_num()) + "ch) channel count.");
+    if (p_audio_source->get_channel_layout() != channel_layout) {
+        LOWL_LOG_ERROR("Lowl::AudioMixer::mix: source layout(" + p_audio_source->get_channel_layout().to_string() +
+                       ") does not match mixer layout(" + channel_layout.to_string() + ").");
         p_audio_source->on_removed_from_mixer();
         if (p_handle.is_valid()) {
             AudioMixerAck ack = {};

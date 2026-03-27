@@ -5,7 +5,7 @@
 #include <utility>
 
 void Lowl::Audio::AudioData::rebuild_channel_ptrs() {
-    channel_ptrs.assign(get_channel_num(), nullptr);
+    channel_ptrs.assign(get_channel_count(), nullptr);
     if (!storage) {
         return;
     }
@@ -17,8 +17,11 @@ void Lowl::Audio::AudioData::rebuild_channel_ptrs() {
 Lowl::Audio::AudioData::AudioData(std::unique_ptr<Sample[]> p_storage,
                                   const size_t p_frame_count,
                                   SampleRate p_sample_rate,
-                                  AudioChannel p_channel)
-    : storage(std::move(p_storage)), sample_rate(p_sample_rate), channel(p_channel), frame_count(p_frame_count) {
+                                  ChannelLayout p_channel_layout)
+    : storage(std::move(p_storage)),
+      sample_rate(p_sample_rate),
+      channel_layout(p_channel_layout),
+      frame_count(p_frame_count) {
     rebuild_channel_ptrs();
     name = std::string();
 }
@@ -28,7 +31,7 @@ std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioData::create_slice(Tim
     size_t first_frame = static_cast<size_t>(p_begin_sec * sample_rate);
     size_t last_frame = static_cast<size_t>(p_end_sec * sample_rate);
     if (frame_count == 0) {
-        return std::make_unique<AudioData>(std::unique_ptr<Sample[]>(), 0, sample_rate, channel);
+        return std::make_unique<AudioData>(std::unique_ptr<Sample[]>(), 0, sample_rate, channel_layout);
     }
     first_frame = std::min(first_frame, frame_count);
     last_frame = p_end_sec > 0.0 ? std::min(last_frame, frame_count) : frame_count;
@@ -37,7 +40,7 @@ std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioData::create_slice(Tim
     }
     const size_t slice_frame_count = last_frame - first_frame;
     std::unique_ptr<Sample[]> slice_storage;
-    const size_t channel_count = get_channel_num();
+    const uint8_t channel_count = get_channel_count();
     if (slice_frame_count > 0 && channel_count > 0) {
         slice_storage = std::make_unique<Sample[]>(slice_frame_count * channel_count);
         for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
@@ -51,7 +54,7 @@ std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioData::create_slice(Tim
         }
     }
     std::unique_ptr<AudioData> audio_data =
-        std::make_unique<AudioData>(std::move(slice_storage), slice_frame_count, sample_rate, channel);
+        std::make_unique<AudioData>(std::move(slice_storage), slice_frame_count, sample_rate, channel_layout);
     audio_data->set_name(name);
     return audio_data;
 }
@@ -70,12 +73,12 @@ Lowl::SampleRate Lowl::Audio::AudioData::get_sample_rate() const {
     return sample_rate;
 }
 
-Lowl::Audio::AudioChannel Lowl::Audio::AudioData::get_channel() const {
-    return channel;
+Lowl::Audio::ChannelLayout Lowl::Audio::AudioData::get_channel_layout() const {
+    return channel_layout;
 }
 
-size_t Lowl::Audio::AudioData::get_channel_num() const {
-    return Audio::get_channel_num(channel);
+uint8_t Lowl::Audio::AudioData::get_channel_count() const {
+    return channel_layout.channel_count;
 }
 
 Lowl::size_l Lowl::Audio::AudioData::get_frames_remaining() const {

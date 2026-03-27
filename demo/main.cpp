@@ -11,8 +11,8 @@ bool print_all_device_properties = false;
 
 void print_audio_properties(Lowl::Audio::AudioDeviceProperties p_device_properties) {
     std::cout << "-- SampleRate:" << std::to_string(p_device_properties.sample_rate) << "\n";
-    std::cout << "-- Channel:" << std::to_string(Lowl::Audio::get_channel_num(p_device_properties.channel)) << "\n";
-    std::cout << "-- ChannelMap:" << audio_channel_mask_string(p_device_properties.channel_map) << "\n";
+    std::cout << "-- Channel:" << std::to_string(p_device_properties.channel_layout.channel_count) << "\n";
+    std::cout << "-- ChannelLayout:" << p_device_properties.channel_layout.to_string() << "\n";
     std::cout << "-- SampleFormat:" << Lowl::Audio::sample_format_to_string(p_device_properties.sample_format) << "\n";
     std::cout << "-- Exclusive:" << (p_device_properties.exclusive_mode ? "TRUE" : "FALSE") << "\n";
 }
@@ -22,32 +22,33 @@ void print_audio_properties(Lowl::Audio::AudioDeviceProperties p_device_properti
  */
 void space(std::shared_ptr<Lowl::Audio::AudioDevice> device, Lowl::Audio::AudioDeviceProperties p_device_properties) {
     std::shared_ptr<Lowl::Audio::AudioSpace> space =
-        std::make_shared<Lowl::Audio::AudioSpace>(p_device_properties.sample_rate, p_device_properties.channel);
+        std::make_shared<Lowl::Audio::AudioSpace>(p_device_properties.sample_rate, p_device_properties.channel_layout);
     Lowl::Error error;
     struct PlaybackEntry {
-        Lowl::AudioAssetId asset_id = Lowl::Audio::AudioSpace::InvalidAudioAssetId;
+        Lowl::AudioAssetHandle asset_handle = Lowl::Audio::AudioSpace::InvalidAudioAssetHandle;
         Lowl::AudioPlaybackHandle playback_handle = Lowl::Audio::AudioSpace::InvalidAudioPlaybackHandle;
     };
     std::vector<PlaybackEntry> playback_entries;
 
     for (std::string music_path : music_paths) {
-        const Lowl::AudioAssetId asset_id = space->add_audio(music_path, error);
-        if (error.has_error()) {
+        const Lowl::AudioAssetHandle asset_handle = space->add_audio(music_path, error);
+        if (error.has_error() || !asset_handle.is_valid()) {
             std::cout << "Err: space->add_audio (" << music_path << ")\n";
             error.clear();
             continue;
         }
-        const Lowl::AudioPlaybackHandle playback_handle = space->create_playback(asset_id);
+        const Lowl::AudioPlaybackHandle playback_handle = space->create_playback(asset_handle);
         if (!playback_handle.is_valid()) {
             std::cout << "Err: space->create_playback (" << music_path << ")\n";
             continue;
         }
-        playback_entries.push_back({asset_id, playback_handle});
+        playback_entries.push_back({asset_handle, playback_handle});
     }
 
     std::map<Lowl::AudioAssetId, std::string> mapping = space->get_name_mapping();
     for (const PlaybackEntry &entry : playback_entries) {
-        const std::string audio_name = mapping.count(entry.asset_id) > 0 ? mapping.at(entry.asset_id) : std::string();
+        const std::string audio_name =
+            mapping.count(entry.asset_handle.id) > 0 ? mapping.at(entry.asset_handle.id) : std::string();
         std::cout << "Playback Entry: " << entry.playback_handle.id << "->" << audio_name << "\n";
     }
 

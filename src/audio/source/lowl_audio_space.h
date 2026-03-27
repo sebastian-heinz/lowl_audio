@@ -9,6 +9,7 @@
 
 #include "./lowl_typedef.h"
 #include "audio/backend/lowl_audio_device.h"
+#include "audio/source/lowl_audio_asset_handle.h"
 #include "audio/source/lowl_audio_data.h"
 #include "audio/source/lowl_audio_mixer.h"
 #include "audio/source/lowl_audio_playback_handle.h"
@@ -26,6 +27,7 @@ namespace Lowl::Audio {
     class AudioSpace : public AudioSource {
     public:
         static constexpr AudioAssetId InvalidAudioAssetId = 0;
+        static constexpr AudioAssetHandle InvalidAudioAssetHandle = {};
         static constexpr AudioPlaybackHandle InvalidAudioPlaybackHandle = {};
 
     private:
@@ -41,26 +43,36 @@ namespace Lowl::Audio {
 
         struct PlaybackSlot {
             std::unique_ptr<AudioVoice> voice;
-            AudioAssetId audio_asset_id = InvalidAudioAssetId;
+            AudioAssetHandle audio_asset_handle = InvalidAudioAssetHandle;
             uint16_l generation = 1;
             SlotState slot_state = SlotState::Active;
         };
 
-        std::vector<std::shared_ptr<AudioData>> audio_asset_lookup;
+        struct AssetSlot {
+            std::shared_ptr<AudioData> audio_data;
+            uint16_l generation = 1;
+        };
+
+        std::vector<AssetSlot> audio_asset_lookup;
         std::vector<PlaybackSlot> playback_lookup;
+        std::vector<AudioAssetId> free_audio_asset_slots;
+        std::vector<AudioPlaybackId> free_playback_slots;
         mutable std::mutex state_mutex;
         std::unique_ptr<AudioMixer> mixer;
+        uint32_l owner_id;
         uint16_l mixer_owner_id;
         AudioAssetId current_audio_asset_id;
         AudioPlaybackId current_audio_playback_slot_id;
 
-        AudioAssetId insert_audio_asset_locked(std::shared_ptr<AudioData> p_audio_data);
-        AudioPlaybackHandle insert_playback_locked(std::unique_ptr<AudioVoice> p_voice, AudioAssetId p_audio_asset_id);
-        void recycle_playback_locked(PlaybackSlot &p_slot);
+        AudioAssetHandle insert_audio_asset_locked(std::shared_ptr<AudioData> p_audio_data);
+        AudioPlaybackHandle insert_playback_locked(std::unique_ptr<AudioVoice> p_voice,
+                                                   AudioAssetHandle p_audio_asset_handle);
+        void recycle_audio_asset_locked(AudioAssetId p_asset_id, AssetSlot &p_slot);
+        void recycle_playback_locked(AudioPlaybackId p_slot_id, PlaybackSlot &p_slot);
 
         void drain_mixer_acks_locked();
 
-        std::shared_ptr<AudioData> get_audio_asset_locked(AudioAssetId p_audio_asset_id) const;
+        std::shared_ptr<AudioData> get_audio_asset_locked(AudioAssetHandle p_audio_asset_handle) const;
         AudioMixerHandle get_mixer_handle_locked(AudioPlaybackHandle p_audio_playback_handle) const;
         PlaybackSlot *get_playback_slot_locked(AudioPlaybackHandle p_audio_playback_handle);
         const PlaybackSlot *get_playback_slot_locked(AudioPlaybackHandle p_audio_playback_handle) const;
@@ -82,11 +94,11 @@ namespace Lowl::Audio {
 
         void stop(AudioPlaybackHandle p_audio_playback_handle);
 
-        AudioAssetId add_audio(const std::string &p_path, Error &error);
+        AudioAssetHandle add_audio(const std::string &p_path, Error &error);
 
-        AudioAssetId add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error);
+        AudioAssetHandle add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error);
 
-        AudioPlaybackHandle create_playback(AudioAssetId p_audio_asset_id);
+        AudioPlaybackHandle create_playback(AudioAssetHandle p_audio_asset_handle);
 
         std::map<AudioAssetId, std::string> get_name_mapping() const;
 
@@ -111,7 +123,7 @@ namespace Lowl::Audio {
         void seek_frame(AudioPlaybackHandle p_audio_playback_handle, size_t p_frame);
 
         AudioSpace(SampleRate p_sample_rate,
-                   AudioChannel p_channel,
+                   ChannelLayout p_channel_layout,
                    uint32_t p_mixer_scratch_buffer_capacity = AudioMixer::DefaultScratchBufferCapacity);
 
         ~AudioSpace() override;

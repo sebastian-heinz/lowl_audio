@@ -28,14 +28,31 @@ namespace {
             std::move(storage),
             frame_count,
             44100.0,
-            Lowl::Audio::AudioChannel::Stereo
+            Lowl::Audio::ChannelLayout::Stereo
         );
+    }
+
+    std::unique_ptr<Lowl::Audio::AudioData>
+    make_audio_data(Lowl::Audio::ChannelLayout p_layout, const std::vector<Lowl::Sample> &p_interleaved_frames) {
+        const uint8_t channel_count = p_layout.channel_count;
+        const size_t frame_count = channel_count == 0 ? 0 : p_interleaved_frames.size() / channel_count;
+        std::unique_ptr<Lowl::Sample[]> storage;
+        if (frame_count > 0 && channel_count > 0) {
+            storage = std::make_unique<Lowl::Sample[]>(frame_count * channel_count);
+            for (size_t frame_index = 0; frame_index < frame_count; frame_index++) {
+                for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
+                    storage[static_cast<size_t>(channel_index) * frame_count + frame_index] =
+                        p_interleaved_frames[frame_index * channel_count + channel_index];
+                }
+            }
+        }
+        return std::make_unique<Lowl::Audio::AudioData>(std::move(storage), frame_count, 44100.0, p_layout);
     }
 }
 
 TEST_CASE("AudioData") {
     auto render_one_frame = [](Lowl::Audio::AudioVoice &p_audio_voice) {
-        Lowl::Audio::AudioBuffer buffer(1, static_cast<uint8_t>(p_audio_voice.get_channel_num()));
+        Lowl::Audio::AudioBuffer buffer(1, p_audio_voice.get_channel_count());
         Lowl::Audio::AudioBlockView block = buffer.view(1);
         buffer.clear(1);
         Lowl::Audio::AudioSource::RenderResult result = p_audio_voice.render(block);
@@ -87,6 +104,43 @@ TEST_CASE("AudioData") {
         REQUIRE_EQ(read3.right, 0.5);
     }
 
+    SUBCASE("AudioVoice - multichannel panning only touches front left and right speakers") {
+        std::shared_ptr<Lowl::Audio::AudioData> surround_audio = std::move(make_audio_data(
+            Lowl::Audio::ChannelLayout::Surround_5_1, {0.5f, 0.5f, 0.25f, 0.125f, 0.75f, -0.75f}));
+        Lowl::Audio::AudioVoice surround_voice(surround_audio);
+        surround_voice.set_panning(1);
+
+        Lowl::Audio::AudioBuffer buffer(1, surround_voice.get_channel_count());
+        Lowl::Audio::AudioBlockView block = buffer.view(1);
+        buffer.clear(1);
+        Lowl::Audio::AudioSource::RenderResult result = surround_voice.render(block);
+
+        REQUIRE_EQ(result.frames_produced, 1U);
+        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Remove);
+        REQUIRE_EQ(block.channel(0)[0], doctest::Approx(0.0f));
+        REQUIRE_EQ(block.channel(1)[0], doctest::Approx(0.5f * 1.41421356f));
+        REQUIRE_EQ(block.channel(2)[0], doctest::Approx(0.25f));
+        REQUIRE_EQ(block.channel(3)[0], doctest::Approx(0.125f));
+        REQUIRE_EQ(block.channel(4)[0], doctest::Approx(0.75f));
+        REQUIRE_EQ(block.channel(5)[0], doctest::Approx(-0.75f));
+    }
+
+    SUBCASE("AudioVoice - mono panning has no effect without front left/right speakers") {
+        std::shared_ptr<Lowl::Audio::AudioData> mono_audio =
+            std::move(make_audio_data(Lowl::Audio::ChannelLayout::Mono, {0.5f}));
+        Lowl::Audio::AudioVoice mono_voice(mono_audio);
+        mono_voice.set_panning(-1);
+
+        Lowl::Audio::AudioBuffer buffer(1, mono_voice.get_channel_count());
+        Lowl::Audio::AudioBlockView block = buffer.view(1);
+        buffer.clear(1);
+        Lowl::Audio::AudioSource::RenderResult result = mono_voice.render(block);
+
+        REQUIRE_EQ(result.frames_produced, 1U);
+        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Remove);
+        REQUIRE_EQ(block.channel(0)[0], doctest::Approx(0.5f));
+    }
+
     SUBCASE("AudioVoice - render rejects mismatched channel block") {
         Lowl::Audio::AudioBuffer mono_buffer(1, 1);
         Lowl::Audio::AudioBlockView mono_block = mono_buffer.view(1);
@@ -126,7 +180,7 @@ TEST_CASE("AudioData") {
             std::move(storage),
             3,
             10.0,
-            Lowl::Audio::AudioChannel::Stereo
+            Lowl::Audio::ChannelLayout::Stereo
         );
 
         std::unique_ptr<Lowl::Audio::AudioData> slice = sliced_source.create_slice(0.1, 0.3);

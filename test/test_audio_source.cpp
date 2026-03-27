@@ -11,7 +11,7 @@ namespace {
     class NameProbeSource final : public Lowl::Audio::AudioSource {
     public:
         NameProbeSource()
-            : AudioSource(44100.0, Lowl::Audio::AudioChannel::Stereo) {
+            : AudioSource(44100.0, Lowl::Audio::ChannelLayout::Stereo) {
         }
 
         RenderResult render(Lowl::Audio::AudioBlockView) override {

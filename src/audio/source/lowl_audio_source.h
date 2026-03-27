@@ -37,8 +37,8 @@ namespace Lowl::Audio {
         std::string name;
 
     protected:
-        SampleRate sample_rate;
-        AudioChannel channel;
+        const SampleRate sample_rate;
+        const ChannelLayout channel_layout;
         std::atomic<bool> playback_enabled{true};
 
         void process_volume(AudioBlockView p_block) const;
@@ -46,7 +46,7 @@ namespace Lowl::Audio {
         void process_panning(AudioBlockView p_block) const;
 
     public:
-        AudioSource(SampleRate p_sample_rate, AudioChannel p_channel);
+        AudioSource(SampleRate p_sample_rate, ChannelLayout p_channel_layout);
 
         virtual ~AudioSource() = default;
 
@@ -68,9 +68,9 @@ namespace Lowl::Audio {
 
         SampleRate get_sample_rate() const;
 
-        AudioChannel get_channel() const;
+        ChannelLayout get_channel_layout() const;
 
-        size_t get_channel_num() const;
+        uint8_t get_channel_count() const;
 
         SampleFormat get_sample_format() const;
 

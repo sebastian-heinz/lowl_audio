@@ -5,7 +5,7 @@
 
 Lowl::Audio::AudioVoice::AudioVoice(std::shared_ptr<const AudioData> p_audio_data)
     : AudioSource(p_audio_data ? p_audio_data->get_sample_rate() : NO_SAMPLE_RATE,
-                  p_audio_data ? p_audio_data->get_channel() : AudioChannel::None),
+                  p_audio_data ? p_audio_data->get_channel_layout() : ChannelLayout{}),
       audio_data(std::move(p_audio_data)) {
     render_position.store(0, std::memory_order_relaxed);
     reported_position.store(0, std::memory_order_release);
@@ -21,7 +21,7 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::render(AudioBloc
         return {0, RenderState::Starved};
     }
 
-    const uint8_t expected_channel_count = static_cast<uint8_t>(get_channel_num());
+    const uint8_t expected_channel_count = get_channel_count();
     if (p_block.channel_count != expected_channel_count) {
         for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
             std::fill_n(p_block.channel(channel_index), p_block.frame_count, static_cast<Sample>(0));

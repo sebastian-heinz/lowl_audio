@@ -38,15 +38,17 @@ namespace Lowl::Audio {
 
         std::unique_ptr<AudioData> create_audio_data(AudioFormat p_audio_format,
                                                      SampleFormat p_sample_format,
-                                                     AudioChannel p_channel,
+                                                     ChannelLayout p_layout,
                                                      SampleRate p_sample_rate,
                                                      const std::unique_ptr<uint8_t[]> &p_buffer,
                                                      size_t p_size,
+                                                     const std::vector<Speaker> &p_input_speakers,
                                                      Error &error);
 
-        std::unique_ptr<AudioData> create_audio_data(AudioChannel p_channel,
+        std::unique_ptr<AudioData> create_audio_data(ChannelLayout p_layout,
                                                      const std::vector<float> &p_samples,
                                                      SampleRate p_sample_rate,
+                                                     const std::vector<Speaker> &p_input_speakers,
                                                      Error &error);
 
     public:

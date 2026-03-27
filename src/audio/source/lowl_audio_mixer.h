@@ -82,7 +82,7 @@ namespace Lowl::Audio {
         bool try_dequeue_ack(uint16_l p_owner_id, AudioMixerAck &p_ack);
 
         AudioMixer(SampleRate p_sample_rate,
-                   AudioChannel p_channel,
+                   ChannelLayout p_channel_layout,
                    uint32_t p_scratch_buffer_capacity = DefaultScratchBufferCapacity);
 
         ~AudioMixer() override = default;

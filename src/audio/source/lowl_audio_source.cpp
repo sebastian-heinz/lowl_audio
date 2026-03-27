@@ -2,10 +2,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
-Lowl::Audio::AudioSource::AudioSource(const SampleRate p_sample_rate, const AudioChannel p_channel) {
-    sample_rate = p_sample_rate;
-    channel = p_channel;
+Lowl::Audio::AudioSource::AudioSource(const SampleRate p_sample_rate, const ChannelLayout p_channel_layout)
+    : sample_rate(p_sample_rate), channel_layout(p_channel_layout) {
     volume.store(DEFAULT_VOLUME);
     panning.store(DEFAULT_PANNING);
     name = std::string();
@@ -15,8 +15,8 @@ Lowl::SampleRate Lowl::Audio::AudioSource::get_sample_rate() const {
     return sample_rate;
 }
 
-Lowl::Audio::AudioChannel Lowl::Audio::AudioSource::get_channel() const {
-    return channel;
+Lowl::Audio::ChannelLayout Lowl::Audio::AudioSource::get_channel_layout() const {
+    return channel_layout;
 }
 
 Lowl::Audio::SampleFormat Lowl::Audio::AudioSource::get_sample_format() const {
@@ -32,14 +32,14 @@ void Lowl::Audio::AudioSource::on_removed_from_mixer() {
 Lowl::Audio::AudioDeviceProperties Lowl::Audio::AudioSource::get_properties() const {
     AudioDeviceProperties properties{};
     properties.exclusive_mode = false;
-    properties.channel = get_channel();
+    properties.channel_layout = get_channel_layout();
     properties.sample_format = get_sample_format();
     properties.sample_rate = get_sample_rate();
     return properties;
 }
 
-size_t Lowl::Audio::AudioSource::get_channel_num() const {
-    return Audio::get_channel_num(channel);
+uint8_t Lowl::Audio::AudioSource::get_channel_count() const {
+    return channel_layout.channel_count;
 }
 
 void Lowl::Audio::AudioSource::set_volume(Volume p_volume) {
@@ -71,24 +71,28 @@ void Lowl::Audio::AudioSource::process_volume(AudioBlockView p_block) const {
 
 void Lowl::Audio::AudioSource::process_panning(AudioBlockView p_block) const {
     const Panning pan = panning.load(std::memory_order_relaxed);
-    if (p_block.channel_count == 0) {
+    if (std::abs(pan - DEFAULT_PANNING) <= std::numeric_limits<Volume>::epsilon() || p_block.channel_count == 0) {
         return;
     }
 
-    const Sample gain_l = static_cast<Sample>(std::sqrt(1.0 - pan));
-    Sample *left = p_block.channel(0);
-    for (uint32_t frame_index = 0; frame_index < p_block.frame_count; frame_index++) {
-        left[frame_index] *= gain_l;
+    const Volume clamped = std::clamp(pan, static_cast<Volume>(-1), static_cast<Volume>(1));
+    const int left_index = channel_layout.index_of(Speaker::FrontLeft);
+    const int right_index = channel_layout.index_of(Speaker::FrontRight);
+
+    if (left_index >= 0) {
+        const Volume left_gain = static_cast<Volume>(std::sqrt(static_cast<Sample>(1) - clamped));
+        Sample *left = p_block.channel(static_cast<uint8_t>(left_index));
+        for (uint32_t frame_index = 0; frame_index < p_block.frame_count; frame_index++) {
+            left[frame_index] *= left_gain;
+        }
     }
 
-    if (p_block.channel_count < 2) {
-        return;
-    }
-
-    const Sample gain_r = static_cast<Sample>(std::sqrt(1.0 + pan));
-    Sample *right = p_block.channel(1);
-    for (uint32_t frame_index = 0; frame_index < p_block.frame_count; frame_index++) {
-        right[frame_index] *= gain_r;
+    if (right_index >= 0) {
+        const Volume right_gain = static_cast<Volume>(std::sqrt(static_cast<Sample>(1) + clamped));
+        Sample *right = p_block.channel(static_cast<uint8_t>(right_index));
+        for (uint32_t frame_index = 0; frame_index < p_block.frame_count; frame_index++) {
+            right[frame_index] *= right_gain;
+        }
     }
 }
 

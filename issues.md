@@ -33,7 +33,7 @@
 | 12 | High | Thread | **Fixed** | `AudioSource::name` data race between control and render threads |
 | 13 | Medium | Thread | **Fixed** | `Logger` static state unprotected across threads |
 | 14 | Medium | Performance | **Fixed** | Mixer linear scan over 1024 slots on the real-time thread |
-| 15 | Medium | Lifecycle | Open | Playback slot and asset-id monotonic exhaustion |
+| 15 | Medium | Lifecycle | **Fixed** | Playback slot and asset-id monotonic exhaustion |
 | 16 | Medium | Resource | **Fixed** | CoreAudio `get_num_channel` memory leak and wrong allocation |
 | 17 | Medium | Build | **Fixed** | ELF-only linker flags applied on macOS Clang builds |
 | 18 | Low | Bug | **Fixed** | `format_log()` argument order inconsistency between size pass and format pass |
@@ -595,10 +595,10 @@ Maintain a stack/ring of free indices. On add, pop a free index. On remove, push
 
 ---
 
-## Issue 15 — Playback Slot and Asset-ID Monotonic Exhaustion
+## Issue 15 — Playback Slot and Asset-ID Monotonic Exhaustion — **FIXED**
 
 **Severity:** Medium
-**Files:** `src/audio/source/lowl_audio_space.h`, `src/audio/source/lowl_audio_space.cpp`, `src/lowl_typedef.h`
+**Files:** `src/audio/source/lowl_audio_asset_handle.h`, `src/audio/source/lowl_audio_space.h`, `src/audio/source/lowl_audio_space.cpp`, `src/lowl_typedef.h`
 
 ### Problem
 
@@ -622,6 +622,8 @@ Implementation for playback reuse:
 - In `recycle_playback_locked()`: push the slot ID onto `free_playback_slots`.
 - In `insert_playback_locked()`: pop from `free_playback_slots` before falling through to monotonic allocation.
 - Keep the generation bump on recycle (already implemented).
+
+**Fix applied:** Solution B for assets, Solution A for playbacks — `AudioAssetId` stays `uint16_t`, assets now use `AudioAssetHandle { id, generation }` with slot reuse on `clear_all_audio()`, and playback slots still reuse retired IDs via a free-list while preserving generation bumps so stale handles stay invalid.
 
 ---
 

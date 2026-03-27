@@ -36,7 +36,7 @@ namespace Lowl::Audio {
         static uint32_t
         get_num_channel(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope, Lowl::Error &error);
 
-        static AudioChannelMask
+        static ChannelLayout
         get_channel_layout(AudioObjectID p_device_id, AudioObjectPropertyScope p_scope, Lowl::Error &error);
 
         static void set_audio_unit_channel_layout(AudioUnit _Nonnull p_audio_unit,

@@ -17,7 +17,7 @@ namespace Lowl::Audio {
         std::unique_ptr<Sample[]> storage;
         std::vector<Sample *> channel_ptrs;
         SampleRate sample_rate;
-        AudioChannel channel;
+        ChannelLayout channel_layout;
         size_t frame_count = 0;
         std::string name;
 
@@ -35,12 +35,12 @@ namespace Lowl::Audio {
         AudioData(std::unique_ptr<Sample[]> p_storage,
                   size_t p_frame_count,
                   SampleRate p_sample_rate,
-                  AudioChannel p_channel);
+                  ChannelLayout p_channel_layout);
         ~AudioData();
 
         SampleRate get_sample_rate() const;
-        AudioChannel get_channel() const;
-        size_t get_channel_num() const;
+        ChannelLayout get_channel_layout() const;
+        uint8_t get_channel_count() const;
         size_l get_frames_remaining() const;
         size_l get_frame_position() const;
         size_l get_frame_count() const;

@@ -38,10 +38,11 @@ TEST_CASE("AudioReader") {
         std::unique_ptr<Lowl::Audio::AudioData> audio_data = reader.create_audio_data(
             Lowl::Audio::AudioFormat::WAVE_FORMAT_IEEE_FLOAT,
             Lowl::Audio::SampleFormat::FLOAT_32,
-            Lowl::Audio::AudioChannel::Stereo,
+            Lowl::Audio::ChannelLayout::Stereo,
             44100.0,
             buffer,
             byte_count,
+            {},
             error
         );
 
@@ -62,15 +63,16 @@ TEST_CASE("AudioReader") {
 
         Lowl::Error error;
         std::unique_ptr<Lowl::Audio::AudioData> audio_data = reader.create_audio_data(
-            Lowl::Audio::AudioChannel::Surround5_1,
+            Lowl::Audio::ChannelLayout::Surround_5_1,
             samples,
             48000.0,
+            {},
             error
         );
 
         REQUIRE_FALSE(error.has_error());
         REQUIRE(audio_data != nullptr);
-        REQUIRE_EQ(audio_data->get_channel_num(), 6U);
+        REQUIRE_EQ(audio_data->get_channel_count(), 6U);
         REQUIRE_EQ(audio_data->get_frame_count(), 2U);
         for (uint8_t channel_index = 0; channel_index < 6; channel_index++) {
             const Lowl::Sample *channel = audio_data->get_channel_data(channel_index);

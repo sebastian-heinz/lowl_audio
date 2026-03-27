@@ -5,7 +5,6 @@
 #include <avrt.h>
 
 #include <algorithm>
-#include <bitset>
 #include <functional>
 #include <thread>
 
@@ -79,6 +78,13 @@ GUID LOWL_GUID_KSDATAFORMAT_SUBTYPE_PCM = {
 GUID LOWL_GUID_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT = {
     0x00000003, 0x0000, 0x0010, {0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}};
 
+static constexpr Lowl::Audio::ChannelLayout kProbeLayouts[] = {
+    Lowl::Audio::ChannelLayout::Mono,
+    Lowl::Audio::ChannelLayout::Stereo,
+    Lowl::Audio::ChannelLayout::Surround_5_1,
+    Lowl::Audio::ChannelLayout::Surround_7_1,
+};
+
 static DWORD WINAPI
 
 wasapi_audio_callback(void *param) {
@@ -112,10 +118,9 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
         error.set_error(Lowl::ErrorCode::Error);
         return;
     }
-    if (p_audio_source != nullptr && p_audio_source->get_channel() != p_audio_device_properties.channel) {
-        LOWL_LOG_ERROR("WasapiDevice::start: p_audio_source(" + std::to_string(p_audio_source->get_channel_num()) +
-                       "ch) does not match device(" +
-                       std::to_string(get_channel_num(p_audio_device_properties.channel)) + "ch) channel count.");
+    if (p_audio_source != nullptr && p_audio_source->get_channel_layout() != p_audio_device_properties.channel_layout) {
+        LOWL_LOG_ERROR("WasapiDevice::start: source layout(" + p_audio_source->get_channel_layout().to_string() +
+                       ") does not match device layout(" + p_audio_device_properties.channel_layout.to_string() + ").");
         error.set_error(Lowl::ErrorCode::InvalidParameter);
         return;
     }
@@ -481,7 +486,7 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
 
         const uint32_t bytes_per_frame =
             static_cast<uint32_t>(get_sample_size_bytes(audio_device_properties.sample_format) *
-                                  get_channel_num(audio_device_properties.channel));
+                                  audio_device_properties.channel_layout.channel_count);
         render_to_device_buffer(audio_buffer_byte_ptr, available_frames_in_buffer, bytes_per_frame);
 
         result = audio_render_client->ReleaseBuffer(available_frames_in_buffer, 0);
@@ -562,7 +567,7 @@ Lowl::Audio::WasapiDevice::construct(const std::string &p_driver_name, void *p_w
     std::unique_ptr<WasapiDevice> device = std::make_unique<WasapiDevice>(_constructor_tag{});
     device->name = device_name;
     device->wasapi_device = wasapi_device;
-    device->properties = audio_device_properties;
+    device->properties_list = audio_device_properties;
 
     return device;
 }
@@ -589,116 +594,6 @@ GUID Lowl::Audio::WasapiDevice::get_wave_sub_format(const Lowl::Audio::SampleFor
         default:
             return GUID_NULL;
     }
-}
-
-Lowl::Audio::AudioChannelMask Lowl::Audio::WasapiDevice::to_channel_bit(DWORD p_wasapi_channel_bit) {
-    switch (p_wasapi_channel_bit) {
-        case SPEAKER_FRONT_LEFT:
-            return AudioChannelMask::LEFT;
-        case SPEAKER_FRONT_RIGHT:
-            return AudioChannelMask::RIGHT;
-        case SPEAKER_FRONT_CENTER:
-            return AudioChannelMask::FRONT_CENTER;
-        case SPEAKER_LOW_FREQUENCY:
-            return AudioChannelMask::LOW_FREQUENCY;
-        case SPEAKER_BACK_LEFT:
-            return AudioChannelMask::BACK_LEFT;
-        case SPEAKER_BACK_RIGHT:
-            return AudioChannelMask::BACK_RIGHT;
-        case SPEAKER_FRONT_LEFT_OF_CENTER:
-            return AudioChannelMask::FRONT_LEFT_OF_CENTER;
-        case SPEAKER_FRONT_RIGHT_OF_CENTER:
-            return AudioChannelMask::FRONT_RIGHT_OF_CENTER;
-        case SPEAKER_BACK_CENTER:
-            return AudioChannelMask::BACK_CENTER;
-        case SPEAKER_SIDE_LEFT:
-            return AudioChannelMask::SIDE_LEFT;
-        case SPEAKER_SIDE_RIGHT:
-            return AudioChannelMask::SIDE_RIGHT;
-        case SPEAKER_TOP_CENTER:
-            return AudioChannelMask::TOP_CENTER;
-        case SPEAKER_TOP_FRONT_LEFT:
-            return AudioChannelMask::TOP_FRONT_LEFT;
-        case SPEAKER_TOP_FRONT_CENTER:
-            return AudioChannelMask::TOP_FRONT_CENTER;
-        case SPEAKER_TOP_FRONT_RIGHT:
-            return AudioChannelMask::TOP_FRONT_RIGHT;
-        case SPEAKER_TOP_BACK_LEFT:
-            return AudioChannelMask::TOP_BACK_LEFT;
-        case SPEAKER_TOP_BACK_CENTER:
-            return AudioChannelMask::TOP_BACK_CENTER;
-        case SPEAKER_TOP_BACK_RIGHT:
-            return AudioChannelMask::TOP_BACK_RIGHT;
-        default:
-            return AudioChannelMask::NONE;
-    }
-}
-
-DWORD Lowl::Audio::WasapiDevice::to_wasapi_channel_bit(AudioChannelMask p_channel_bit) {
-    switch (p_channel_bit) {
-        case AudioChannelMask::LEFT:
-            return SPEAKER_FRONT_LEFT;
-        case AudioChannelMask::RIGHT:
-            return SPEAKER_FRONT_RIGHT;
-        case AudioChannelMask::FRONT_CENTER:
-            return SPEAKER_FRONT_CENTER;
-        case AudioChannelMask::LOW_FREQUENCY:
-            return SPEAKER_LOW_FREQUENCY;
-        case AudioChannelMask::BACK_LEFT:
-            return SPEAKER_BACK_LEFT;
-        case AudioChannelMask::BACK_RIGHT:
-            return SPEAKER_BACK_RIGHT;
-        case AudioChannelMask::FRONT_LEFT_OF_CENTER:
-            return SPEAKER_FRONT_LEFT_OF_CENTER;
-        case AudioChannelMask::FRONT_RIGHT_OF_CENTER:
-            return SPEAKER_FRONT_RIGHT_OF_CENTER;
-        case AudioChannelMask::BACK_CENTER:
-            return SPEAKER_BACK_CENTER;
-        case AudioChannelMask::SIDE_LEFT:
-            return SPEAKER_SIDE_LEFT;
-        case AudioChannelMask::SIDE_RIGHT:
-            return SPEAKER_SIDE_RIGHT;
-        case AudioChannelMask::TOP_CENTER:
-            return SPEAKER_TOP_CENTER;
-        case AudioChannelMask::TOP_FRONT_LEFT:
-            return SPEAKER_TOP_FRONT_LEFT;
-        case AudioChannelMask::TOP_FRONT_CENTER:
-            return SPEAKER_TOP_FRONT_CENTER;
-        case AudioChannelMask::TOP_FRONT_RIGHT:
-            return SPEAKER_TOP_FRONT_RIGHT;
-        case AudioChannelMask::TOP_BACK_LEFT:
-            return SPEAKER_TOP_BACK_LEFT;
-        case AudioChannelMask::TOP_BACK_CENTER:
-            return SPEAKER_TOP_BACK_CENTER;
-        case AudioChannelMask::TOP_BACK_RIGHT:
-            return SPEAKER_TOP_BACK_RIGHT;
-        default:
-            return 0;
-    }
-}
-
-Lowl::Audio::AudioChannelMask Lowl::Audio::WasapiDevice::to_channel_mask(DWORD p_wasapi_channel_map) {
-    AudioChannelMask channel_map = AudioChannelMask();
-    std::bitset<32> wasapi_channel_bits(p_wasapi_channel_map);
-    for (int i = 0; i < 32; i++) {
-        if (wasapi_channel_bits.test(i)) {
-            AudioChannelMask channel_bit = to_channel_bit(1 << i);
-            channel_map = channel_map | channel_bit;
-        }
-    }
-    return channel_map;
-}
-
-DWORD Lowl::Audio::WasapiDevice::to_wasapi_channel_mask(AudioChannelMask p_channel_map) {
-    DWORD wasapi_channel_map = 0;
-    std::bitset<32> channel_bits((uint_fast32_t)p_channel_map);
-    for (int i = 0; i < 32; i++) {
-        if (channel_bits.test(i)) {
-            DWORD wasapi_bit = to_wasapi_channel_bit(AudioChannelMask(1 << i));
-            wasapi_channel_map = wasapi_channel_map | wasapi_bit;
-        }
-    }
-    return wasapi_channel_map;
 }
 
 /***
@@ -739,15 +634,17 @@ Lowl::Audio::AudioDeviceProperties
 Lowl::Audio::WasapiDevice::to_audio_device_properties(const WAVEFORMATEX *p_wave_format_ex) {
     AudioDeviceProperties properties = AudioDeviceProperties();
     properties.sample_rate = p_wave_format_ex->nSamplesPerSec;
-    properties.channel = Lowl::Audio::get_channel(p_wave_format_ex->nChannels);
+    properties.channel_layout = ChannelLayout::from_count(static_cast<uint8_t>(p_wave_format_ex->nChannels));
     properties.sample_format = Lowl::Audio::SampleFormat::Unknown;
 
     if (p_wave_format_ex->wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
         const WAVEFORMATEXTENSIBLE *wave_format_extensible = (const WAVEFORMATEXTENSIBLE *)p_wave_format_ex;
 
         properties.wasapi.valid_bits_per_sample = wave_format_extensible->Samples.wValidBitsPerSample;
-
-        properties.channel_map = to_channel_mask(wave_format_extensible->dwChannelMask);
+        properties.channel_layout =
+            wave_format_extensible->dwChannelMask != 0
+                ? ChannelLayout::from_mask(wave_format_extensible->dwChannelMask)
+                : ChannelLayout::from_count(static_cast<uint8_t>(p_wave_format_ex->nChannels));
 
         if (IsEqualGUID(*(const GUID *)&wave_format_extensible->SubFormat,
                         *(const GUID *)&LOWL_GUID_KSDATAFORMAT_SUBTYPE_PCM)) {
@@ -805,7 +702,7 @@ WAVEFORMATEXTENSIBLE Lowl::Audio::WasapiDevice::to_wave_format_extensible(
     WAVEFORMATEXTENSIBLE wfe = WAVEFORMATEXTENSIBLE();
     wfe.Format.cbSize = sizeof(wfe);
     wfe.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
-    wfe.Format.nChannels = (WORD)get_channel_num(audio_device_properties.channel);
+    wfe.Format.nChannels = (WORD)audio_device_properties.channel_layout.channel_count;
     wfe.Format.nSamplesPerSec = (DWORD)audio_device_properties.sample_rate;
 
     if (audio_device_properties.wasapi.valid_bits_per_sample > 0) {
@@ -820,7 +717,7 @@ WAVEFORMATEXTENSIBLE Lowl::Audio::WasapiDevice::to_wave_format_extensible(
     wfe.Format.nBlockAlign = (wfe.Format.nChannels * wfe.Format.wBitsPerSample) / 8;
     wfe.Format.nAvgBytesPerSec = wfe.Format.nBlockAlign * wfe.Format.nSamplesPerSec;
 
-    wfe.dwChannelMask = to_wasapi_channel_mask(audio_device_properties.channel_map);
+    wfe.dwChannelMask = audio_device_properties.channel_layout.speaker_mask;
     wfe.SubFormat = get_wave_sub_format(audio_device_properties.sample_format);
     return wfe;
 }
@@ -842,15 +739,16 @@ std::vector<Lowl::Audio::AudioDeviceProperties> Lowl::Audio::WasapiDevice::creat
     std::vector<SampleFormat> test_sample_formats = Lowl::Audio::AudioSetting::get_test_sample_formats();
     for (int sample_format_index = 0; sample_format_index < test_sample_formats.size(); sample_format_index++) {
         for (int sample_rate_index = 0; sample_rate_index < test_sample_rates.size(); sample_rate_index++) {
-            AudioDeviceProperties test_properties = AudioDeviceProperties();
-            test_properties.sample_format = test_sample_formats[sample_format_index];
-            test_properties.sample_rate = test_sample_rates[sample_rate_index];
-            test_properties.channel = AudioChannel::Stereo;
-            test_properties.channel_map = AudioChannelMask::LEFT | AudioChannelMask::RIGHT;
+            for (const ChannelLayout &probe_layout : kProbeLayouts) {
+                AudioDeviceProperties test_properties = AudioDeviceProperties();
+                test_properties.sample_format = test_sample_formats[sample_format_index];
+                test_properties.sample_rate = test_sample_rates[sample_rate_index];
+                test_properties.channel_layout = probe_layout;
 
-            std::vector<Lowl::Audio::AudioDeviceProperties> test_properties_list =
-                create_device_properties(p_wasapi_device, test_properties, device_name, error);
-            properties_list.insert(properties_list.end(), test_properties_list.begin(), test_properties_list.end());
+                std::vector<Lowl::Audio::AudioDeviceProperties> test_properties_list =
+                    create_device_properties(p_wasapi_device, test_properties, device_name, error);
+                properties_list.insert(properties_list.end(), test_properties_list.begin(), test_properties_list.end());
+            }
         }
     }
 

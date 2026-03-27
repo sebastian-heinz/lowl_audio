@@ -3,247 +3,179 @@
 #include "lowl_audio_core_audio_layout.h"
 
 namespace {
-    using Lowl::Audio::AudioChannelMask;
-    using Lowl::Audio::AudioDeviceProperties;
+    using Lowl::Audio::ChannelLayout;
+    using Lowl::Audio::Speaker;
 
-    constexpr AudioChannelMask kMonoMask = AudioChannelMask::MONO;
-    constexpr AudioChannelMask kStereoMask = AudioChannelMask::LEFT | AudioChannelMask::RIGHT;
-    constexpr AudioChannelMask kThreeZeroMask = kStereoMask | AudioChannelMask::FRONT_CENTER;
-    constexpr AudioChannelMask kQuadSideMask = kStereoMask | AudioChannelMask::SIDE_LEFT | AudioChannelMask::SIDE_RIGHT;
-    constexpr AudioChannelMask kQuadRearMask = kStereoMask | AudioChannelMask::BACK_LEFT | AudioChannelMask::BACK_RIGHT;
-    constexpr AudioChannelMask kFourZeroCenterBackMask = kThreeZeroMask | AudioChannelMask::BACK_CENTER;
-    constexpr AudioChannelMask kFiveZeroSideMask = kThreeZeroMask | AudioChannelMask::SIDE_LEFT | AudioChannelMask::SIDE_RIGHT;
-    constexpr AudioChannelMask kFiveZeroRearMask = kThreeZeroMask | AudioChannelMask::BACK_LEFT | AudioChannelMask::BACK_RIGHT;
-    constexpr AudioChannelMask kFiveOneSideMask = kFiveZeroSideMask | AudioChannelMask::LOW_FREQUENCY;
-    constexpr AudioChannelMask kFiveOneRearMask = kFiveZeroRearMask | AudioChannelMask::LOW_FREQUENCY;
-    constexpr AudioChannelMask kSixOneMask = kFiveOneSideMask | AudioChannelMask::BACK_CENTER;
-    constexpr AudioChannelMask kSevenOneFrontMask =
-        kFiveOneSideMask | AudioChannelMask::FRONT_LEFT_OF_CENTER | AudioChannelMask::FRONT_RIGHT_OF_CENTER;
-    constexpr AudioChannelMask kSevenOneSurroundMask =
-        kFiveOneSideMask | AudioChannelMask::BACK_LEFT | AudioChannelMask::BACK_RIGHT;
-
-    AudioChannelMask to_channel_mask_from_label(const AudioChannelLabel p_label) {
+    Speaker to_speaker_from_label(const AudioChannelLabel p_label) {
         switch (p_label) {
             case kAudioChannelLabel_Mono:
-                return AudioChannelMask::MONO;
-            case kAudioChannelLabel_Left:
-                return AudioChannelMask::LEFT;
-            case kAudioChannelLabel_Right:
-                return AudioChannelMask::RIGHT;
             case kAudioChannelLabel_Center:
-                return AudioChannelMask::FRONT_CENTER;
+                return Speaker::FrontCenter;
+            case kAudioChannelLabel_Left:
+                return Speaker::FrontLeft;
+            case kAudioChannelLabel_Right:
+                return Speaker::FrontRight;
             case kAudioChannelLabel_LFEScreen:
             case kAudioChannelLabel_LFE2:
             case kAudioChannelLabel_LFE3:
-                return AudioChannelMask::LOW_FREQUENCY;
+                return Speaker::LowFrequency;
             case kAudioChannelLabel_LeftSurround:
             case kAudioChannelLabel_LeftSurroundDirect:
             case kAudioChannelLabel_LeftSideSurround:
-                return AudioChannelMask::SIDE_LEFT;
+                return Speaker::SideLeft;
             case kAudioChannelLabel_RightSurround:
             case kAudioChannelLabel_RightSurroundDirect:
             case kAudioChannelLabel_RightSideSurround:
-                return AudioChannelMask::SIDE_RIGHT;
+                return Speaker::SideRight;
             case kAudioChannelLabel_LeftCenter:
-                return AudioChannelMask::FRONT_LEFT_OF_CENTER;
+                return Speaker::FrontLeftOfCenter;
             case kAudioChannelLabel_RightCenter:
-                return AudioChannelMask::FRONT_RIGHT_OF_CENTER;
+                return Speaker::FrontRightOfCenter;
             case kAudioChannelLabel_CenterSurround:
             case kAudioChannelLabel_CenterSurroundDirect:
-                return AudioChannelMask::BACK_CENTER;
+                return Speaker::BackCenter;
             case kAudioChannelLabel_RearSurroundLeft:
             case kAudioChannelLabel_LeftBackSurround:
-                return AudioChannelMask::BACK_LEFT;
+                return Speaker::BackLeft;
             case kAudioChannelLabel_RearSurroundRight:
             case kAudioChannelLabel_RightBackSurround:
-                return AudioChannelMask::BACK_RIGHT;
+                return Speaker::BackRight;
             case kAudioChannelLabel_TopCenterSurround:
-                return AudioChannelMask::TOP_CENTER;
+                return Speaker::TopCenter;
             case kAudioChannelLabel_VerticalHeightLeft:
-                return AudioChannelMask::TOP_FRONT_LEFT;
+                return Speaker::TopFrontLeft;
             case kAudioChannelLabel_VerticalHeightCenter:
-                return AudioChannelMask::TOP_FRONT_CENTER;
+                return Speaker::TopFrontCenter;
             case kAudioChannelLabel_VerticalHeightRight:
-                return AudioChannelMask::TOP_FRONT_RIGHT;
+                return Speaker::TopFrontRight;
             case kAudioChannelLabel_TopBackLeft:
-                return AudioChannelMask::TOP_BACK_LEFT;
+                return Speaker::TopBackLeft;
             case kAudioChannelLabel_TopBackCenter:
-                return AudioChannelMask::TOP_BACK_CENTER;
+                return Speaker::TopBackCenter;
             case kAudioChannelLabel_TopBackRight:
-                return AudioChannelMask::TOP_BACK_RIGHT;
+                return Speaker::TopBackRight;
             default:
-                return AudioChannelMask::NONE;
+                return static_cast<Speaker>(0);
         }
     }
 
-    AudioChannelMask to_channel_mask_from_bitmap(const AudioChannelBitmap p_bitmap) {
+    ChannelLayout to_channel_layout_from_bitmap(const AudioChannelBitmap p_bitmap) {
         struct BitmapMapping {
             AudioChannelBitmap bit;
-            AudioChannelMask mask;
+            Speaker speaker;
         };
 
         static constexpr BitmapMapping bit_mappings[] = {
-            {kAudioChannelBit_Left, AudioChannelMask::LEFT},
-            {kAudioChannelBit_Right, AudioChannelMask::RIGHT},
-            {kAudioChannelBit_Center, AudioChannelMask::FRONT_CENTER},
-            {kAudioChannelBit_LFEScreen, AudioChannelMask::LOW_FREQUENCY},
-            {kAudioChannelBit_LeftSurround, AudioChannelMask::SIDE_LEFT},
-            {kAudioChannelBit_RightSurround, AudioChannelMask::SIDE_RIGHT},
-            {kAudioChannelBit_LeftCenter, AudioChannelMask::FRONT_LEFT_OF_CENTER},
-            {kAudioChannelBit_RightCenter, AudioChannelMask::FRONT_RIGHT_OF_CENTER},
-            {kAudioChannelBit_CenterSurround, AudioChannelMask::BACK_CENTER},
-            {kAudioChannelBit_LeftSurroundDirect, AudioChannelMask::SIDE_LEFT},
-            {kAudioChannelBit_RightSurroundDirect, AudioChannelMask::SIDE_RIGHT},
-            {kAudioChannelBit_TopCenterSurround, AudioChannelMask::TOP_CENTER},
-            {kAudioChannelBit_VerticalHeightLeft, AudioChannelMask::TOP_FRONT_LEFT},
-            {kAudioChannelBit_VerticalHeightCenter, AudioChannelMask::TOP_FRONT_CENTER},
-            {kAudioChannelBit_VerticalHeightRight, AudioChannelMask::TOP_FRONT_RIGHT},
-            {kAudioChannelBit_TopBackLeft, AudioChannelMask::TOP_BACK_LEFT},
-            {kAudioChannelBit_TopBackCenter, AudioChannelMask::TOP_BACK_CENTER},
-            {kAudioChannelBit_TopBackRight, AudioChannelMask::TOP_BACK_RIGHT},
+            {kAudioChannelBit_Left, Speaker::FrontLeft},
+            {kAudioChannelBit_Right, Speaker::FrontRight},
+            {kAudioChannelBit_Center, Speaker::FrontCenter},
+            {kAudioChannelBit_LFEScreen, Speaker::LowFrequency},
+            {kAudioChannelBit_LeftSurround, Speaker::SideLeft},
+            {kAudioChannelBit_RightSurround, Speaker::SideRight},
+            {kAudioChannelBit_LeftCenter, Speaker::FrontLeftOfCenter},
+            {kAudioChannelBit_RightCenter, Speaker::FrontRightOfCenter},
+            {kAudioChannelBit_CenterSurround, Speaker::BackCenter},
+            {kAudioChannelBit_LeftSurroundDirect, Speaker::SideLeft},
+            {kAudioChannelBit_RightSurroundDirect, Speaker::SideRight},
+            {kAudioChannelBit_TopCenterSurround, Speaker::TopCenter},
+            {kAudioChannelBit_VerticalHeightLeft, Speaker::TopFrontLeft},
+            {kAudioChannelBit_VerticalHeightCenter, Speaker::TopFrontCenter},
+            {kAudioChannelBit_VerticalHeightRight, Speaker::TopFrontRight},
+            {kAudioChannelBit_TopBackLeft, Speaker::TopBackLeft},
+            {kAudioChannelBit_TopBackCenter, Speaker::TopBackCenter},
+            {kAudioChannelBit_TopBackRight, Speaker::TopBackRight},
         };
 
         uint32_t remaining_bits = static_cast<uint32_t>(p_bitmap);
-        AudioChannelMask channel_mask = AudioChannelMask::NONE;
+        uint32_t speaker_mask = 0;
         for (const BitmapMapping &mapping : bit_mappings) {
             const uint32_t bit = static_cast<uint32_t>(mapping.bit);
-            if ((remaining_bits & bit) == 0) {
+            if ((remaining_bits & bit) == 0u) {
                 continue;
             }
-            channel_mask = channel_mask | mapping.mask;
+            speaker_mask |= Lowl::Audio::speaker_bits(mapping.speaker);
             remaining_bits &= ~bit;
         }
 
-        if (remaining_bits != 0) {
-            return AudioChannelMask::NONE;
+        if (remaining_bits != 0u) {
+            return {};
         }
-
-        return channel_mask;
+        return ChannelLayout::from_mask(speaker_mask);
     }
 
-    AudioChannelMask to_channel_mask_from_descriptions(const AudioChannelDescription *p_descriptions,
-                                                       const UInt32 p_description_count) {
-        AudioChannelMask channel_mask = AudioChannelMask::NONE;
+    ChannelLayout to_channel_layout_from_descriptions(const AudioChannelDescription *p_descriptions,
+                                                      const UInt32 p_description_count) {
+        uint32_t speaker_mask = 0;
         for (UInt32 description_index = 0; description_index < p_description_count; description_index++) {
-            const AudioChannelMask channel_bit = to_channel_mask_from_label(p_descriptions[description_index].mChannelLabel);
-            if (channel_bit == AudioChannelMask::NONE) {
-                return AudioChannelMask::NONE;
+            const Speaker speaker = to_speaker_from_label(p_descriptions[description_index].mChannelLabel);
+            if (speaker == static_cast<Speaker>(0)) {
+                return {};
             }
-            channel_mask = channel_mask | channel_bit;
+            speaker_mask |= Lowl::Audio::speaker_bits(speaker);
         }
-
-        return channel_mask;
-    }
-
-    AudioChannelLayoutTag to_channel_layout_tag(const AudioDeviceProperties &p_properties) {
-        const AudioChannelMask channel_map = p_properties.channel_map;
-        if (channel_map == AudioChannelMask::MONO) {
-            return kAudioChannelLayoutTag_Mono;
-        }
-        if (channel_map == kStereoMask) {
-            return kAudioChannelLayoutTag_Stereo;
-        }
-        if (channel_map == kQuadSideMask) {
-            return kAudioChannelLayoutTag_Quadraphonic;
-        }
-        if (channel_map == kQuadRearMask) {
-            return kAudioChannelLayoutTag_WAVE_4_0_B;
-        }
-        if (channel_map == kThreeZeroMask) {
-            return kAudioChannelLayoutTag_MPEG_3_0_A;
-        }
-        if (channel_map == kFourZeroCenterBackMask) {
-            return kAudioChannelLayoutTag_MPEG_4_0_A;
-        }
-        if (channel_map == kFiveZeroSideMask) {
-            return kAudioChannelLayoutTag_MPEG_5_0_A;
-        }
-        if (channel_map == kFiveZeroRearMask) {
-            return kAudioChannelLayoutTag_WAVE_5_0_B;
-        }
-        if (channel_map == kFiveOneSideMask) {
-            return kAudioChannelLayoutTag_MPEG_5_1_A;
-        }
-        if (channel_map == kFiveOneRearMask) {
-            return kAudioChannelLayoutTag_WAVE_5_1_B;
-        }
-        if (channel_map == kSixOneMask) {
-            return kAudioChannelLayoutTag_MPEG_6_1_A;
-        }
-        if (channel_map == kSevenOneFrontMask) {
-            return kAudioChannelLayoutTag_MPEG_7_1_A;
-        }
-        if (channel_map == kSevenOneSurroundMask) {
-            return kAudioChannelLayoutTag_MPEG_7_1_C;
-        }
-        return kAudioChannelLayoutTag_Unknown;
+        return ChannelLayout::from_mask(speaker_mask);
     }
 } // namespace
 
-Lowl::Audio::AudioChannelMask Lowl::Audio::CoreAudioLayout::to_channel_mask(const AudioChannelLayout &p_layout) {
+Lowl::Audio::ChannelLayout Lowl::Audio::CoreAudioLayout::to_channel_layout(const AudioChannelLayout &p_layout) {
     switch (p_layout.mChannelLayoutTag) {
         case kAudioChannelLayoutTag_UseChannelBitmap:
-            return to_channel_mask_from_bitmap(p_layout.mChannelBitmap);
+            return to_channel_layout_from_bitmap(p_layout.mChannelBitmap);
         case kAudioChannelLayoutTag_UseChannelDescriptions:
-            return to_channel_mask_from_descriptions(p_layout.mChannelDescriptions, p_layout.mNumberChannelDescriptions);
+            return to_channel_layout_from_descriptions(p_layout.mChannelDescriptions, p_layout.mNumberChannelDescriptions);
         case kAudioChannelLayoutTag_Mono:
-            return kMonoMask;
+            return ChannelLayout::Mono;
         case kAudioChannelLayoutTag_Stereo:
         case kAudioChannelLayoutTag_StereoHeadphones:
-            return kStereoMask;
+            return ChannelLayout::Stereo;
         case kAudioChannelLayoutTag_MPEG_3_0_A:
         case kAudioChannelLayoutTag_MPEG_3_0_B:
         case kAudioChannelLayoutTag_AC3_3_0:
-            return kThreeZeroMask;
+            return ChannelLayout::Surround_3_0;
         case kAudioChannelLayoutTag_Quadraphonic:
         case kAudioChannelLayoutTag_ITU_2_2:
-            return kQuadSideMask;
+            return ChannelLayout::Quad_Side;
         case kAudioChannelLayoutTag_WAVE_4_0_B:
-            return kQuadRearMask;
+            return ChannelLayout::Quad;
         case kAudioChannelLayoutTag_MPEG_4_0_A:
         case kAudioChannelLayoutTag_MPEG_4_0_B:
-            return kFourZeroCenterBackMask;
+            return ChannelLayout::Surround_4_0;
         case kAudioChannelLayoutTag_MPEG_5_0_A:
         case kAudioChannelLayoutTag_MPEG_5_0_B:
         case kAudioChannelLayoutTag_MPEG_5_0_C:
         case kAudioChannelLayoutTag_MPEG_5_0_D:
-            return kFiveZeroSideMask;
+            return ChannelLayout::Surround_5_0;
         case kAudioChannelLayoutTag_WAVE_5_0_B:
-            return kFiveZeroRearMask;
+            return ChannelLayout::Surround_5_0_Rear;
         case kAudioChannelLayoutTag_MPEG_5_1_A:
         case kAudioChannelLayoutTag_MPEG_5_1_B:
         case kAudioChannelLayoutTag_MPEG_5_1_C:
         case kAudioChannelLayoutTag_MPEG_5_1_D:
-            return kFiveOneSideMask;
+            return ChannelLayout::Surround_5_1;
         case kAudioChannelLayoutTag_WAVE_5_1_B:
-            return kFiveOneRearMask;
+            return ChannelLayout::Surround_5_1_Rear;
         case kAudioChannelLayoutTag_MPEG_6_1_A:
-            return kSixOneMask;
+            return ChannelLayout::Surround_6_1;
         case kAudioChannelLayoutTag_MPEG_7_1_A:
         case kAudioChannelLayoutTag_MPEG_7_1_B:
-            return kSevenOneFrontMask;
+            return ChannelLayout::Surround_7_1_Front;
         case kAudioChannelLayoutTag_MPEG_7_1_C:
         case kAudioChannelLayoutTag_WAVE_7_1:
-            return kSevenOneSurroundMask;
+            return ChannelLayout::Surround_7_1;
         default:
-            return AudioChannelMask::NONE;
+            return {};
     }
 }
 
-std::vector<uint8_t> Lowl::Audio::CoreAudioLayout::create_channel_layout_data(
-    const AudioDeviceProperties &p_properties) {
-    const AudioChannelLayoutTag layout_tag = to_channel_layout_tag(p_properties);
-    if (layout_tag == kAudioChannelLayoutTag_Unknown) {
-        return {};
-    }
-    if (AudioChannelLayoutTag_GetNumberOfChannels(layout_tag) != get_channel_num(p_properties.channel)) {
+std::vector<uint8_t> Lowl::Audio::CoreAudioLayout::create_channel_layout_data(const ChannelLayout &p_layout) {
+    if (!p_layout.is_valid()) {
         return {};
     }
 
     std::vector<uint8_t> layout_data(sizeof(AudioChannelLayout), 0);
     auto *layout = reinterpret_cast<AudioChannelLayout *>(layout_data.data());
-    layout->mChannelLayoutTag = layout_tag;
-    layout->mChannelBitmap = 0;
+    layout->mChannelLayoutTag = kAudioChannelLayoutTag_UseChannelBitmap;
+    layout->mChannelBitmap = static_cast<AudioChannelBitmap>(p_layout.speaker_mask);
     layout->mNumberChannelDescriptions = 0;
     return layout_data;
 }

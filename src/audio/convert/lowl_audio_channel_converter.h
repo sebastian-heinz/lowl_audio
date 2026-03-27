@@ -11,7 +11,7 @@ namespace Lowl::Audio {
     class ChannelConverter {
     public:
         std::unique_ptr<Lowl::Audio::AudioData>
-        convert(AudioChannel p_to, std::shared_ptr<Lowl::Audio::AudioData> p_audio_data, Error &error) const;
+        convert(ChannelLayout p_target_layout, std::shared_ptr<Lowl::Audio::AudioData> p_audio_data, Error &error) const;
 
         ~ChannelConverter() = default;
     };

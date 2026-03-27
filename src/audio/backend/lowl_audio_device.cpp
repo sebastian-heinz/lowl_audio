@@ -10,12 +10,10 @@
 namespace {
     auto make_property_score(const Lowl::Audio::AudioDeviceProperties &p_requested,
                              const Lowl::Audio::AudioDeviceProperties &p_candidate) {
-        const bool channel_mismatch =
-            p_requested.channel != Lowl::Audio::AudioChannel::None && p_candidate.channel != p_requested.channel;
+        const bool layout_mismatch =
+            p_requested.channel_layout.is_valid() && p_candidate.channel_layout != p_requested.channel_layout;
         const bool format_mismatch = p_requested.sample_format != Lowl::Audio::SampleFormat::Unknown &&
                                      p_candidate.sample_format != p_requested.sample_format;
-        const bool channel_map_mismatch = p_requested.channel_map != Lowl::Audio::AudioChannelMask::NONE &&
-                                          p_candidate.channel_map != p_requested.channel_map;
         const double sample_rate_distance =
             p_requested.sample_rate > Lowl::NO_SAMPLE_RATE &&
                     !Lowl::Audio::sample_rates_equal(p_requested.sample_rate, p_candidate.sample_rate)
@@ -23,9 +21,8 @@ namespace {
                 : 0.0;
 
         return std::make_tuple(!p_candidate.is_supported,
-                               channel_mismatch,
+                               layout_mismatch,
                                format_mismatch,
-                               channel_map_mismatch,
                                p_candidate.exclusive_mode != p_requested.exclusive_mode,
                                sample_rate_distance);
     }
@@ -74,7 +71,7 @@ Lowl::Audio::AudioDevice::~AudioDevice() {
 }
 
 void Lowl::Audio::AudioDevice::allocate_render_buffer(const unsigned long p_frame_capacity) {
-    const uint8_t channel_count = static_cast<uint8_t>(get_channel_num(audio_device_properties.channel));
+    const uint8_t channel_count = audio_device_properties.channel_layout.channel_count;
     render_buffer = std::make_unique<AudioBuffer>(static_cast<uint32_t>(p_frame_capacity), channel_count);
 }
 

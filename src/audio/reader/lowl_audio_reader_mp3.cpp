@@ -42,9 +42,14 @@ Lowl::Audio::AudioReaderMp3::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
         return nullptr;
     }
 
-    const AudioChannel channel = get_channel(mp3.channels);
+    const ChannelLayout layout = ChannelLayout::from_count(static_cast<uint8_t>(mp3.channels));
+    if (!layout.is_valid()) {
+        drmp3_uninit(&mp3);
+        error.set_error(ErrorCode::UnsupportedAudioFormat);
+        return nullptr;
+    }
     const SampleRate sample_rate = mp3.sampleRate;
-    const size_t channel_count = get_channel_num(channel);
+    const uint8_t channel_count = layout.channel_count;
     const drmp3_uint64 total_frames = drmp3_get_pcm_frame_count(&mp3);
 
     std::unique_ptr<Sample[]> storage;
@@ -89,7 +94,7 @@ Lowl::Audio::AudioReaderMp3::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
 
     drmp3_uninit(&mp3);
     std::unique_ptr<AudioData> audio_data =
-        std::make_unique<AudioData>(std::move(storage), decoded_frame_count, sample_rate, channel);
+        std::make_unique<AudioData>(std::move(storage), decoded_frame_count, sample_rate, layout);
     return audio_data;
 }
 

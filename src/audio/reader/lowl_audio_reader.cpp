@@ -36,15 +36,21 @@ Lowl::Audio::AudioReader::AudioReader() {
 std::unique_ptr<Lowl::Audio::AudioData>
 Lowl::Audio::AudioReader::create_audio_data(Lowl::Audio::AudioFormat p_audio_format,
                                             Lowl::Audio::SampleFormat p_sample_format,
-                                            Lowl::Audio::AudioChannel p_channel,
+                                            Lowl::Audio::ChannelLayout p_layout,
                                             SampleRate p_sample_rate,
                                             const std::unique_ptr<uint8_t[]> &p_buffer,
                                             size_t p_size,
+                                            const std::vector<Speaker> &p_input_speakers,
                                             Lowl::Error &error) {
     const size_t sample_size = get_sample_size_bytes(p_sample_format);
-    const size_t channel_count = get_channel_num(p_channel);
+    const uint8_t channel_count = p_layout.channel_count;
     if (sample_size == 0 || channel_count == 0 || p_buffer == nullptr) {
-        return std::make_unique<AudioData>(std::unique_ptr<Sample[]>(), 0, p_sample_rate, p_channel);
+        return std::make_unique<AudioData>(std::unique_ptr<Sample[]>(), 0, p_sample_rate, p_layout);
+    }
+
+    if (!p_input_speakers.empty() && p_input_speakers.size() != channel_count) {
+        error.set_error(ErrorCode::UnsupportedAudioFormat);
+        return nullptr;
     }
 
     const size_t num_samples = p_size / sample_size;
@@ -54,11 +60,32 @@ Lowl::Audio::AudioReader::create_audio_data(Lowl::Audio::AudioFormat p_audio_for
         storage = std::make_unique<Sample[]>(frame_count * channel_count);
     }
 
+    std::vector<int> source_channel_indices(channel_count, -1);
+    for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
+        if (p_input_speakers.empty()) {
+            source_channel_indices[channel_index] = channel_index;
+            continue;
+        }
+
+        const Speaker speaker = p_layout.speaker_at(channel_index);
+        for (size_t input_index = 0; input_index < p_input_speakers.size(); input_index++) {
+            if (p_input_speakers[input_index] == speaker) {
+                source_channel_indices[channel_index] = static_cast<int>(input_index);
+                break;
+            }
+        }
+        if (source_channel_indices[channel_index] < 0) {
+            error.set_error(ErrorCode::UnsupportedAudioFormat);
+            return nullptr;
+        }
+    }
+
     auto write_channel_samples = [&](auto *p_src, auto p_convert) {
-        for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
+        for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
             Sample *dst = storage.get() + channel_index * frame_count;
+            const size_t source_channel_index = static_cast<size_t>(source_channel_indices[channel_index]);
             for (size_t frame_index = 0; frame_index < frame_count; frame_index++) {
-                const size_t sample_index = frame_index * channel_count + channel_index;
+                const size_t sample_index = frame_index * channel_count + source_channel_index;
                 dst[frame_index] = p_convert(p_src[sample_index]);
             }
         }
@@ -129,10 +156,11 @@ Lowl::Audio::AudioReader::create_audio_data(Lowl::Audio::AudioFormat p_audio_for
             case Lowl::Audio::SampleFormat::INT_24: {
                 if (p_size >= 3 && storage) {
                     const uint8_t *src = p_buffer.get();
-                    for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
+                    for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
                         Sample *dst = storage.get() + channel_index * frame_count;
+                        const size_t source_channel_index = static_cast<size_t>(source_channel_indices[channel_index]);
                         for (size_t frame_index = 0; frame_index < frame_count; frame_index++) {
-                            const size_t sample_index = frame_index * channel_count + channel_index;
+                            const size_t sample_index = frame_index * channel_count + source_channel_index;
                             dst[frame_index] = int24_to_float(src + sample_index * 3);
                         }
                     }
@@ -150,15 +178,20 @@ Lowl::Audio::AudioReader::create_audio_data(Lowl::Audio::AudioFormat p_audio_for
         return nullptr;
     }
 
-    return std::make_unique<AudioData>(std::move(storage), frame_count, p_sample_rate, p_channel);
+    return std::make_unique<AudioData>(std::move(storage), frame_count, p_sample_rate, p_layout);
 }
 
-std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioReader::create_audio_data(Lowl::Audio::AudioChannel p_channel,
+std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioReader::create_audio_data(Lowl::Audio::ChannelLayout p_layout,
                                                                                     const std::vector<float> &p_samples,
                                                                                     SampleRate p_sample_rate,
+                                                                                    const std::vector<Speaker> &p_input_speakers,
                                                                                     Lowl::Error &error) {
-    const size_t channel_count = get_channel_num(p_channel);
+    const uint8_t channel_count = p_layout.channel_count;
     if (channel_count == 0) {
+        error.set_error(ErrorCode::UnsupportedAudioFormat);
+        return nullptr;
+    }
+    if (!p_input_speakers.empty() && p_input_speakers.size() != channel_count) {
         error.set_error(ErrorCode::UnsupportedAudioFormat);
         return nullptr;
     }
@@ -167,14 +200,30 @@ std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioReader::create_audio_d
     std::unique_ptr<Sample[]> storage;
     if (frame_count > 0) {
         storage = std::make_unique<Sample[]>(frame_count * channel_count);
-        for (size_t channel_index = 0; channel_index < channel_count; channel_index++) {
+        for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
             Sample *dst = storage.get() + channel_index * frame_count;
+            size_t source_channel_index = channel_index;
+            if (!p_input_speakers.empty()) {
+                source_channel_index = p_input_speakers.size();
+                const Speaker speaker = p_layout.speaker_at(channel_index);
+                for (size_t input_index = 0; input_index < p_input_speakers.size(); input_index++) {
+                    if (p_input_speakers[input_index] == speaker) {
+                        source_channel_index = input_index;
+                        break;
+                    }
+                }
+                if (source_channel_index >= p_input_speakers.size()) {
+                    error.set_error(ErrorCode::UnsupportedAudioFormat);
+                    return nullptr;
+                }
+            }
             for (size_t frame_index = 0; frame_index < frame_count; frame_index++) {
-                dst[frame_index] = static_cast<Sample>(p_samples[frame_index * channel_count + channel_index]);
+                dst[frame_index] =
+                    static_cast<Sample>(p_samples[frame_index * channel_count + source_channel_index]);
             }
         }
     }
-    return std::make_unique<AudioData>(std::move(storage), frame_count, p_sample_rate, p_channel);
+    return std::make_unique<AudioData>(std::move(storage), frame_count, p_sample_rate, p_layout);
 }
 
 std::unique_ptr<Lowl::Audio::AudioReader> Lowl::Audio::AudioReader::create_reader(Lowl::FileFormat format,

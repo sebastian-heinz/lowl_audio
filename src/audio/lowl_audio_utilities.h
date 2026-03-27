@@ -12,8 +12,8 @@ namespace Lowl::Audio {
     class AudioStream;
     class AudioData;
 
-    _INLINE_ size_t ms_to_samples(const size_t ms, const SampleRate sample_rate, const AudioChannel channel) {
-        return ms * static_cast<size_t>(sample_rate) * get_channel_num(channel) / 1000;
+    _INLINE_ size_t ms_to_samples(const size_t ms, const SampleRate sample_rate, const uint8_t channel_count) {
+        return ms * static_cast<size_t>(sample_rate) * channel_count / 1000;
     }
 
     _INLINE_ uint32_l normalize_sample_rate(const SampleRate p_rate) {
@@ -31,6 +31,7 @@ namespace Lowl::Audio {
         };
 
     public:
+        static std::unique_ptr<AudioData> clone_audio_data(const std::shared_ptr<AudioData> &p_audio_data);
         static std::unique_ptr<AudioStream> to_stream(const std::shared_ptr<AudioData> &p_audio_data, Error &error);
     };
 } // namespace Lowl::Audio

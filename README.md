@@ -190,16 +190,16 @@ int main()
 
     Lowl::Error error;
 
-    Lowl::AudioAssetId asset_id = space->add_audio(
+    Lowl::AudioAssetHandle asset_handle = space->add_audio(
         "/Users/railgun/Downloads/CantinaBand60.wav",
         error
     );
-    if (error.has_error() || asset_id == Lowl::Audio::AudioSpace::InvalidAudioAssetId) {
+    if (error.has_error() || !asset_handle.is_valid()) {
         std::cout << "Err: space->add_audio\n";
         return -1;
     }
 
-    Lowl::AudioPlaybackHandle playback_handle = space->create_playback(asset_id);
+    Lowl::AudioPlaybackHandle playback_handle = space->create_playback(asset_handle);
     if (!playback_handle.is_valid()) {
         std::cout << "Err: space->create_playback\n";
         return -1;
@@ -208,7 +208,7 @@ int main()
     // `play()` always starts the playback from frame 0.
     space->play(playback_handle);
 
-    // playback controls operate on the playback handle, not the asset id.
+    // playback controls operate on the playback handle, not the asset handle.
     space->set_volume(playback_handle, 0.5f);
     space->set_panning(playback_handle, -0.25f);
     space->pause(playback_handle);

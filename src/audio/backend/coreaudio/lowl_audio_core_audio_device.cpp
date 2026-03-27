@@ -11,12 +11,11 @@
 #include "lowl_logger.h"
 
 namespace {
-    using Lowl::Audio::AudioChannelMask;
+    using Lowl::Audio::ChannelLayout;
     using Lowl::Audio::AudioDeviceProperties;
 
     bool is_layout_required(const AudioDeviceProperties &p_properties) {
-        return p_properties.channel_map != AudioChannelMask::NONE &&
-               Lowl::Audio::get_channel_num(p_properties.channel) > 2;
+        return p_properties.channel_layout.is_valid() && p_properties.channel_layout.channel_count > 2;
     }
 
     bool set_audio_unit_channel_layout(AudioUnit p_audio_unit,
@@ -24,7 +23,8 @@ namespace {
                                        AudioUnitElement p_element,
                                        const AudioDeviceProperties &p_properties,
                                        Lowl::Error &error) {
-        const std::vector<uint8_t> layout_data = Lowl::Audio::CoreAudioLayout::create_channel_layout_data(p_properties);
+        const std::vector<uint8_t> layout_data =
+            Lowl::Audio::CoreAudioLayout::create_channel_layout_data(p_properties.channel_layout);
         if (layout_data.empty()) {
             return true;
         }
@@ -45,6 +45,13 @@ namespace {
         }
         return false;
     }
+
+    static constexpr ChannelLayout kProbeLayouts[] = {
+        ChannelLayout::Mono,
+        ChannelLayout::Stereo,
+        ChannelLayout::Surround_5_1,
+        ChannelLayout::Surround_7_1,
+    };
 } // namespace
 
 static OSStatus osx_audio_callback(void *inRefCon,
@@ -78,7 +85,7 @@ OSStatus Lowl::Audio::CoreAudioDevice::audio_callback(AudioUnitRenderActionFlags
                                                       AudioBufferList *ioData) {
     const uint32_l sample_size_bytes =
         static_cast<uint32_l>(get_sample_size_bytes(audio_device_properties.sample_format));
-    const uint32_l channels = static_cast<uint32_l>(get_channel_num(audio_device_properties.channel));
+    const uint32_l channels = static_cast<uint32_l>(audio_device_properties.channel_layout.channel_count);
     const uint32_l bytes_per_frame = sample_size_bytes * channels;
 
     const uint32_l actual_bytes_needed = inNumberFrames * bytes_per_frame;
@@ -162,10 +169,9 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
         error.set_error(Lowl::ErrorCode::DevicePropertiesNotSupported);
         return;
     }
-    if (p_audio_source && p_audio_source->get_channel() != p_audio_device_properties.channel) {
-        LOWL_LOG_ERROR("CoreAudioDevice::start: p_audio_source(" + std::to_string(p_audio_source->get_channel_num()) +
-                       "ch) does not match device(" +
-                       std::to_string(get_channel_num(p_audio_device_properties.channel)) + "ch) channel count.");
+    if (p_audio_source && p_audio_source->get_channel_layout() != p_audio_device_properties.channel_layout) {
+        LOWL_LOG_ERROR("CoreAudioDevice::start: source layout(" + p_audio_source->get_channel_layout().to_string() +
+                       ") does not match device layout(" + p_audio_device_properties.channel_layout.to_string() + ").");
         error.set_error(Lowl::ErrorCode::InvalidParameter);
         return;
     }
@@ -337,30 +343,22 @@ Lowl::Audio::CoreAudioDevice::create_device_properties(AudioObjectID p_device_id
     LOWL_LOG_DEBUG_F("Device:%u - output_channel_count: %d", p_device_id, output_channel_count);
 
     Error layout_error;
-    AudioChannelMask output_channel_map =
+    ChannelLayout output_channel_layout =
         Lowl::Audio::CoreAudioUtilities::get_channel_layout(p_device_id, kAudioDevicePropertyScopeOutput, layout_error);
     if (layout_error.has_error()) {
         layout_error.clear();
     }
-    if (output_channel_map == AudioChannelMask::NONE) {
-        if (output_channel_count == 1) {
-            output_channel_map = AudioChannelMask::MONO;
-        } else if (output_channel_count == 2) {
-            output_channel_map = AudioChannelMask::LEFT | AudioChannelMask::RIGHT;
-        }
+    if (!output_channel_layout.is_valid()) {
+        output_channel_layout = ChannelLayout::from_count(static_cast<uint8_t>(output_channel_count));
+        LOWL_LOG_DEBUG_F("Device:%u - output_channel_layout: invalid channel layout, deriving from channel count", p_device_id);
+    } else {
+        LOWL_LOG_DEBUG_F("Device:%u - output_channel_layout: %s", p_device_id, output_channel_layout.to_string().c_str());
     }
-
-    // device default properties
-    AudioStreamBasicDescription descriptionA =
-        CoreAudioUtilities::get_audio_stream_description(test_audio_unit, kAudioUnitScope_Output, error);
-    AudioStreamBasicDescription descriptionB =
-        CoreAudioUtilities::get_audio_stream_description(test_audio_unit, kAudioUnitScope_Input, error);
 
     AudioDeviceProperties default_properties = AudioDeviceProperties();
     default_properties.sample_rate = default_sample_rate;
-    default_properties.channel = get_channel(output_channel_count);
+    default_properties.channel_layout = output_channel_layout;
     default_properties.sample_format = SampleFormat::FLOAT_32;
-    default_properties.channel_map = output_channel_map;
 
     if (test_device_properties(p_device_id, test_audio_unit, default_properties)) {
         default_properties.is_supported = true;
@@ -376,19 +374,20 @@ Lowl::Audio::CoreAudioDevice::create_device_properties(AudioObjectID p_device_id
     for (unsigned long sample_format_index = 0; sample_format_index < test_sample_formats.size();
          sample_format_index++) {
         for (unsigned long sample_rate_index = 0; sample_rate_index < test_sample_rates.size(); sample_rate_index++) {
-            AudioDeviceProperties test_properties = AudioDeviceProperties();
-            test_properties.sample_format = test_sample_formats[sample_format_index];
-            test_properties.sample_rate = test_sample_rates[sample_rate_index];
-            test_properties.channel = AudioChannel::Stereo;
-            test_properties.channel_map = AudioChannelMask::LEFT | AudioChannelMask::RIGHT;
-            test_properties.is_supported = true;
+            for (const ChannelLayout &probe_layout : kProbeLayouts) {
+                AudioDeviceProperties test_properties = AudioDeviceProperties();
+                test_properties.sample_format = test_sample_formats[sample_format_index];
+                test_properties.sample_rate = test_sample_rates[sample_rate_index];
+                test_properties.channel_layout = probe_layout;
+                test_properties.is_supported = true;
 
-            if (!test_device_properties(p_device_id, test_audio_unit, test_properties)) {
-                continue;
+                if (!test_device_properties(p_device_id, test_audio_unit, test_properties)) {
+                    continue;
+                }
+
+                test_properties.is_supported = true;
+                properties_list.push_back(test_properties);
             }
-
-            test_properties.is_supported = true;
-            properties_list.push_back(test_properties);
         }
     }
 
@@ -401,6 +400,10 @@ Lowl::Audio::CoreAudioDevice::create_device_properties(AudioObjectID p_device_id
 bool Lowl::Audio::CoreAudioDevice::test_device_properties(AudioObjectID p_device_id,
                                                           AudioUnit p_audio_unit,
                                                           AudioDeviceProperties p_properties) {
+    if (!p_properties.channel_layout.is_valid()) {
+        return false;
+    }
+
     AudioStreamBasicDescription description = create_description(p_properties);
     OSStatus result = AudioUnitSetProperty(p_audio_unit,
                                            kAudioUnitProperty_StreamFormat,
@@ -488,7 +491,10 @@ AudioUnit _Nullable Lowl::Audio::CoreAudioDevice::create_audio_unit(AudioObjectI
 
 AudioStreamBasicDescription
 Lowl::Audio::CoreAudioDevice::create_description(Lowl::Audio::AudioDeviceProperties p_device_properties) {
-    unsigned long channel_num = Lowl::Audio::get_channel_num(p_device_properties.channel);
+    const unsigned long channel_num = p_device_properties.channel_layout.channel_count;
+    if (channel_num == 0) {
+        return {};
+    }
 
     AudioStreamBasicDescription description{};
     description.mFormatID = kAudioFormatLinearPCM;

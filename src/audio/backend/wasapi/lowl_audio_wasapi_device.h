@@ -34,14 +34,6 @@ namespace Lowl::Audio {
                                  std::string device_name,
                                  Error &error);
 
-        static Lowl::Audio::AudioChannelMask to_channel_mask(DWORD p_wasapi_channel_map);
-
-        static DWORD to_wasapi_channel_mask(AudioChannelMask p_channel_map);
-
-        static Lowl::Audio::AudioChannelMask to_channel_bit(DWORD p_wasapi_channel_bit);
-
-        static DWORD to_wasapi_channel_bit(AudioChannelMask p_channel_bit);
-
         IMMDevice *wasapi_device;
         IAudioClient *audio_client;
         IAudioRenderClient *audio_render_client;

@@ -2,10 +2,10 @@
 
 #include <algorithm>
 
-Lowl::Audio::AudioStream::AudioStream(SampleRate p_sample_rate, AudioChannel p_channel, size_t size)
-    : AudioSource(p_sample_rate, p_channel) {
+Lowl::Audio::AudioStream::AudioStream(SampleRate p_sample_rate, ChannelLayout p_channel_layout, size_t size)
+    : AudioSource(p_sample_rate, p_channel_layout) {
     frame_capacity = size;
-    const uint8_t channel_count = static_cast<uint8_t>(get_channel_num());
+    const uint8_t channel_count = get_channel_count();
     channels =
         std::vector<std::vector<Sample>>(channel_count, std::vector<Sample>(frame_capacity, static_cast<Sample>(0)));
 }
@@ -106,7 +106,7 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioStream::render(AudioBlo
         return {0, RenderState::Starved};
     }
 
-    const uint8_t expected_channel_count = static_cast<uint8_t>(get_channel_num());
+    const uint8_t expected_channel_count = get_channel_count();
     if (p_block.channel_count != expected_channel_count) {
         for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
             std::fill_n(p_block.channel(channel_index), p_block.frame_count, static_cast<Sample>(0));
