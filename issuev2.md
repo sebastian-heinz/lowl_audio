@@ -26,7 +26,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 13 | FIXED | Critical | Bug | Backend | CoreAudio: `start()` leaks resources on partial failure |
 | 14 | FIXED | Critical | Bug | Backend | CoreAudio: `get_device_name` returns `nullptr` for `std::string` (UB crash) |
 | 15 | FIXED | Critical | Bug | C API | Entire C API is dead code and does not compile |
-| 16 | DEFERRED | Critical | Thread | Source | `AudioMixer` stores raw `AudioSource*` with no lifetime guarantee |
+| 16 | FIXED | Critical | Thread | Source | `AudioMixer` stores raw `AudioSource*` with no lifetime guarantee |
 | 17 | FIXED | High | Bug | Converter | `sample_to_int32` UB on out-of-range samples |
 | 18 | FIXED | High | Bug | Source | `AudioVoice::seek_time` -- negative time causes UB in `static_cast<size_t>` |
 | 19 | FIXED | High | Bug | Source | `AudioData::create_slice` -- negative seconds causes UB |
@@ -114,7 +114,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 13 -- FIXED.** Options considered: patch each early return individually, add scope guards around startup resources, or route all failure paths through the same teardown helper used by `stop()`. Decision: a shared `cleanup_failed_start()` path was the safest choice because it removed the leak risk without duplicating cleanup logic across `start()`.
 - **Issue 14 -- FIXED.** Options considered: return `""`, return `std::string()`, or propagate a separate failure object. Decision: returning an empty string is enough to remove the UB and preserve the current API.
 - **Issue 15 -- FIXED.** Options considered: delete the C API, patch it enough to compile, or redesign it around opaque C handles. Decision: remove it entirely. There is no active consumer, it was never built, and the current surface is not salvageable without a full redesign.
-- **Issue 16 -- DEFERRED.** Options considered: convert mixer ownership to `shared_ptr`, make the raw-pointer contract explicit with acknowledgement requirements, or hide direct mixer usage behind `AudioSpace`. Decision: that is a public API/lifetime contract decision, not a safe opportunistic patch.
+- **Issue 16 -- FIXED.** Options considered: convert mixer ownership to `shared_ptr`, make the raw-pointer contract explicit with acknowledgement requirements, or hide direct mixer usage behind `AudioSpace`. Decision: keep raw pointers but make the lifetime contract explicit, add mixer-managed handle allocation, delete the unsafe pointer-only mix/remove overloads, and bind each live handle to exactly one source object until release.
 - **Issue 17 -- FIXED.** Options considered: clamp in `sample_to_int32`, clamp before every caller writes, or switch to a saturating helper. Decision: clamping inside `sample_to_int32` fixed the UB at the source.
 - **Issue 18 -- FIXED.** Options considered: clamp negative seconds to zero, reject negative input, or switch to signed frame math first. Decision: clamping to zero matches the existing seek semantics and removes the undefined cast.
 - **Issue 19 -- FIXED.** Options considered: clamp negative seconds to zero, reject negative slice bounds, or redesign the slice API around optional endpoints. Decision: clamping was the straightforward behavior-preserving fix.
@@ -407,7 +407,7 @@ Remove the current C API entirely. If cross-language or ABI-stable access is nee
 
 ---
 
-## Issue 16 -- `AudioMixer` Stores Raw `AudioSource*` with No Lifetime Guarantee -- OPEN
+## Issue 16 -- `AudioMixer` Stores Raw `AudioSource*` with No Lifetime Guarantee -- FIXED
 
 **Severity:** Critical
 **Category:** Bug / Architecture
@@ -419,7 +419,7 @@ The mixer stores raw `AudioSource*` pointers. Nothing prevents the owner from de
 
 ### Fix
 
-Either use `std::shared_ptr` in the mixer's active array, or require callers to wait for an acknowledgement before destroying the source. Document the contract explicitly.
+Keep raw pointers in the mixer internals, but make handle-based membership the only public path. Callers must now allocate an `AudioMixerHandle`, mix sources through that handle, and wait for a matching terminal acknowledgement (`Removed`, `Finished`, or `Rejected`) before destroying the source. The unsafe pointer-only `mix(AudioSource*)` and `remove(AudioSource*)` overloads were removed so direct mixer users cannot bypass the contract accidentally, and the mixer now rejects stale/released handles as well as attempts to bind one live handle to multiple different sources.
 
 ---
 

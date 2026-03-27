@@ -44,6 +44,7 @@ namespace Lowl::Audio {
         struct PlaybackSlot {
             std::unique_ptr<AudioVoice> voice;
             AudioAssetHandle audio_asset_handle = InvalidAudioAssetHandle;
+            AudioMixerHandle mixer_handle{};
             uint16_l generation = 1;
             SlotState slot_state = SlotState::Active;
         };
@@ -55,6 +56,7 @@ namespace Lowl::Audio {
 
         std::vector<AssetSlot> audio_asset_lookup;
         std::vector<PlaybackSlot> playback_lookup;
+        std::vector<AudioPlaybackId> mixer_handle_lookup;
         std::vector<AudioAssetId> free_audio_asset_slots;
         std::vector<AudioPlaybackId> free_playback_slots;
         mutable std::mutex state_mutex;
@@ -73,6 +75,7 @@ namespace Lowl::Audio {
         void drain_mixer_acks_locked();
 
         std::shared_ptr<AudioData> get_audio_asset_locked(AudioAssetHandle p_audio_asset_handle) const;
+        AudioPlaybackId find_playback_slot_id_by_mixer_handle_locked(AudioMixerHandle p_mixer_handle) const;
         AudioMixerHandle get_mixer_handle_locked(AudioPlaybackHandle p_audio_playback_handle) const;
         PlaybackSlot *get_playback_slot_locked(AudioPlaybackHandle p_audio_playback_handle);
         const PlaybackSlot *get_playback_slot_locked(AudioPlaybackHandle p_audio_playback_handle) const;

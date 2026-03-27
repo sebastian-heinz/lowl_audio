@@ -58,6 +58,28 @@ namespace {
         return p_audio_space.create_playback(asset_handle);
     }
 
+    Lowl::uint16_l register_mixer_owner(Lowl::Audio::AudioMixer &p_mixer) {
+        const Lowl::uint16_l owner_id = p_mixer.register_ack_owner();
+        REQUIRE_NE(owner_id, 0);
+        return owner_id;
+    }
+
+    Lowl::AudioMixerHandle allocate_mixer_handle(Lowl::Audio::AudioMixer &p_mixer, const Lowl::uint16_l p_owner_id) {
+        const Lowl::AudioMixerHandle handle = p_mixer.allocate_handle(p_owner_id);
+        REQUIRE(handle.is_valid());
+        return handle;
+    }
+
+    void expect_mixer_ack(Lowl::Audio::AudioMixer &p_mixer,
+                          const Lowl::uint16_l p_owner_id,
+                          const Lowl::AudioMixerHandle p_handle,
+                          const Lowl::Audio::AudioMixerAck::Type p_type) {
+        Lowl::Audio::AudioMixerAck ack{};
+        REQUIRE(p_mixer.try_dequeue_ack(p_owner_id, ack));
+        REQUIRE(ack.handle == p_handle);
+        REQUIRE_EQ(ack.type, p_type);
+    }
+
     class MixerDetachProbe final : public Lowl::Audio::AudioSource {
     public:
         explicit MixerDetachProbe(Lowl::Audio::ChannelLayout p_channel_layout)
@@ -281,10 +303,14 @@ TEST_CASE("AudioStream") {
     SUBCASE("AudioMixer - mix rejects mismatched channel source") {
         Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
         MixerDetachProbe mono_probe(Lowl::Audio::ChannelLayout::Mono);
+        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
+        const Lowl::AudioMixerHandle mono_handle = allocate_mixer_handle(mixer, owner_id);
 
-        mixer.mix(&mono_probe);
+        mixer.mix(mono_handle, &mono_probe);
 
         REQUIRE_FALSE(mono_probe.detached);
+        expect_mixer_ack(mixer, owner_id, mono_handle, Lowl::Audio::AudioMixerAck::Type::Rejected);
+        mixer.release_handle(mono_handle);
     }
 
     SUBCASE("AudioMixer - remove reuses a freed slot") {
@@ -292,12 +318,16 @@ TEST_CASE("AudioStream") {
         ConstantMixerSource source_a({0.25f, 0.25f});
         ConstantMixerSource source_b({0.50f, 0.50f});
         ConstantMixerSource source_c({0.75f, 0.75f});
+        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
+        const Lowl::AudioMixerHandle handle_a = allocate_mixer_handle(mixer, owner_id);
+        const Lowl::AudioMixerHandle handle_b = allocate_mixer_handle(mixer, owner_id);
+        const Lowl::AudioMixerHandle handle_c = allocate_mixer_handle(mixer, owner_id);
 
         Lowl::Audio::AudioBuffer buffer(1, 2);
         Lowl::Audio::AudioBlockView block = buffer.view(1);
 
-        mixer.mix(&source_a);
-        mixer.mix(&source_b);
+        mixer.mix(handle_a, &source_a);
+        mixer.mix(handle_b, &source_b);
 
         buffer.clear(1);
         Lowl::Audio::AudioSource::RenderResult first_result = mixer.render(block);
@@ -306,8 +336,8 @@ TEST_CASE("AudioStream") {
         REQUIRE_EQ(block.channel(0)[0], doctest::Approx(0.75f));
         REQUIRE_EQ(block.channel(1)[0], doctest::Approx(0.75f));
 
-        mixer.remove(&source_b);
-        mixer.mix(&source_c);
+        mixer.remove(handle_b, true);
+        mixer.mix(handle_c, &source_c);
 
         buffer.clear(1);
         Lowl::Audio::AudioSource::RenderResult second_result = mixer.render(block);
@@ -315,11 +345,58 @@ TEST_CASE("AudioStream") {
         REQUIRE_EQ(second_result.state, Lowl::Audio::AudioSource::RenderState::Ok);
         REQUIRE_EQ(block.channel(0)[0], doctest::Approx(1.0f));
         REQUIRE_EQ(block.channel(1)[0], doctest::Approx(1.0f));
+        expect_mixer_ack(mixer, owner_id, handle_b, Lowl::Audio::AudioMixerAck::Type::Removed);
+        mixer.release_handle(handle_b);
+        const Lowl::AudioMixerHandle recycled_handle = allocate_mixer_handle(mixer, owner_id);
+        REQUIRE_EQ(recycled_handle.playback_id, handle_b.playback_id);
+        REQUIRE_NE(recycled_handle.generation, handle_b.generation);
+        mixer.release_handle(recycled_handle);
+    }
+
+    SUBCASE("AudioMixer - handle cannot be rebound to a different source") {
+        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        ConstantMixerSource source_a({0.25f, 0.25f});
+        ConstantMixerSource source_b({0.50f, 0.50f});
+        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
+        const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer, owner_id);
+
+        Lowl::Audio::AudioBuffer buffer(1, 2);
+        Lowl::Audio::AudioBlockView block = buffer.view(1);
+
+        mixer.mix(handle, &source_a);
+        buffer.clear(1);
+        Lowl::Audio::AudioSource::RenderResult first_result = mixer.render(block);
+        REQUIRE_EQ(first_result.frames_produced, 1U);
+        REQUIRE_EQ(block.channel(0)[0], doctest::Approx(0.25f));
+        REQUIRE_EQ(block.channel(1)[0], doctest::Approx(0.25f));
+
+        mixer.mix(handle, &source_b);
+        expect_mixer_ack(mixer, owner_id, handle, Lowl::Audio::AudioMixerAck::Type::Rejected);
+
+        buffer.clear(1);
+        Lowl::Audio::AudioSource::RenderResult second_result = mixer.render(block);
+        REQUIRE_EQ(second_result.frames_produced, 1U);
+        REQUIRE_EQ(block.channel(0)[0], doctest::Approx(0.25f));
+        REQUIRE_EQ(block.channel(1)[0], doctest::Approx(0.25f));
+    }
+
+    SUBCASE("AudioMixer - released handles are rejected") {
+        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        ConstantMixerSource source({0.25f, 0.25f});
+        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
+        const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer, owner_id);
+
+        mixer.release_handle(handle);
+        mixer.mix(handle, &source);
+
+        expect_mixer_ack(mixer, owner_id, handle, Lowl::Audio::AudioMixerAck::Type::Rejected);
     }
 
     SUBCASE("AudioMixer - render chunks blocks larger than scratch capacity") {
         Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo, 2);
         Lowl::Audio::AudioStream stereo_stream(44100.0, Lowl::Audio::ChannelLayout::Stereo, 8);
+        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
+        const Lowl::AudioMixerHandle stream_handle = allocate_mixer_handle(mixer, owner_id);
         const Lowl::Sample samples[] = {
             0.1f, -0.1f,
             0.2f, -0.2f,
@@ -329,7 +406,7 @@ TEST_CASE("AudioStream") {
         };
 
         REQUIRE_EQ(stereo_stream.write_interleaved(samples, 5), 5U);
-        mixer.mix(&stereo_stream);
+        mixer.mix(stream_handle, &stereo_stream);
 
         Lowl::Audio::AudioBuffer buffer(5, 2);
         Lowl::Audio::AudioBlockView block = buffer.view(5);
@@ -375,6 +452,15 @@ TEST_CASE("AudioStream") {
         Lowl::Audio::AudioStream stream_a(44100.0, channel, 16);
         Lowl::Audio::AudioStream stream_b0(44100.0, channel, 16);
         Lowl::Audio::AudioStream stream_b1(44100.0, channel, 16);
+        const Lowl::uint16_l owner_a = register_mixer_owner(mixer_a);
+        const Lowl::uint16_l owner_b = register_mixer_owner(mixer_b);
+        const Lowl::uint16_l owner_c = register_mixer_owner(mixer_c);
+        const Lowl::AudioMixerHandle audio_space_handle = allocate_mixer_handle(mixer_a, owner_a);
+        const Lowl::AudioMixerHandle stream_a_handle = allocate_mixer_handle(mixer_a, owner_a);
+        const Lowl::AudioMixerHandle stream_b0_handle = allocate_mixer_handle(mixer_b, owner_b);
+        const Lowl::AudioMixerHandle stream_b1_handle = allocate_mixer_handle(mixer_b, owner_b);
+        const Lowl::AudioMixerHandle mixer_a_handle = allocate_mixer_handle(mixer_c, owner_c);
+        const Lowl::AudioMixerHandle mixer_b_handle = allocate_mixer_handle(mixer_c, owner_c);
 
         const std::vector<Lowl::Sample> space_frames = make_interleaved_frames(100, 10, 1);
         const std::vector<Lowl::Sample> stream_a_frames = make_interleaved_frames(20, 4, 2);
@@ -396,12 +482,12 @@ TEST_CASE("AudioStream") {
 
         audio_space.play(playback_handle);
 
-        mixer_a.mix(&audio_space);
-        mixer_a.mix(&stream_a);
-        mixer_b.mix(&stream_b0);
-        mixer_b.mix(&stream_b1);
-        mixer_c.mix(&mixer_a);
-        mixer_c.mix(&mixer_b);
+        mixer_a.mix(audio_space_handle, &audio_space);
+        mixer_a.mix(stream_a_handle, &stream_a);
+        mixer_b.mix(stream_b0_handle, &stream_b0);
+        mixer_b.mix(stream_b1_handle, &stream_b1);
+        mixer_c.mix(mixer_a_handle, &mixer_a);
+        mixer_c.mix(mixer_b_handle, &mixer_b);
 
         Lowl::Audio::AudioBuffer buffer(frame_count, channel_count);
         Lowl::Audio::AudioBlockView block = buffer.view(frame_count);
