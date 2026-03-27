@@ -3,7 +3,6 @@
 #include <vorbis/vorbisfile.h>
 
 #include <algorithm>
-#include <cassert>
 #include <cstdint>
 
 #include "audio/lowl_audio_format.h"
@@ -68,19 +67,19 @@ static VorbisLayoutMapping get_vorbis_layout_mapping(const uint8_t p_channel_cou
 }
 
 static size_t ogg_memory_read(void *buffer, size_t element_size, size_t element_count, void *source) {
-    assert(element_size == 1);
+    if (element_size == 0 || element_count == 0) {
+        return 0;
+    }
     OggData *src = static_cast<OggData *>(source);
     uint8_t *dst = static_cast<uint8_t *>(buffer);
-    size_t count = 0;
-    size_t read = src->length - src->index;
-    if (read > element_count) {
-        read = element_count;
-    }
-    for (; count < read; count++) {
+    const size_t available_bytes = src->length - src->index;
+    const size_t item_count = std::min(element_count, available_bytes / element_size);
+    const size_t bytes_to_read = item_count * element_size;
+    for (size_t count = 0; count < bytes_to_read; count++) {
         dst[count] = src->data[src->index + count];
     }
-    src->index += count;
-    return count;
+    src->index += bytes_to_read;
+    return item_count;
 }
 
 static int ogg_memory_seek(void *source, ogg_int64_t offset, int origin) {

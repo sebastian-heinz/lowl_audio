@@ -15,7 +15,7 @@ std::string Lowl::Audio::CoreAudioUtilities::get_device_name(AudioObjectID p_dev
         AudioObjectGetPropertyData(p_device_id, &name_property, 0, nullptr, &name_cf_ref_size, &name_cf_ref);
     if (result != kAudioHardwareNoError) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
-        return nullptr;
+        return std::string();
     }
 
     long device_name_str_size =

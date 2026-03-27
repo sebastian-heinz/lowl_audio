@@ -21,6 +21,7 @@ namespace Lowl {
     private:
         static std::once_flag initialized;
         static std::vector<std::shared_ptr<Audio::AudioDriver>> drivers;
+        static Error initialization_error;
 
     public:
         static std::vector<std::shared_ptr<Audio::AudioDriver>> get_drivers(Error &error);

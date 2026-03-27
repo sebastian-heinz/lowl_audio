@@ -284,7 +284,7 @@ TEST_CASE("AudioStream") {
 
         mixer.mix(&mono_probe);
 
-        REQUIRE(mono_probe.detached);
+        REQUIRE_FALSE(mono_probe.detached);
     }
 
     SUBCASE("AudioMixer - remove reuses a freed slot") {

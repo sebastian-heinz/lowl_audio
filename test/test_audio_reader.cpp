@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "audio/reader/lowl_audio_reader.h"
+#include "audio/convert/lowl_audio_re_sampler_r8b.h"
 
 #include <cstring>
 #include <memory>
@@ -80,5 +81,10 @@ TEST_CASE("AudioReader") {
             REQUIRE_EQ(channel[0], doctest::Approx(static_cast<float>(channel_index)));
             REQUIRE_EQ(channel[1], doctest::Approx(static_cast<float>(channel_index + 6)));
         }
+    }
+
+    SUBCASE("ReSampler - null input returns nullptr") {
+        std::unique_ptr<Lowl::Audio::AudioData> audio_data = Lowl::Audio::ReSamplerR8b::resample(nullptr, 48000.0);
+        REQUIRE(audio_data == nullptr);
     }
 }

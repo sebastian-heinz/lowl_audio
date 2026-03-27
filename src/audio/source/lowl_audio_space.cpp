@@ -14,7 +14,7 @@ namespace {
 
     template <typename T>
     T advance_id(const T p_current) {
-        return p_current == std::numeric_limits<T>::max() ? 0 : static_cast<T>(p_current + 1);
+        return p_current == std::numeric_limits<T>::max() ? 1 : static_cast<T>(p_current + 1);
     }
 
     Lowl::uint16_l advance_generation(const Lowl::uint16_l p_current) {

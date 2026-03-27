@@ -191,4 +191,41 @@ TEST_CASE("AudioData") {
         REQUIRE_EQ(slice->get_channel_data(1)[0], doctest::Approx(0.40f));
         REQUIRE_EQ(slice->get_channel_data(1)[1], doctest::Approx(0.60f));
     }
+
+    SUBCASE("AudioData - create_slice clamps negative begin to zero") {
+        std::unique_ptr<Lowl::Sample[]> storage = std::make_unique<Lowl::Sample[]>(6);
+        storage[0] = 0.10f;
+        storage[1] = 0.30f;
+        storage[2] = 0.50f;
+        storage[3] = 0.20f;
+        storage[4] = 0.40f;
+        storage[5] = 0.60f;
+        std::unique_ptr<Lowl::Audio::AudioData> sliced_source = std::make_unique<Lowl::Audio::AudioData>(
+            std::move(storage),
+            3,
+            10.0,
+            Lowl::Audio::ChannelLayout::Stereo
+        );
+
+        std::unique_ptr<Lowl::Audio::AudioData> slice = sliced_source->create_slice(-1.0, 0.2);
+        REQUIRE(slice != nullptr);
+        REQUIRE_EQ(slice->get_frame_count(), 2U);
+        REQUIRE_EQ(slice->get_channel_data(0)[0], doctest::Approx(0.10f));
+        REQUIRE_EQ(slice->get_channel_data(0)[1], doctest::Approx(0.30f));
+        REQUIRE_EQ(slice->get_channel_data(1)[0], doctest::Approx(0.20f));
+        REQUIRE_EQ(slice->get_channel_data(1)[1], doctest::Approx(0.40f));
+    }
+
+    SUBCASE("AudioVoice - seek_time clamps negative seconds to the start") {
+        std::shared_ptr<Lowl::Audio::AudioData> long_audio = std::move(make_stereo_audio_data({
+            StereoSample{0.10f, 0.20f},
+            StereoSample{0.30f, 0.40f},
+            StereoSample{0.50f, 0.60f},
+        }));
+        Lowl::Audio::AudioVoice voice(long_audio);
+
+        voice.seek_time(-1.0);
+
+        REQUIRE_EQ(voice.get_frame_position(), 0U);
+    }
 }

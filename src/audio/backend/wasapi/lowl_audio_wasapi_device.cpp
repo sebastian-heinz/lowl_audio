@@ -3,6 +3,7 @@
 #include "lowl_audio_wasapi_device.h"
 
 #include <avrt.h>
+#include <objbase.h>
 
 #include <algorithm>
 #include <functional>
@@ -401,11 +402,20 @@ bool Lowl::Audio::WasapiDevice::enable_avrt() {
 
 uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
     LOWL_LOG_DEBUG_F("audio_callback->%s - enter", name.c_str());
+    const HRESULT com_result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    const bool should_uninitialize_com = SUCCEEDED(com_result);
+    if (FAILED(com_result) && com_result != RPC_E_CHANGED_MODE) {
+        LOWL_LOG_DEBUG_F("audio_callback->%s - CoInitializeEx failed (%ld)", name.c_str(), com_result);
+        return 0;
+    }
 
     UINT32 total_frames_in_buffer;
     HRESULT result = audio_client->GetBufferSize(&total_frames_in_buffer);
     if (FAILED(result)) {
         LOWL_LOG_DEBUG_F("audio_callback->%s - GetBufferSize failed", name.c_str());
+        if (should_uninitialize_com) {
+            CoUninitialize();
+        }
         return 0;
     }
     UINT32 available_frames_in_buffer = total_frames_in_buffer;
@@ -493,6 +503,9 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
         AvRevertMmThreadCharacteristics(avrt_handle);
     }
 
+    if (should_uninitialize_com) {
+        CoUninitialize();
+    }
     LOWL_LOG_DEBUG_F("audio_callback->%s - exit", name.c_str());
     return 0;
 }
@@ -500,18 +513,7 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
 std::unique_ptr<Lowl::Audio::WasapiDevice>
 Lowl::Audio::WasapiDevice::construct(const std::string &p_driver_name, void *p_wasapi_device, Lowl::Error &error) {
     IMMDevice *wasapi_device = (IMMDevice *)p_wasapi_device;
-
-    WCHAR *wasapi_device_id;
-    HRESULT result = wasapi_device->GetId(&wasapi_device_id);
-    if (FAILED(result)) {
-        return nullptr;
-    }
-    size_t device_id_len = wcslen(wasapi_device_id);
-    WCHAR *device_id = new WCHAR[device_id_len + 1];
-    wcsncpy(device_id, wasapi_device_id, device_id_len);
-    device_id[device_id_len + 1] = '\0';
-    CoTaskMemFree(wasapi_device_id);
-
+    HRESULT result = S_OK;
     DWORD device_state = 0;
     result = wasapi_device->GetState(&device_state);
     if (FAILED(result)) {
@@ -536,8 +538,7 @@ Lowl::Audio::WasapiDevice::construct(const std::string &p_driver_name, void *p_w
         SAFE_RELEASE(device_properties)
         return nullptr;
     }
-    const char *device_name_ptr = WasapiDevice::wc_to_utf8(value.pwszVal);
-    std::string device_name = "[" + p_driver_name + "] " + std::string(device_name_ptr);
+    std::string device_name = "[" + p_driver_name + "] " + WasapiDevice::wc_to_utf8(value.pwszVal);
     PropVariantClear(&value);
 
     PropVariantInit(&value);
@@ -565,12 +566,17 @@ Lowl::Audio::WasapiDevice::construct(const std::string &p_driver_name, void *p_w
     return device;
 }
 
-char *Lowl::Audio::WasapiDevice::wc_to_utf8(const wchar_t *p_wc) {
+std::string Lowl::Audio::WasapiDevice::wc_to_utf8(const wchar_t *p_wc) {
+    if (p_wc == nullptr) {
+        return {};
+    }
     int ulen = WideCharToMultiByte(CP_UTF8, 0, p_wc, -1, nullptr, 0, nullptr, nullptr);
-    char *ubuf = new char[ulen + 1];
-    WideCharToMultiByte(CP_UTF8, 0, p_wc, -1, ubuf, ulen, nullptr, nullptr);
-    ubuf[ulen] = 0;
-    return ubuf;
+    if (ulen <= 0) {
+        return {};
+    }
+    std::vector<char> ubuf(static_cast<size_t>(ulen), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, p_wc, -1, ubuf.data(), ulen, nullptr, nullptr);
+    return std::string(ubuf.data());
 }
 
 GUID Lowl::Audio::WasapiDevice::get_wave_sub_format(const Lowl::Audio::SampleFormat p_sample_format) {
@@ -693,7 +699,7 @@ Lowl::Audio::WasapiDevice::to_audio_device_properties(const WAVEFORMATEX *p_wave
 WAVEFORMATEXTENSIBLE Lowl::Audio::WasapiDevice::to_wave_format_extensible(
     const Lowl::Audio::AudioDeviceProperties &audio_device_properties) {
     WAVEFORMATEXTENSIBLE wfe = WAVEFORMATEXTENSIBLE();
-    wfe.Format.cbSize = sizeof(wfe);
+    wfe.Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
     wfe.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
     wfe.Format.nChannels = (WORD)audio_device_properties.channel_layout.channel_count;
     wfe.Format.nSamplesPerSec = (DWORD)audio_device_properties.sample_rate;
@@ -777,6 +783,9 @@ Lowl::Audio::WasapiDevice::validate(IMMDevice *p_wasapi_device, const AudioDevic
     if (p_device_properties.exclusive_mode) {
         // no failure allowed
         if (result != S_OK) {
+            if (closest_match != nullptr) {
+                CoTaskMemFree(closest_match);
+            }
             SAFE_RELEASE(tmp_audio_client);
             return ret;
         }
@@ -811,11 +820,17 @@ Lowl::Audio::WasapiDevice::validate(IMMDevice *p_wasapi_device, const AudioDevic
                     break;
             }
 
+            if (closest_match != nullptr) {
+                CoTaskMemFree(closest_match);
+            }
             SAFE_RELEASE(tmp_audio_client);
             return ret;
         }
     }
 
+    if (closest_match != nullptr) {
+        CoTaskMemFree(closest_match);
+    }
     SAFE_RELEASE(tmp_audio_client);
     ret.is_supported = true;
     return ret;
@@ -846,6 +861,8 @@ Lowl::Audio::WasapiDevice::create_device_properties(IMMDevice *p_wasapi_device,
 }
 
 Lowl::Audio::WasapiDevice::~WasapiDevice() {
+    Lowl::Error error;
+    stop(error);
     SAFE_RELEASE(audio_client)
     SAFE_RELEASE(wasapi_device)
     SAFE_RELEASE(audio_render_client)

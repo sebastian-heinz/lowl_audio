@@ -95,4 +95,21 @@ TEST_CASE("Logger") {
         REQUIRE_EQ(state_one.formatting_failures.load(std::memory_order_relaxed), 0);
         REQUIRE_EQ(state_two.formatting_failures.load(std::memory_order_relaxed), 0);
     }
+
+    SUBCASE("Logger - custom receivers respect the configured log level") {
+        ReceiverState state{};
+        state.expected_id = 1;
+
+        Lowl::Logger::register_log_receiver(&receiver_one, &state);
+        Lowl::Logger::set_log_level(Lowl::Logger::Level::Warn);
+
+        Lowl::Logger::write(__FILE__, __func__, __LINE__, Lowl::Logger::Level::Info, "filtered");
+        Lowl::Logger::write(__FILE__, __func__, __LINE__, Lowl::Logger::Level::Error, "delivered");
+
+        Lowl::Logger::register_log_receiver(nullptr, nullptr);
+        Lowl::Logger::set_log_level(Lowl::Logger::Level::Info);
+
+        REQUIRE_EQ(state.calls.load(std::memory_order_relaxed), 1);
+        REQUIRE_EQ(state.mismatches.load(std::memory_order_relaxed), 0);
+    }
 }

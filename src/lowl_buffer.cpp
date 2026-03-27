@@ -20,7 +20,7 @@ namespace {
 constexpr size_t GROW_SIZE = 1024;
 
 void Lowl::Buffer::write_data(const void *p_src, size_t p_length) {
-    if (p_length <= 0) {
+    if (p_length == 0) {
         return;
     }
     if (position + p_length > real_length) {
@@ -96,7 +96,7 @@ void Lowl::Buffer::get_data(size_t p_src_offset, size_t p_src_count, void *p_dst
 }
 
 void Lowl::Buffer::get_all_data(void *p_dst, size_t p_dst_length) const {
-    if (p_dst_length <= 0) {
+    if (p_dst_length == 0) {
         return;
     }
     if (p_dst_length < virtual_length) {
@@ -140,7 +140,7 @@ Lowl::Buffer::Endianness Lowl::Buffer::get_endianness() const {
 }
 
 size_t Lowl::Buffer::get_available() const {
-    return virtual_length - position;
+    return position <= virtual_length ? virtual_length - position : 0;
 }
 
 std::unique_ptr<Lowl::Buffer> Lowl::Buffer::slice(size_t p_length) const {

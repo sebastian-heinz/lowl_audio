@@ -112,7 +112,8 @@ void Lowl::Audio::AudioVoice::reset() {
 }
 
 void Lowl::Audio::AudioVoice::seek_time(const TimeSeconds p_seconds) {
-    const size_t frame = static_cast<size_t>(p_seconds * sample_rate);
+    const TimeSeconds clamped_seconds = std::max<TimeSeconds>(0.0, p_seconds);
+    const size_t frame = static_cast<size_t>(clamped_seconds * sample_rate);
     seek_frame(frame);
 }
 

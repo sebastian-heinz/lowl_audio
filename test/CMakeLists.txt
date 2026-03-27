@@ -13,6 +13,8 @@ set(LOWL_TEST_FILES
         test_audio_space.cpp
         test_audio_stream.cpp
         test_audio_utilities.cpp
+        test_sample_converter.cpp
+        test_file.cpp
         )
 
 add_executable(${LOWL_TEST_MAIN} ${LOWL_TEST_FILES})
@@ -32,6 +34,6 @@ if(MINGW)
     # - libgcc_s_seh-1.dll
     # - libwinpthread-1.dll
     # This links them statically
-    set(CMAKE_CXX_STANDARD_LIBRARIES "-static-libgcc -static-libstdc++ -lwsock32 -lws2_32 ${CMAKE_CSS_STANDARD_LIBRARIES}")
+    set(CMAKE_CXX_STANDARD_LIBRARIES "-static-libgcc -static-libstdc++ -lwsock32 -lws2_32 ${CMAKE_CXX_STANDARD_LIBRARIES}")
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive")
 endif()

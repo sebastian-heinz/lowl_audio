@@ -13,7 +13,7 @@
 namespace Lowl::Audio {
     class WasapiDevice : public AudioDevice {
     private:
-        static char *wc_to_utf8(const wchar_t *p_wc);
+        static std::string wc_to_utf8(const wchar_t *p_wc);
 
         static Lowl::Audio::AudioDeviceProperties to_audio_device_properties(const WAVEFORMATEX *p_wave_format_ex);
 

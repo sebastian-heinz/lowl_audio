@@ -16,6 +16,7 @@
 std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>> Lowl::Lib::drivers =
     std::vector<std::shared_ptr<Audio::AudioDriver>>();
 std::once_flag Lowl::Lib::initialized;
+Lowl::Error Lowl::Lib::initialization_error;
 
 std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>> Lowl::Lib::get_drivers(Error &error) {
     initialize(error);
@@ -24,6 +25,7 @@ std::vector<std::shared_ptr<Lowl::Audio::AudioDriver>> Lowl::Lib::get_drivers(Er
 
 void Lowl::Lib::initialize(Lowl::Error &error) {
     std::call_once(initialized, []() {
+        initialization_error.clear();
 #ifdef LOWL_DRIVER_DUMMY
         drivers.push_back(std::make_shared<Lowl::Audio::AudioDriverDummy>());
 #endif
@@ -35,9 +37,12 @@ void Lowl::Lib::initialize(Lowl::Error &error) {
         Lowl::Audio::WasapiCom::wasapi_com->initialize(wasapi_err);
         if (wasapi_err.ok()) {
             drivers.push_back(std::make_shared<Lowl::Audio::WasapiDriver>());
+        } else {
+            initialization_error = wasapi_err;
         }
 #endif
     });
+    error = initialization_error;
 }
 
 void Lowl::Lib::terminate(Error &error) {

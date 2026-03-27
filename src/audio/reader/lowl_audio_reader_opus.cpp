@@ -70,6 +70,11 @@ Lowl::Audio::AudioReaderOpus::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p
     std::unique_ptr<OggOpusFile, decltype(&op_free)> ogg_file(op_open_memory(p_buffer.get(), p_size, &_error), op_free);
 
     if (ogg_file == nullptr) {
+        if (_error != 0) {
+            error.set_vendor_error(_error, Error::VendorError::OpusFileVendorError);
+        } else {
+            error.set_error(ErrorCode::OpusFileCanNotParseOpusFile);
+        }
         return nullptr;
     }
 
@@ -125,7 +130,11 @@ Lowl::Audio::AudioReaderOpus::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p
         if (samples_read_per_channel == 0) {
             break;
         }
-        const size_t frames_read = static_cast<size_t>(samples_read_per_channel);
+        const size_t frames_remaining = frame_count > frames_read_total ? frame_count - frames_read_total : 0;
+        const size_t frames_read = std::min(static_cast<size_t>(samples_read_per_channel), frames_remaining);
+        if (frames_read == 0) {
+            break;
+        }
         for (uint8_t channel_index = 0; channel_index < layout.channel_count; channel_index++) {
             const size_t source_channel_index = static_cast<size_t>(source_indices[channel_index]);
             Sample *dst = storage ? storage.get() + channel_index * frame_count + frames_read_total : nullptr;

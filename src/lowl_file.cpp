@@ -1,5 +1,7 @@
 #include "lowl_file.h"
 
+#include <limits>
+
 std::string Lowl::File::get_path() {
     return path;
 }
@@ -73,26 +75,35 @@ std::unique_ptr<uint8_t[]> Lowl::File::read_buffer(size_t &length) const {
         length = 0;
         return data;
     }
-    file_stream->read(reinterpret_cast<char *>(data.get()), static_cast<long>(length));
-    if (file_stream->eof()) {
-        length = static_cast<size_t>(file_stream->gcount());
-        // The function stopped extracting characters because the input sequence has no more characters available (end-of-file reached).
-    }
-    if (file_stream->fail()) {
+    if (length > static_cast<size_t>(std::numeric_limits<std::streamsize>::max())) {
         length = 0;
-        // Either the function could not extract n characters or the construction of sentry failed.
+        return data;
     }
+    file_stream->read(reinterpret_cast<char *>(data.get()), static_cast<std::streamsize>(length));
+    const std::streamsize bytes_read = file_stream->gcount();
     if (file_stream->bad()) {
         length = 0;
         // Error on stream (such as when this function catches an exception thrown by an internal operation).
         // When set, the integrity of the stream may have been affected.
+        return data;
     }
+    if (file_stream->eof()) {
+        length = static_cast<size_t>(bytes_read);
+        // The function stopped extracting characters because the input sequence has no more characters available (end-of-file reached).
+        return data;
+    }
+    if (file_stream->fail()) {
+        length = 0;
+        // Either the function could not extract n characters or the construction of sentry failed.
+        return data;
+    }
+    length = static_cast<size_t>(bytes_read);
     return data;
 }
 
 bool Lowl::File::is_eof() const {
     if (!file_stream) {
-        return false;
+        return true;
     }
     return file_stream->eof();
 }

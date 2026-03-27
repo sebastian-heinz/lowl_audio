@@ -2,6 +2,7 @@
 #define LOWL_AUDIO_DATA_H
 
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -19,6 +20,7 @@ namespace Lowl::Audio {
         SampleRate sample_rate;
         ChannelLayout channel_layout;
         size_t frame_count = 0;
+        mutable std::mutex name_mutex;
         std::string name;
 
         void rebuild_channel_ptrs();

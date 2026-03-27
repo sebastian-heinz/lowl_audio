@@ -1,5 +1,7 @@
 #include "lowl_audio_reader_flac.h"
 
+#include <cstring>
+
 #include "audio/lowl_audio_format.h"
 
 #define DR_FLAC_IMPLEMENTATION
@@ -65,7 +67,7 @@ namespace {
 std::unique_ptr<Lowl::Audio::AudioData>
 Lowl::Audio::AudioReaderFlac::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_size, Error &error) {
 
-    drflac *flac = drflac_open_memory(p_buffer.get(), p_size, nullptr);
+    std::unique_ptr<drflac, decltype(&drflac_close)> flac(drflac_open_memory(p_buffer.get(), p_size, nullptr), drflac_close);
     if (!flac) {
         error.set_error(ErrorCode::ReaderNotFound);
         return nullptr;
@@ -84,7 +86,8 @@ Lowl::Audio::AudioReaderFlac::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p
 
     /* Don't try to read more samples than can potentially fit in the output buffer. */
     /* Intentionally uint64 instead of size_t so we can do a check that we're not reading too much on 32-bit builds. */
-    uint64_t bytes_to_read_test = flac->totalPCMFrameCount * bytes_per_frame;
+    uint64_t bytes_to_read_test =
+        static_cast<uint64_t>(flac->totalPCMFrameCount) * static_cast<uint64_t>(bytes_per_frame);
     // if (bytes_to_read_test > LowlThirdParty::DrLib::lowl_drwav_size_max()) {
     if (bytes_to_read_test > DRFLAC_SIZE_MAX) {
         /* Round the number of bytes to read to a clean frame boundary. */
@@ -97,14 +100,24 @@ Lowl::Audio::AudioReaderFlac::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p
     *could* be a time where it evaluates to 0 due to overflowing.
     */
     if (bytes_to_read_test == 0) {
+        error.set_error(ErrorCode::ReaderNoAudioData);
         return nullptr;
     }
     size_t bytes_to_read = bytes_to_read_test;
+    const size_t frame_capacity = bytes_to_read / bytes_per_frame;
 
-    std::unique_ptr<uint8_t[]> pcm_frames = std::make_unique<uint8_t[]>(bytes_to_read);
-    int32_t *buffer = reinterpret_cast<int32_t *>(pcm_frames.get());
-    size_t pcm_frames_read = drflac_read_pcm_frames_s32(flac, flac->totalPCMFrameCount, buffer);
+    std::vector<int32_t> decoded_frames;
+    if (frame_capacity > 0 && mapping.layout.channel_count > 0) {
+        decoded_frames.resize(frame_capacity * mapping.layout.channel_count);
+    }
+    size_t pcm_frames_read =
+        decoded_frames.empty() ? 0 : drflac_read_pcm_frames_s32(flac.get(), frame_capacity, decoded_frames.data());
     size_t pcm_buffer_size = pcm_frames_read * bytes_per_frame;
+    std::unique_ptr<uint8_t[]> pcm_frames;
+    if (pcm_buffer_size > 0) {
+        pcm_frames = std::make_unique<uint8_t[]>(pcm_buffer_size);
+        std::memcpy(pcm_frames.get(), decoded_frames.data(), pcm_buffer_size);
+    }
 
     return create_audio_data(
         audio_format, sample_format, mapping.layout, sample_rate, pcm_frames, pcm_buffer_size, mapping.input_speakers, error);

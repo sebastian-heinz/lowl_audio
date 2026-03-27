@@ -46,6 +46,9 @@ namespace Lowl {
         if (!receiver) {
             return;
         }
+        if (p_log.level < log_level) {
+            return;
+        }
         receiver(p_log, user_data);
     }
 

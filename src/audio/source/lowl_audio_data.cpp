@@ -28,8 +28,10 @@ Lowl::Audio::AudioData::AudioData(std::unique_ptr<Sample[]> p_storage,
 
 std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioData::create_slice(TimeSeconds p_begin_sec,
                                                                              TimeSeconds p_end_sec) {
-    size_t first_frame = static_cast<size_t>(p_begin_sec * sample_rate);
-    size_t last_frame = static_cast<size_t>(p_end_sec * sample_rate);
+    const TimeSeconds begin_sec = std::max<TimeSeconds>(0.0, p_begin_sec);
+    const TimeSeconds end_sec = std::max<TimeSeconds>(0.0, p_end_sec);
+    size_t first_frame = static_cast<size_t>(begin_sec * sample_rate);
+    size_t last_frame = static_cast<size_t>(end_sec * sample_rate);
     if (frame_count == 0) {
         return std::make_unique<AudioData>(std::unique_ptr<Sample[]>(), 0, sample_rate, channel_layout);
     }
@@ -55,7 +57,7 @@ std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioData::create_slice(Tim
     }
     std::unique_ptr<AudioData> audio_data =
         std::make_unique<AudioData>(std::move(slice_storage), slice_frame_count, sample_rate, channel_layout);
-    audio_data->set_name(name);
+    audio_data->set_name(get_name());
     return audio_data;
 }
 
@@ -94,9 +96,11 @@ Lowl::size_l Lowl::Audio::AudioData::get_frame_count() const {
 }
 
 std::string Lowl::Audio::AudioData::get_name() const {
+    std::lock_guard<std::mutex> lock(name_mutex);
     return name;
 }
 
 void Lowl::Audio::AudioData::set_name(const std::string &p_name) {
+    std::lock_guard<std::mutex> lock(name_mutex);
     name = p_name;
 }

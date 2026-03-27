@@ -2,6 +2,9 @@
 
 std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::ReSamplerR8b::resample(std::shared_ptr<AudioData> p_audio_data,
                                                                             SampleRate p_sample_rate_dst) {
+    if (!p_audio_data) {
+        return nullptr;
+    }
     const size_t total_frames = p_audio_data->get_frame_count();
     const uint8_t num_channel = p_audio_data->get_channel_count();
     SampleRate sample_rate_src = p_audio_data->get_sample_rate();

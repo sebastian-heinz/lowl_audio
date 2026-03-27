@@ -71,4 +71,13 @@ TEST_CASE("Buffer") {
         slice->seek(0);
         REQUIRE_EQ(slice->read_u16(), 0x1234U);
     }
+
+    SUBCASE("Buffer - available bytes clamp to zero after shrinking length") {
+        const uint8_t bytes[] = {1, 2, 3};
+        Lowl::Buffer buffer(bytes, sizeof(bytes));
+        buffer.seek(3);
+        buffer.set_length(1);
+
+        REQUIRE_EQ(buffer.get_available(), 0U);
+    }
 }

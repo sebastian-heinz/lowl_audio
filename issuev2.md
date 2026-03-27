@@ -9,95 +9,165 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 
 ## Issue Index
 
-| #  | Severity | Category | Subsystem | Title |
-|----|----------|----------|-----------|-------|
-| 1  | Critical | Bug | Reader | WAV reader leaks `drwav` on multiple error paths |
-| 2  | Critical | Bug | Reader | FLAC reader never calls `drflac_close` |
-| 3  | Critical | Bug | Reader | FLAC / WAV integer overflow in `bytes_to_read_test` on 32-bit |
-| 4  | Critical | Bug | Converter | `sample_to_int16` / `sample_to_int8` UB on out-of-range samples |
-| 5  | Critical | Thread | Core | `Timer::thread_interval` uses `atomic_flag::test_and_set` incorrectly |
-| 6  | Critical | Thread | Core | `ReleasePool` destructor races with timer callback (use-after-free) |
-| 7  | Critical | Bug | Core | `Lib::initialize` swallows errors inside `call_once` |
-| 8  | Critical | Thread | Core | `Lib::terminate` not thread-safe; no re-initialization gate |
-| 9  | Critical | Bug | Backend | WASAPI: off-by-one heap buffer overflow in `construct` |
-| 10 | Critical | Bug | Backend | WASAPI: `device->properties` assigns to wrong member |
-| 11 | Critical | Bug | Backend | WASAPI: `closest_match` COM memory leak |
-| 12 | Critical | Bug | Backend | CoreAudio: `stop()` ignores all errors and never uninitializes |
-| 13 | Critical | Bug | Backend | CoreAudio: `start()` leaks resources on partial failure |
-| 14 | Critical | Bug | Backend | CoreAudio: `get_device_name` returns `nullptr` for `std::string` (UB crash) |
-| 15 | Critical | Bug | C API | Entire C API is dead code and does not compile |
-| 16 | Critical | Thread | Source | `AudioMixer` stores raw `AudioSource*` with no lifetime guarantee |
-| 17 | High | Bug | Converter | `sample_to_int32` UB on out-of-range samples |
-| 18 | High | Bug | Source | `AudioVoice::seek_time` -- negative time causes UB in `static_cast<size_t>` |
-| 19 | High | Bug | Source | `AudioData::create_slice` -- negative seconds causes UB |
-| 20 | High | Bug | Source | `advance_id` wraps to 0 (invalid sentinel), permanently exhausting ID space |
-| 21 | High | Bug | Source | `process_panning` -- `sqrt` of negative value produces NaN on bad input |
-| 22 | High | Semantic | Source | `AudioMixer::process_events` calls `on_removed_from_mixer` on never-added source |
-| 23 | High | Semantic | Source | Double volume/panning application in `AudioSpace::render` |
-| 24 | High | Thread | Source | `AudioVoice` compound state transitions observable in intermediate states |
-| 25 | High | Thread | Source | `AudioData::name` data race (no mutex unlike `AudioSource`) |
-| 26 | High | Bug | Reader | MP3 reader: VBR frame count may underestimate, silently losing frames |
-| 27 | High | Bug | Reader | Opus reader: potential buffer overrun if `op_pcm_total` underestimates |
-| 28 | High | Bug | Reader | Ogg reader: `assert(element_size == 1)` is no-op in release builds |
-| 29 | High | Bug | Converter | `sample_to_int24` returns unsigned-masked value in signed return type |
-| 30 | High | Bug | Converter | `write_sample` silently does nothing for `FLOAT_64` and `Unknown` formats |
-| 31 | High | Bug | Converter | ReSampler: `expected_frames` estimate may be too small; `int` overflow on large files |
-| 32 | High | Bug | Backend | WASAPI: `wc_to_utf8` leaks heap-allocated char array |
-| 33 | High | Bug | Backend | WASAPI: `device_id` allocated with `new` but never freed |
-| 34 | High | Bug | Backend | WASAPI: `cbSize` set to wrong value for `WAVEFORMATEXTENSIBLE` |
-| 35 | High | Bug | Backend | WASAPI: destructor does not stop audio thread before releasing resources |
-| 36 | High | Bug | Backend | WASAPI: no `CoInitializeEx` on audio callback thread |
-| 37 | High | Bug | Backend | CoreAudio: `create_device_properties` leaks test AudioUnit |
-| 38 | High | Bug | Backend | CoreAudio: `get_latency_*` / `set_frames_per_buffer` don't short-circuit on error |
-| 39 | High | Bug | Core | `File::read_buffer` truncates `size_t` to `long`; loses partial reads at EOF |
-| 40 | High | Bug | Core | Logger level filter only applied to built-in receiver, not custom receivers |
-| 41 | High | Bug | C API | Dangling pointer from `get_name()` returning `c_str()` of temporary |
-| 42 | High | Bug | C API | Virtual C++ structs exposed as C API -- not ABI-stable or C-compatible |
-| 43 | High | Bug | Demo | Off-by-one: `device_property_index > size()` should be `>=` |
-| 44 | High | Build | Build | `cmake_minimum_required(VERSION 3.31)` is too aggressive |
-| 45 | High | Build | Build | `test/CMakeLists.txt` typo: `CMAKE_CSS_STANDARD_LIBRARIES` |
-| 46 | Medium | Bug | Source | `AudioSpace` ID space: `uint16_t` exhaustion after 65534 allocations |
-| 47 | Medium | Thread | Source | `AudioSource::sample_rate` and `channel` are non-const, non-atomic |
-| 48 | Medium | Bug | Source | `AudioStream` ring buffer positions overflow on 32-bit after ~24 hours |
-| 49 | Medium | Bug | Reader | WAV reader: unrecognized PCM bit depth leaves `sample_format` as `Unknown`, leaks `drwav` |
-| 50 | Medium | Bug | Reader | `create_audio_data`: `reinterpret_cast` from `uint8_t[]` violates alignment |
-| 51 | Medium | Bug | Reader | Opus reader: does not set error on `op_open_memory` failure |
-| 52 | Medium | Bug | Reader | MP3 / WAV: `DR_*_IMPLEMENTATION` defines risk ODR violations |
-| 53 | Medium | Bug | Converter | ReSampler: no null check on input `p_audio_data` |
-| 54 | Medium | Bug | Converter | Channel converter: null `storage` pointer dereference when `frame_count == 0` |
-| 55 | Medium | Thread | Backend | CoreAudio: audio callback reads `audio_source` without memory fence |
-| 56 | Medium | Bug | Backend | CoreAudio: `property_callback` only processes first address in array |
-| 57 | Medium | Bug | Backend | CoreAudio: `create_description` returns zeroed struct for unsupported formats |
-| 58 | Medium | Bug | Backend | WASAPI: STA apartment model; audio thread may need MTA |
-| 59 | Medium | Bug | Backend | WASAPI: `start()` error paths leak `audio_client` and handles |
-| 60 | Medium | Bug | Backend | `AudioDevice::render_to_device_buffer` trusts caller buffer size |
-| 61 | Medium | Bug | Core | `Buffer::get_available()` underflows if `position > virtual_length` |
-| 62 | Medium | Bug | Core | `File::is_eof` returns `false` when no file is open |
-| 63 | Medium | Quality | Core | `_INLINE_` macro uses reserved identifier pattern |
-| 64 | Medium | Quality | Core | `#include <sal.h>` placed inside Logger class body |
-| 65 | Medium | Bug | Core | `Buffer::write_data` compares `size_t <= 0` (tautological) |
-| 66 | Medium | Build | Build | `CMAKE_OSX_ARCHITECTURES` set after `project()` -- may be too late |
-| 67 | Medium | Build | Build | `LOWL_DEBUG` defined as `PUBLIC`, leaking into consumers |
-| 68 | Medium | Architecture | Architecture | No Linux audio backend (PulseAudio / ALSA / PipeWire) |
-| 69 | Medium | Architecture | Architecture | `Lib::terminate` does not clear `drivers` or allow re-initialization |
-| 70 | Medium | Bug | Demo | `std::stoi` on user input with no exception handling |
-| 71 | Low | Quality | Source | `AudioSource` value-initializes atomics then re-stores in constructor |
-| 72 | Low | Quality | Source | `AudioBlockView::channel()` has no bounds check |
-| 73 | Low | Quality | Source | `AudioVoice` defaults to `Playing`; `AudioSpace` immediately stops it |
-| 74 | Low | Quality | Source | `get_frames_remaining()` returns 1 while `get_frame_count()` returns 0 |
-| 75 | Low | Quality | Reader | `detect_format` is extension-only; no magic-byte fallback |
-| 76 | Low | Quality | Reader | FLAC reader: `DR_FLAC_NO_CRC` disables integrity checks |
-| 77 | Low | Quality | Backend | `AudioDeviceProperties::operator<` inconsistent with fuzzy `operator==` |
-| 78 | Low | Quality | Backend | `AudioDriver::get_devices()` returns vector by value |
-| 79 | Low | Quality | Core | Include guards missing `_H` suffix across multiple headers |
-| 80 | Low | Quality | Core | `File` has undeclared `test()` method (dead declaration) |
-| 81 | Low | Build | Build | No compiler warning flags for GCC or MSVC |
-| 82 | Low | Quality | Demo | Global variables, inconsistent arg parsing, no `--help` |
-| 83 | Low | Testing | Testing | Multiple test coverage gaps (see section below) |
+| #  | Status | Severity | Category | Subsystem | Title |
+|----|--------|----------|----------|-----------|-------|
+| 1  | FIXED | Critical | Bug | Reader | WAV reader leaks `drwav` on multiple error paths |
+| 2  | FIXED | Critical | Bug | Reader | FLAC reader never calls `drflac_close` |
+| 3  | FIXED | Critical | Bug | Reader | FLAC / WAV integer overflow in `bytes_to_read_test` on 32-bit |
+| 4  | FIXED | Critical | Bug | Converter | `sample_to_int16` / `sample_to_int8` UB on out-of-range samples |
+| 5  | FIXED | Critical | Thread | Core | `Timer::thread_interval` uses `atomic_flag::test_and_set` incorrectly |
+| 6  | FIXED | Critical | Thread | Core | `ReleasePool` destructor races with timer callback (use-after-free) |
+| 7  | FIXED | Critical | Bug | Core | `Lib::initialize` swallows errors inside `call_once` |
+| 8  | DEFERRED | Critical | Thread | Core | `Lib::terminate` not thread-safe; no re-initialization gate |
+| 9  | FIXED | Critical | Bug | Backend | WASAPI: off-by-one heap buffer overflow in `construct` |
+| 10 | ALREADY FIXED | Critical | Bug | Backend | WASAPI: `device->properties` assigns to wrong member |
+| 11 | FIXED | Critical | Bug | Backend | WASAPI: `closest_match` COM memory leak |
+| 12 | DEFERRED | Critical | Bug | Backend | CoreAudio: `stop()` ignores all errors and never uninitializes |
+| 13 | DEFERRED | Critical | Bug | Backend | CoreAudio: `start()` leaks resources on partial failure |
+| 14 | FIXED | Critical | Bug | Backend | CoreAudio: `get_device_name` returns `nullptr` for `std::string` (UB crash) |
+| 15 | DEFERRED | Critical | Bug | C API | Entire C API is dead code and does not compile |
+| 16 | DEFERRED | Critical | Thread | Source | `AudioMixer` stores raw `AudioSource*` with no lifetime guarantee |
+| 17 | FIXED | High | Bug | Converter | `sample_to_int32` UB on out-of-range samples |
+| 18 | FIXED | High | Bug | Source | `AudioVoice::seek_time` -- negative time causes UB in `static_cast<size_t>` |
+| 19 | FIXED | High | Bug | Source | `AudioData::create_slice` -- negative seconds causes UB |
+| 20 | FIXED | High | Bug | Source | `advance_id` wraps to 0 (invalid sentinel), permanently exhausting ID space |
+| 21 | ALREADY FIXED | High | Bug | Source | `process_panning` -- `sqrt` of negative value produces NaN on bad input |
+| 22 | FIXED | High | Semantic | Source | `AudioMixer::process_events` calls `on_removed_from_mixer` on never-added source |
+| 23 | DEFERRED | High | Semantic | Source | Double volume/panning application in `AudioSpace::render` |
+| 24 | DEFERRED | High | Thread | Source | `AudioVoice` compound state transitions observable in intermediate states |
+| 25 | FIXED | High | Thread | Source | `AudioData::name` data race (no mutex unlike `AudioSource`) |
+| 26 | DEFERRED | High | Bug | Reader | MP3 reader: VBR frame count may underestimate, silently losing frames |
+| 27 | FIXED | High | Bug | Reader | Opus reader: potential buffer overrun if `op_pcm_total` underestimates |
+| 28 | FIXED | High | Bug | Reader | Ogg reader: `assert(element_size == 1)` is no-op in release builds |
+| 29 | DEFERRED | High | Bug | Converter | `sample_to_int24` returns unsigned-masked value in signed return type |
+| 30 | DEFERRED | High | Bug | Converter | `write_sample` silently does nothing for `FLOAT_64` and `Unknown` formats |
+| 31 | DEFERRED | High | Bug | Converter | ReSampler: `expected_frames` estimate may be too small; `int` overflow on large files |
+| 32 | FIXED | High | Bug | Backend | WASAPI: `wc_to_utf8` leaks heap-allocated char array |
+| 33 | FIXED | High | Bug | Backend | WASAPI: `device_id` allocated with `new` but never freed |
+| 34 | FIXED | High | Bug | Backend | WASAPI: `cbSize` set to wrong value for `WAVEFORMATEXTENSIBLE` |
+| 35 | FIXED | High | Bug | Backend | WASAPI: destructor does not stop audio thread before releasing resources |
+| 36 | FIXED | High | Bug | Backend | WASAPI: no `CoInitializeEx` on audio callback thread |
+| 37 | DEFERRED | High | Bug | Backend | CoreAudio: `create_device_properties` leaks test AudioUnit |
+| 38 | DEFERRED | High | Bug | Backend | CoreAudio: `get_latency_*` / `set_frames_per_buffer` don't short-circuit on error |
+| 39 | FIXED | High | Bug | Core | `File::read_buffer` truncates `size_t` to `long`; loses partial reads at EOF |
+| 40 | FIXED | High | Bug | Core | Logger level filter only applied to built-in receiver, not custom receivers |
+| 41 | DEFERRED | High | Bug | C API | Dangling pointer from `get_name()` returning `c_str()` of temporary |
+| 42 | DEFERRED | High | Bug | C API | Virtual C++ structs exposed as C API -- not ABI-stable or C-compatible |
+| 43 | DEFERRED | High | Bug | Demo | Off-by-one: `device_property_index > size()` should be `>=` |
+| 44 | DEFERRED | High | Build | Build | `cmake_minimum_required(VERSION 3.31)` is too aggressive |
+| 45 | FIXED | High | Build | Build | `test/CMakeLists.txt` typo: `CMAKE_CSS_STANDARD_LIBRARIES` |
+| 46 | DEFERRED | Medium | Bug | Source | `AudioSpace` ID space: `uint16_t` exhaustion after 65534 allocations |
+| 47 | DEFERRED | Medium | Thread | Source | `AudioSource::sample_rate` and `channel` are non-const, non-atomic |
+| 48 | DEFERRED | Medium | Bug | Source | `AudioStream` ring buffer positions overflow on 32-bit after ~24 hours |
+| 49 | ALREADY FIXED | Medium | Bug | Reader | WAV reader: unrecognized PCM bit depth leaves `sample_format` as `Unknown`, leaks `drwav` |
+| 50 | FIXED | Medium | Bug | Reader | `create_audio_data`: `reinterpret_cast` from `uint8_t[]` violates alignment |
+| 51 | FIXED | Medium | Bug | Reader | Opus reader: does not set error on `op_open_memory` failure |
+| 52 | DEFERRED | Medium | Bug | Reader | MP3 / WAV: `DR_*_IMPLEMENTATION` defines risk ODR violations |
+| 53 | FIXED | Medium | Bug | Converter | ReSampler: no null check on input `p_audio_data` |
+| 54 | ALREADY FIXED | Medium | Bug | Converter | Channel converter: null `storage` pointer dereference when `frame_count == 0` |
+| 55 | DEFERRED | Medium | Thread | Backend | CoreAudio: audio callback reads `audio_source` without memory fence |
+| 56 | DEFERRED | Medium | Bug | Backend | CoreAudio: `property_callback` only processes first address in array |
+| 57 | DEFERRED | Medium | Bug | Backend | CoreAudio: `create_description` returns zeroed struct for unsupported formats |
+| 58 | DEFERRED | Medium | Bug | Backend | WASAPI: STA apartment model; audio thread may need MTA |
+| 59 | DEFERRED | Medium | Bug | Backend | WASAPI: `start()` error paths leak `audio_client` and handles |
+| 60 | DEFERRED | Medium | Bug | Backend | `AudioDevice::render_to_device_buffer` trusts caller buffer size |
+| 61 | FIXED | Medium | Bug | Core | `Buffer::get_available()` underflows if `position > virtual_length` |
+| 62 | FIXED | Medium | Bug | Core | `File::is_eof` returns `false` when no file is open |
+| 63 | DEFERRED | Medium | Quality | Core | `_INLINE_` macro uses reserved identifier pattern |
+| 64 | DEFERRED | Medium | Quality | Core | `#include <sal.h>` placed inside Logger class body |
+| 65 | FIXED | Medium | Bug | Core | `Buffer::write_data` compares `size_t <= 0` (tautological) |
+| 66 | OPEN | Medium | Build | Build | `CMAKE_OSX_ARCHITECTURES` set after `project()` -- may be too late |
+| 67 | OPEN | Medium | Build | Build | `LOWL_DEBUG` defined as `PUBLIC`, leaking into consumers |
+| 68 | OPEN | Medium | Architecture | Architecture | No Linux audio backend (PulseAudio / ALSA / PipeWire) |
+| 69 | OPEN | Medium | Architecture | Architecture | `Lib::terminate` does not clear `drivers` or allow re-initialization |
+| 70 | OPEN | Medium | Bug | Demo | `std::stoi` on user input with no exception handling |
+| 71 | OPEN | Low | Quality | Source | `AudioSource` value-initializes atomics then re-stores in constructor |
+| 72 | OPEN | Low | Quality | Source | `AudioBlockView::channel()` has no bounds check |
+| 73 | OPEN | Low | Quality | Source | `AudioVoice` defaults to `Playing`; `AudioSpace` immediately stops it |
+| 74 | OPEN | Low | Quality | Source | `get_frames_remaining()` returns 1 while `get_frame_count()` returns 0 |
+| 75 | OPEN | Low | Quality | Reader | `detect_format` is extension-only; no magic-byte fallback |
+| 76 | OPEN | Low | Quality | Reader | FLAC reader: `DR_FLAC_NO_CRC` disables integrity checks |
+| 77 | OPEN | Low | Quality | Backend | `AudioDeviceProperties::operator<` inconsistent with fuzzy `operator==` |
+| 78 | OPEN | Low | Quality | Backend | `AudioDriver::get_devices()` returns vector by value |
+| 79 | OPEN | Low | Quality | Core | Include guards missing `_H` suffix across multiple headers |
+| 80 | OPEN | Low | Quality | Core | `File` has undeclared `test()` method (dead declaration) |
+| 81 | OPEN | Low | Build | Build | No compiler warning flags for GCC or MSVC |
+| 82 | OPEN | Low | Quality | Demo | Global variables, inconsistent arg parsing, no `--help` |
+| 83 | OPEN | Low | Testing | Testing | Multiple test coverage gaps (see section below) |
 
 ---
 
-## Issue 1 -- WAV Reader Leaks `drwav` on Error Paths -- OPEN
+## Current Pass -- 2026-03-27
+
+- **Issue 1 -- FIXED.** Options considered: add manual `drwav_uninit` calls on the current early returns, wrap `drwav` in a local RAII guard, or refactor WAV decode into a shared helper. Decision: manual cleanup plus explicit error propagation was the smallest architecture-fit patch for the existing reader.
+- **Issue 2 -- FIXED.** Options considered: manual `drflac_close` on every branch, a `unique_ptr` with `drflac_close` deleter, or a broader FLAC reader refactor. Decision: the RAII deleter was the safest low-churn fix because it closed all paths without duplicating cleanup code.
+- **Issue 3 -- FIXED.** Options considered: cast both operands to `uint64_t`, add a checked multiply helper, or clamp on `size_t` before multiplying. Decision: explicit `uint64_t` casts solved the concrete overflow without changing reader structure.
+- **Issue 4 -- FIXED.** Options considered: clamp in each integer conversion, clamp once at call sites before conversion, or add a saturating helper used by all integer writers. Decision: local clamps in the conversion helpers matched the current design and removed the UB directly.
+- **Issue 5 -- FIXED.** Options considered: replace `atomic_flag` with `atomic<bool>`, keep `atomic_flag` and restructure the loop, or replace the timer with a condition-variable based worker. Decision: `atomic<bool>` was the clearest low-risk correction and removed the re-arming bug.
+- **Issue 6 -- FIXED.** Options considered: keep detach semantics and rely on caller discipline, make `stop()` always synchronize with thread exit, or redesign `ReleasePool` to avoid callbacks on `this`. Decision: removing the detach path from normal shutdown and making `stop()` wait from external threads fit the current `ReleasePool` usage best.
+- **Issue 7 -- FIXED.** Options considered: capture the caller error into `call_once`, store initialization state in static error storage, or replace `call_once` entirely with a resettable state machine. Decision: static `initialization_error` storage fixed the swallowed-error behavior without taking on Issue 8’s larger lifecycle redesign.
+- **Issue 8 -- DEFERRED.** Options considered: keep `once_flag` and document one-shot lifetime, replace it with a mutex-protected state machine, or split initialization/termination per backend. Decision: this needs a broader library-lifetime policy, especially around re-initialization and shared static driver state, so I did not patch it opportunistically.
+- **Issue 9 -- FIXED.** Options considered: fix the off-by-one index, wrap the allocation in `std::wstring`, or remove the unused device-id copy entirely. Decision: removing the unused allocation was best because it eliminated both the overflow and the leak.
+- **Issue 10 -- VERIFIED ALREADY FIXED.** Options considered: change the assignment, add a compatibility alias, or verify current code. Decision: current code already assigns to `properties_list`, so no source change was needed.
+- **Issue 11 -- FIXED.** Options considered: free `closest_match` inline at each return, add a small local cleanup helper, or wrap the COM allocation. Decision: explicit `CoTaskMemFree` on all exit paths was the least invasive fix.
+- **Issue 12 -- DEFERRED.** Options considered: minimally add error checks, fully uninitialize/remove listeners/callbacks, or rebuild CoreAudio device shutdown around RAII. Decision: the correct fix touches the whole CoreAudio lifecycle, so I left it for a dedicated pass.
+- **Issue 13 -- DEFERRED.** Options considered: patch individual early returns, add scope guards around startup resources, or restructure `start()` into staged RAII objects. Decision: partial edits risked missing paths; this wants a full CoreAudio startup cleanup pass.
+- **Issue 14 -- FIXED.** Options considered: return `""`, return `std::string()`, or propagate a separate failure object. Decision: returning an empty string is enough to remove the UB and preserve the current API.
+- **Issue 15 -- DEFERRED.** Options considered: delete the C API, patch it enough to compile, or redesign it around opaque C handles. Decision: this is outside the current `src/` core-library pass and needs an intentional API decision first.
+- **Issue 16 -- DEFERRED.** Options considered: convert mixer ownership to `shared_ptr`, make the raw-pointer contract explicit with acknowledgement requirements, or hide direct mixer usage behind `AudioSpace`. Decision: that is a public API/lifetime contract decision, not a safe opportunistic patch.
+- **Issue 17 -- FIXED.** Options considered: clamp in `sample_to_int32`, clamp before every caller writes, or switch to a saturating helper. Decision: clamping inside `sample_to_int32` fixed the UB at the source.
+- **Issue 18 -- FIXED.** Options considered: clamp negative seconds to zero, reject negative input, or switch to signed frame math first. Decision: clamping to zero matches the existing seek semantics and removes the undefined cast.
+- **Issue 19 -- FIXED.** Options considered: clamp negative seconds to zero, reject negative slice bounds, or redesign the slice API around optional endpoints. Decision: clamping was the straightforward behavior-preserving fix.
+- **Issue 20 -- FIXED.** Options considered: wrap IDs to `1`, reserve a separate exhaustion state, or widen the ID type immediately. Decision: wrapping to `1` is the minimal correct fix and matches generation handling.
+- **Issue 21 -- VERIFIED ALREADY FIXED.** Options considered: add a clamp in `process_panning`, trust `set_panning`, or verify current code. Decision: current `process_panning` already clamps before `sqrt`, so no patch was needed.
+- **Issue 22 -- FIXED.** Options considered: keep calling `on_removed_from_mixer`, call a new rejection callback, or send only the rejection acknowledgement. Decision: rejection-only behavior matched the actual state transition and avoided lying to the source.
+- **Issue 23 -- DEFERRED.** Options considered: remove mixer gain, remove space gain, or document the hierarchy as intentional. Decision: this needs a product/API call about intended gain staging, so I did not change runtime behavior.
+- **Issue 24 -- DEFERRED.** Options considered: tighten memory ordering, collapse state transitions into a single publish point, or redesign playback state exposure. Decision: that needs a deliberate concurrency model review rather than a narrow patch.
+- **Issue 25 -- FIXED.** Options considered: add a mutex around `AudioData::name`, make names immutable, or move naming outside the audio object. Decision: matching `AudioSource` and guarding the string with a mutex was the most consistent low-risk fix.
+- **Issue 26 -- DEFERRED.** Options considered: decode into a growable buffer, keep trimming and log truncation, or trust `drmp3_get_pcm_frame_count`. Decision: the correct behavior depends on whether silent truncation is acceptable for VBR input, so I left it open.
+- **Issue 27 -- FIXED.** Options considered: clamp each decoded chunk to the remaining capacity, switch Opus decoding to a growable buffer, or trust `op_pcm_total`. Decision: chunk clamping removes the overflow risk without changing the current fixed-allocation approach.
+- **Issue 28 -- FIXED.** Options considered: keep the assert, compute byte counts and return item counts correctly, or refuse non-1-byte reads outright. Decision: implementing correct item-sized reads made the callback valid in both debug and release builds.
+- **Issue 29 -- DEFERRED.** Options considered: keep the packed `int32_t` contract, change the return type to `uint32_t`, or add a separate sign-extended helper. Decision: the existing write path may rely on packed low-24-bit behavior, so this needs a contract decision.
+- **Issue 30 -- DEFERRED.** Options considered: implement `FLOAT_64`, assert/fail on unsupported formats, or add an error-returning write API. Decision: the current helper has no error channel, so fixing `Unknown` cleanly needs an API decision rather than a partial patch.
+- **Issue 31 -- DEFERRED.** Options considered: over-allocate output with margin, chunk the resampling work, or add hard guards around `int` conversion. Decision: this depends on the exact r8b output contract and deserves a focused resampler pass.
+- **Issue 32 -- FIXED.** Options considered: manually `delete[]` the UTF-8 buffer, wrap it in smart ownership, or return `std::string`. Decision: returning `std::string` matched the rest of the code and removed ownership ambiguity entirely.
+- **Issue 33 -- FIXED.** Options considered: free the copied device id, store it in an owning C++ type, or remove it because it was unused. Decision: removing the unused copy was the cleanest result.
+- **Issue 34 -- FIXED.** Options considered: leave `cbSize` as-is, set it to the documented extensible payload size, or special-case per format. Decision: the documented `sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX)` value was the right direct fix.
+- **Issue 35 -- FIXED.** Options considered: trust callers to stop before destruction, stop in the destructor, or move thread ownership out of the device. Decision: calling `stop()` in the destructor is the minimal correct safety fix.
+- **Issue 36 -- FIXED.** Options considered: initialize COM on the callback thread, rely on the creating thread’s COM state, or move callback work behind a COM-aware wrapper. Decision: explicit callback-thread `CoInitializeEx` was the correct per-thread fix.
+- **Issue 37 -- DEFERRED.** Options considered: add local disposal calls, wrap test units in RAII, or redesign CoreAudio probing. Decision: this belongs with the broader CoreAudio resource-management pass.
+- **Issue 38 -- DEFERRED.** Options considered: add immediate `error.has_error()` short-circuits, change the helpers to return richer result types, or restructure CoreAudio utility composition. Decision: this is best handled together with the other CoreAudio cleanup work.
+- **Issue 39 -- FIXED.** Options considered: cast to `std::streamsize`, chunk large reads manually, or leave the API and only fix EOF handling. Decision: switching to `std::streamsize` and preserving `gcount()` on EOF solved the concrete bug without redesigning file I/O.
+- **Issue 40 -- FIXED.** Options considered: keep filtering only in the stdout receiver, push the filter into `Logger::write`, or require custom receivers to filter themselves. Decision: central filtering in `Logger::write` gives consistent behavior for all receivers.
+- **Issue 41 -- DEFERRED.** Options considered: store stable C strings, rewrite around opaque handles, or remove the C API. Decision: this is part of the larger C API rewrite/removal decision and stayed out of the current pass.
+- **Issue 42 -- DEFERRED.** Options considered: patch ABI details piecemeal, redesign as a real C API, or remove it. Decision: only a full redesign/removal is credible here, so I did not make partial edits.
+- **Issue 43 -- DEFERRED.** Options considered: fix the demo bounds check, remove the demo code, or leave demos out of the core pass. Decision: demo code is outside the current repository-local scope for this pass.
+- **Issue 44 -- DEFERRED.** Options considered: lower the root CMake version, split minimum versions per subtree, or leave build requirements unchanged. Decision: root build files were outside this pass’s scope.
+- **Issue 45 -- FIXED.** Options considered: leave the typo, correct the variable in place, or restructure MinGW link flags entirely. Decision: correcting the typo was safe and directly improved the test build.
+- **Issue 46 -- DEFERRED.** Options considered: widen IDs to `uint32_t`, keep `uint16_t` and rely on free-list reuse, or add explicit exhaustion handling. Decision: widening public handle types is a broader ABI/API choice.
+- **Issue 47 -- DEFERRED.** Options considered: make fields `const`, make them atomic, or document publication ordering. Decision: this is low-risk cleanup, but it touches type declarations and publication guarantees beyond the current bug-fix pass.
+- **Issue 48 -- DEFERRED.** Options considered: re-base positions periodically, require 64-bit `size_t`, or make the ring indices fixed-width 64-bit counters. Decision: that needs a dedicated 32-bit correctness pass.
+- **Issue 49 -- VERIFIED ALREADY FIXED.** Options considered: add an explicit `Unknown` fast-fail before `create_audio_data`, rely on post-call `drwav_uninit`, or wrap `drwav` in RAII. Decision: after the current cleanup pass, `drwav_uninit` still runs on this path, so no extra code was required.
+- **Issue 50 -- FIXED.** Options considered: trust allocator alignment, copy into aligned typed buffers first, or replace typed buffer access with `memcpy`. Decision: `memcpy` inside the conversion path removed the UB without changing the external reader API.
+- **Issue 51 -- FIXED.** Options considered: map all Opus errors to one generic code, preserve the vendor error code, or leave the null return unannotated. Decision: preserving the vendor error code gives callers the most useful signal with minimal churn.
+- **Issue 52 -- DEFERRED.** Options considered: leave implementation defines in place, move each implementation define into a dedicated TU, or build wrapper libraries. Decision: that is a build-structure change and not a quick library-core patch.
+- **Issue 53 -- FIXED.** Options considered: assume non-null input, add a null early return, or surface an error object from the resampler. Decision: early return was consistent with the current signature and removed the null dereference.
+- **Issue 54 -- VERIFIED ALREADY FIXED.** Options considered: add a zero-frame early return, restructure pointer arithmetic, or verify the current guards. Decision: the existing `storage ? ... : nullptr` path already avoids null-pointer arithmetic here.
+- **Issue 55 -- DEFERRED.** Options considered: make callback-visible fields atomic, add explicit synchronization at startup, or document CoreAudio’s publication guarantees. Decision: this belongs in the CoreAudio concurrency pass.
+- **Issue 56 -- DEFERRED.** Options considered: iterate all addresses, split callback handling by selector, or leave current single-address behavior. Decision: not enough CoreAudio callback coverage was in scope for this pass.
+- **Issue 57 -- DEFERRED.** Options considered: signal failure with `Error`, return `std::optional`, or keep zeroed descriptions. Decision: fixing this cleanly needs a small CoreAudio API redesign.
+- **Issue 58 -- DEFERRED.** Options considered: switch global WASAPI COM init to MTA, keep STA and rely on thread-local COM init, or document the split model. Decision: Issue 36 is fixed, but the library-wide apartment policy still needs a deliberate backend decision.
+- **Issue 59 -- DEFERRED.** Options considered: add manual cleanup at each error site, use scope guards, or refactor `start()` into staged helpers. Decision: this wants a focused WASAPI startup cleanup pass.
+- **Issue 60 -- DEFERRED.** Options considered: trust the API contract, add debug assertions on written byte count, or change the API to pass an explicit output span. Decision: strict runtime enforcement needs API-level bounds information that the current signature does not carry.
+- **Issue 61 -- FIXED.** Options considered: clamp the subtraction, assert `position <= virtual_length`, or rely on callers. Decision: clamping to zero was the safest behavior-preserving fix.
+- **Issue 62 -- FIXED.** Options considered: return `true` when unopened, add `is_open()`, or leave the semantic mismatch alone. Decision: returning `true` matches the existing empty-read behavior without expanding the API.
+- **Issue 63 -- DEFERRED.** Options considered: rename `_INLINE_`, leave it alone, or replace it with compiler attributes directly. Decision: this is worthwhile cleanup, but orthogonal to the correctness fixes in this pass.
+- **Issue 64 -- DEFERRED.** Options considered: move the include, leave the current conditional layout, or restructure the logger header. Decision: header-hygiene cleanup was lower priority than the concrete functional bugs fixed here.
+- **Issue 65 -- FIXED.** Options considered: leave the unsigned comparison, change only the reported line, or normalize the checks to `== 0`. Decision: `== 0` is the correct low-noise fix and removes the tautological compare.
+
+---
+
+## Issue 1 -- WAV Reader Leaks `drwav` on Error Paths -- FIXED
 
 **Severity:** Critical
 **Category:** Bug (Resource Leak)
@@ -113,7 +183,7 @@ Call `drwav_uninit(&wav)` and set an appropriate error code before each `return 
 
 ---
 
-## Issue 2 -- FLAC Reader Never Calls `drflac_close` -- OPEN
+## Issue 2 -- FLAC Reader Never Calls `drflac_close` -- FIXED
 
 **Severity:** Critical
 **Category:** Bug (Resource Leak)
@@ -129,7 +199,7 @@ Call `drflac_close(flac)` after `drflac_read_pcm_frames_s32` returns, on all pat
 
 ---
 
-## Issue 3 -- Integer Overflow in Reader Size Calculations on 32-bit -- OPEN
+## Issue 3 -- Integer Overflow in Reader Size Calculations on 32-bit -- FIXED
 
 **Severity:** Critical
 **Category:** Bug (Integer Overflow)
@@ -145,7 +215,7 @@ Explicitly cast both operands to `uint64_t` before multiplying: `static_cast<uin
 
 ---
 
-## Issue 4 -- `sample_to_int16` / `sample_to_int8` UB on Out-of-Range Samples -- OPEN
+## Issue 4 -- `sample_to_int16` / `sample_to_int8` UB on Out-of-Range Samples -- FIXED
 
 **Severity:** Critical
 **Category:** Bug (Undefined Behavior)
@@ -161,7 +231,7 @@ Add `std::clamp(p_sample, -1.0f, 1.0f)` before the multiply, matching `sample_to
 
 ---
 
-## Issue 5 -- `Timer::thread_interval` Uses `atomic_flag::test_and_set` Incorrectly -- OPEN
+## Issue 5 -- `Timer::thread_interval` Uses `atomic_flag::test_and_set` Incorrectly -- FIXED
 
 **Severity:** Critical
 **Category:** Bug / Thread Safety
@@ -177,7 +247,7 @@ Replace `std::atomic_flag` with `std::atomic<bool>`. Check the flag without modi
 
 ---
 
-## Issue 6 -- `ReleasePool` Destructor Races with Timer Callback -- OPEN
+## Issue 6 -- `ReleasePool` Destructor Races with Timer Callback -- FIXED
 
 **Severity:** Critical
 **Category:** Thread Safety / Use-After-Free
@@ -193,7 +263,7 @@ Ensure the timer thread is always joined (never detached) before the destructor 
 
 ---
 
-## Issue 7 -- `Lib::initialize` Swallows Errors Inside `call_once` -- OPEN
+## Issue 7 -- `Lib::initialize` Swallows Errors Inside `call_once` -- FIXED
 
 **Severity:** Critical
 **Category:** Bug
@@ -225,7 +295,7 @@ Clear the `drivers` vector in `terminate()`, add a mutex for the static state, a
 
 ---
 
-## Issue 9 -- WASAPI: Off-by-One Heap Buffer Overflow in `construct` -- OPEN
+## Issue 9 -- WASAPI: Off-by-One Heap Buffer Overflow in `construct` -- FIXED
 
 **Severity:** Critical
 **Category:** Bug
@@ -241,7 +311,7 @@ Clear the `drivers` vector in `terminate()`, add a mutex for the static state, a
 
 ---
 
-## Issue 10 -- WASAPI: `device->properties` Assigns to Wrong Member -- OPEN
+## Issue 10 -- WASAPI: `device->properties` Assigns to Wrong Member -- ALREADY FIXED
 
 **Severity:** Critical
 **Category:** Bug
@@ -257,7 +327,7 @@ Change to `device->properties_list = audio_device_properties;`
 
 ---
 
-## Issue 11 -- WASAPI: `closest_match` COM Memory Leak -- OPEN
+## Issue 11 -- WASAPI: `closest_match` COM Memory Leak -- FIXED
 
 **Severity:** Critical
 **Category:** Bug (Resource Leak)
@@ -305,7 +375,7 @@ Add cleanup logic (dispose audio unit, remove listeners) on each early return pa
 
 ---
 
-## Issue 14 -- CoreAudio: `get_device_name` Returns `nullptr` for `std::string` -- OPEN
+## Issue 14 -- CoreAudio: `get_device_name` Returns `nullptr` for `std::string` -- FIXED
 
 **Severity:** Critical
 **Category:** Bug (UB / Crash)
@@ -353,7 +423,7 @@ Either use `std::shared_ptr` in the mixer's active array, or require callers to 
 
 ---
 
-## Issue 17 -- `sample_to_int32` UB on Out-of-Range Samples -- OPEN
+## Issue 17 -- `sample_to_int32` UB on Out-of-Range Samples -- FIXED
 
 **Severity:** High
 **Category:** Bug (Undefined Behavior)
@@ -369,7 +439,7 @@ Clamp `p_sample` to `[-1.0, 1.0]` before the multiply.
 
 ---
 
-## Issue 18 -- `AudioVoice::seek_time` -- Negative Time Causes UB -- OPEN
+## Issue 18 -- `AudioVoice::seek_time` -- Negative Time Causes UB -- FIXED
 
 **Severity:** High
 **Category:** Bug
@@ -385,7 +455,7 @@ Clamp `p_seconds` to `>= 0.0` before the cast.
 
 ---
 
-## Issue 19 -- `AudioData::create_slice` -- Negative Seconds Causes UB -- OPEN
+## Issue 19 -- `AudioData::create_slice` -- Negative Seconds Causes UB -- FIXED
 
 **Severity:** High
 **Category:** Bug
@@ -401,7 +471,7 @@ Clamp both `p_begin_sec` and `p_end_sec` to `>= 0.0` before the cast.
 
 ---
 
-## Issue 20 -- `advance_id` Wraps to 0, Permanently Exhausting ID Space -- OPEN
+## Issue 20 -- `advance_id` Wraps to 0, Permanently Exhausting ID Space -- FIXED
 
 **Severity:** High
 **Category:** Bug
@@ -417,7 +487,7 @@ Change `advance_id` to wrap to 1 (or `FirstAudioAssetId` / `FirstPlaybackSlotId`
 
 ---
 
-## Issue 21 -- `process_panning` -- `sqrt` of Negative Produces NaN -- OPEN
+## Issue 21 -- `process_panning` -- `sqrt` of Negative Produces NaN -- ALREADY FIXED
 
 **Severity:** High
 **Category:** Bug
@@ -433,7 +503,7 @@ Add a clamp inside `process_panning`: `pan = std::clamp(pan, -1.0f, 1.0f)`.
 
 ---
 
-## Issue 22 -- Mixer Calls `on_removed_from_mixer` on Never-Added Source -- OPEN
+## Issue 22 -- Mixer Calls `on_removed_from_mixer` on Never-Added Source -- FIXED
 
 **Severity:** High
 **Category:** Semantic
@@ -481,7 +551,7 @@ Use `memory_order_release` on the final store in compound transitions, or collap
 
 ---
 
-## Issue 25 -- `AudioData::name` Data Race -- OPEN
+## Issue 25 -- `AudioData::name` Data Race -- FIXED
 
 **Severity:** High
 **Category:** Thread Safety
@@ -513,7 +583,7 @@ Decode into a dynamically growing buffer, or log a warning on early loop exit.
 
 ---
 
-## Issue 27 -- Opus Reader: Potential Buffer Overrun -- OPEN
+## Issue 27 -- Opus Reader: Potential Buffer Overrun -- FIXED
 
 **Severity:** High
 **Category:** Bug
@@ -529,7 +599,7 @@ After `op_read_float`, clamp: `frames_read = std::min(frames_read, frame_count -
 
 ---
 
-## Issue 28 -- Ogg Reader: `assert(element_size == 1)` No-Op in Release -- OPEN
+## Issue 28 -- Ogg Reader: `assert(element_size == 1)` No-Op in Release -- FIXED
 
 **Severity:** High
 **Category:** Bug
@@ -593,7 +663,7 @@ Add margin to `expected_frames` (+32), check r8b's return value for actual frame
 
 ---
 
-## Issue 32 -- WASAPI: `wc_to_utf8` Leaks Memory -- OPEN
+## Issue 32 -- WASAPI: `wc_to_utf8` Leaks Memory -- FIXED
 
 **Severity:** High
 **Category:** Bug (Resource Leak)
@@ -609,7 +679,7 @@ Return `std::string` directly from `wc_to_utf8`.
 
 ---
 
-## Issue 33 -- WASAPI: `device_id` Allocated but Never Freed -- OPEN
+## Issue 33 -- WASAPI: `device_id` Allocated but Never Freed -- FIXED
 
 **Severity:** High
 **Category:** Bug (Resource Leak)
@@ -625,7 +695,7 @@ Use `std::wstring` or `std::unique_ptr<WCHAR[]>`, or remove the allocation if un
 
 ---
 
-## Issue 34 -- WASAPI: `cbSize` Set to Wrong Value -- OPEN
+## Issue 34 -- WASAPI: `cbSize` Set to Wrong Value -- FIXED
 
 **Severity:** High
 **Category:** Bug
@@ -641,7 +711,7 @@ Use `std::wstring` or `std::unique_ptr<WCHAR[]>`, or remove the allocation if un
 
 ---
 
-## Issue 35 -- WASAPI: Destructor Does Not Stop Audio Thread -- OPEN
+## Issue 35 -- WASAPI: Destructor Does Not Stop Audio Thread -- FIXED
 
 **Severity:** High
 **Category:** Thread Safety
@@ -657,7 +727,7 @@ Call `stop()` in the destructor before releasing resources.
 
 ---
 
-## Issue 36 -- WASAPI: No COM Initialization on Audio Callback Thread -- OPEN
+## Issue 36 -- WASAPI: No COM Initialization on Audio Callback Thread -- FIXED
 
 **Severity:** High
 **Category:** Bug
@@ -705,7 +775,7 @@ Check `error.has_error()` after each sub-call and return early on failure.
 
 ---
 
-## Issue 39 -- `File::read_buffer` Truncates `size_t` to `long`; Loses Partial Reads -- OPEN
+## Issue 39 -- `File::read_buffer` Truncates `size_t` to `long`; Loses Partial Reads -- FIXED
 
 **Severity:** High
 **Category:** Bug
@@ -721,7 +791,7 @@ Cast to `std::streamsize`. Check `fail()` only when `eof()` is false, or use `gc
 
 ---
 
-## Issue 40 -- Logger Level Filter Only Applied to Built-in Receiver -- OPEN
+## Issue 40 -- Logger Level Filter Only Applied to Built-in Receiver -- FIXED
 
 **Severity:** High
 **Category:** Bug / Semantic
@@ -801,7 +871,7 @@ Lower to `cmake_minimum_required(VERSION 3.16)`.
 
 ---
 
-## Issue 45 -- Test CMakeLists.txt Typo: `CMAKE_CSS_STANDARD_LIBRARIES` -- OPEN
+## Issue 45 -- Test CMakeLists.txt Typo: `CMAKE_CSS_STANDARD_LIBRARIES` -- FIXED
 
 **Severity:** High
 **Category:** Build
@@ -865,7 +935,7 @@ Add `static_assert(sizeof(size_t) >= 8, "...")`, or periodically re-base positio
 
 ---
 
-## Issue 49 -- WAV Reader: Unrecognized PCM Bit Depth Leaks `drwav` -- OPEN
+## Issue 49 -- WAV Reader: Unrecognized PCM Bit Depth Leaks `drwav` -- ALREADY FIXED
 
 **Severity:** Medium
 **Category:** Bug
@@ -881,7 +951,7 @@ After the format switch, check if `sample_format == Unknown`, then `drwav_uninit
 
 ---
 
-## Issue 50 -- `create_audio_data`: `reinterpret_cast` Alignment Violation -- OPEN
+## Issue 50 -- `create_audio_data`: `reinterpret_cast` Alignment Violation -- FIXED
 
 **Severity:** Medium
 **Category:** Bug (Undefined Behavior)
@@ -897,7 +967,7 @@ Use `std::memcpy` into properly-typed locals in the conversion loop.
 
 ---
 
-## Issue 51 -- Opus Reader: Does Not Set Error on Failure -- OPEN
+## Issue 51 -- Opus Reader: Does Not Set Error on Failure -- FIXED
 
 **Severity:** Medium
 **Category:** Bug
@@ -929,7 +999,7 @@ Isolate each `_IMPLEMENTATION` define into a dedicated TU. Consider a namespace 
 
 ---
 
-## Issue 53 -- ReSampler: No Null Check on `p_audio_data` -- OPEN
+## Issue 53 -- ReSampler: No Null Check on `p_audio_data` -- FIXED
 
 **Severity:** Medium
 **Category:** Bug
@@ -945,7 +1015,7 @@ Add a null check and return `nullptr` early.
 
 ---
 
-## Issue 54 -- Channel Converter: Potential Null Dereference -- OPEN
+## Issue 54 -- Channel Converter: Potential Null Dereference -- ALREADY FIXED
 
 **Severity:** Medium
 **Category:** Bug
@@ -1057,7 +1127,7 @@ Track write position relative to buffer end and assert or clamp.
 
 ---
 
-## Issue 61 -- `Buffer::get_available()` Can Underflow -- OPEN
+## Issue 61 -- `Buffer::get_available()` Can Underflow -- FIXED
 
 **Severity:** Medium
 **Category:** Bug
@@ -1073,7 +1143,7 @@ Track write position relative to buffer end and assert or clamp.
 
 ---
 
-## Issue 62 -- `File::is_eof` Returns `false` When No File Is Open -- OPEN
+## Issue 62 -- `File::is_eof` Returns `false` When No File Is Open -- FIXED
 
 **Severity:** Medium
 **Category:** Semantic
@@ -1121,7 +1191,7 @@ Move these includes to the top of the file.
 
 ---
 
-## Issue 65 -- `Buffer::write_data` Compares `size_t <= 0` -- OPEN
+## Issue 65 -- `Buffer::write_data` Compares `size_t <= 0` -- FIXED
 
 **Severity:** Medium
 **Category:** Bug

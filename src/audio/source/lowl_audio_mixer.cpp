@@ -136,7 +136,6 @@ void Lowl::Audio::AudioMixer::process_events() {
                 if (free_index != InvalidSourceIndex) {
                     add_source(free_index, event.handle, event.audio_source);
                 } else {
-                    event.audio_source->on_removed_from_mixer();
                     if (event.handle.is_valid()) {
                         AudioMixerAck ack = {};
                         ack.type = AudioMixerAck::Type::Rejected;
@@ -299,7 +298,6 @@ void Lowl::Audio::AudioMixer::mix(const AudioMixerHandle p_handle, AudioSource *
     if (p_audio_source->get_channel_layout() != channel_layout) {
         LOWL_LOG_ERROR("Lowl::AudioMixer::mix: source layout(" + p_audio_source->get_channel_layout().to_string() +
                        ") does not match mixer layout(" + channel_layout.to_string() + ").");
-        p_audio_source->on_removed_from_mixer();
         if (p_handle.is_valid()) {
             AudioMixerAck ack = {};
             ack.type = AudioMixerAck::Type::Rejected;
