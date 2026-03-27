@@ -78,13 +78,6 @@ GUID LOWL_GUID_KSDATAFORMAT_SUBTYPE_PCM = {
 GUID LOWL_GUID_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT = {
     0x00000003, 0x0000, 0x0010, {0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}};
 
-static constexpr Lowl::Audio::ChannelLayout kProbeLayouts[] = {
-    Lowl::Audio::ChannelLayout::Mono,
-    Lowl::Audio::ChannelLayout::Stereo,
-    Lowl::Audio::ChannelLayout::Surround_5_1,
-    Lowl::Audio::ChannelLayout::Surround_7_1,
-};
-
 static DWORD WINAPI
 
 wasapi_audio_callback(void *param) {
@@ -737,9 +730,10 @@ std::vector<Lowl::Audio::AudioDeviceProperties> Lowl::Audio::WasapiDevice::creat
     // test other capabilities
     std::vector<double> test_sample_rates = Lowl::Audio::AudioSetting::get_test_sample_rates();
     std::vector<SampleFormat> test_sample_formats = Lowl::Audio::AudioSetting::get_test_sample_formats();
+    std::vector<ChannelLayout> test_channel_layouts = Lowl::Audio::AudioSetting::get_test_channel_layouts();
     for (int sample_format_index = 0; sample_format_index < test_sample_formats.size(); sample_format_index++) {
         for (int sample_rate_index = 0; sample_rate_index < test_sample_rates.size(); sample_rate_index++) {
-            for (const ChannelLayout &probe_layout : kProbeLayouts) {
+            for (const ChannelLayout &probe_layout : test_channel_layouts) {
                 AudioDeviceProperties test_properties = AudioDeviceProperties();
                 test_properties.sample_format = test_sample_formats[sample_format_index];
                 test_properties.sample_rate = test_sample_rates[sample_rate_index];

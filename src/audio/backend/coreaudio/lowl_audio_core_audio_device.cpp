@@ -11,8 +11,8 @@
 #include "lowl_logger.h"
 
 namespace {
-    using Lowl::Audio::ChannelLayout;
     using Lowl::Audio::AudioDeviceProperties;
+    using Lowl::Audio::ChannelLayout;
 
     bool is_layout_required(const AudioDeviceProperties &p_properties) {
         return p_properties.channel_layout.is_valid() && p_properties.channel_layout.channel_count > 2;
@@ -46,12 +46,6 @@ namespace {
         return false;
     }
 
-    static constexpr ChannelLayout kProbeLayouts[] = {
-        ChannelLayout::Mono,
-        ChannelLayout::Stereo,
-        ChannelLayout::Surround_5_1,
-        ChannelLayout::Surround_7_1,
-    };
 } // namespace
 
 static OSStatus osx_audio_callback(void *inRefCon,
@@ -350,9 +344,11 @@ Lowl::Audio::CoreAudioDevice::create_device_properties(AudioObjectID p_device_id
     }
     if (!output_channel_layout.is_valid()) {
         output_channel_layout = ChannelLayout::from_count(static_cast<uint8_t>(output_channel_count));
-        LOWL_LOG_DEBUG_F("Device:%u - output_channel_layout: invalid channel layout, deriving from channel count", p_device_id);
+        LOWL_LOG_DEBUG_F("Device:%u - output_channel_layout: invalid channel layout, deriving from channel count",
+                         p_device_id);
     } else {
-        LOWL_LOG_DEBUG_F("Device:%u - output_channel_layout: %s", p_device_id, output_channel_layout.to_string().c_str());
+        LOWL_LOG_DEBUG_F(
+            "Device:%u - output_channel_layout: %s", p_device_id, output_channel_layout.to_string().c_str());
     }
 
     AudioDeviceProperties default_properties = AudioDeviceProperties();
@@ -371,10 +367,11 @@ Lowl::Audio::CoreAudioDevice::create_device_properties(AudioObjectID p_device_id
     // test other capabilities
     std::vector<double> test_sample_rates = Lowl::Audio::AudioSetting::get_test_sample_rates();
     std::vector<SampleFormat> test_sample_formats = Lowl::Audio::AudioSetting::get_test_sample_formats();
+    std::vector<ChannelLayout> test_channel_layouts = Lowl::Audio::AudioSetting::get_test_channel_layouts();
     for (unsigned long sample_format_index = 0; sample_format_index < test_sample_formats.size();
          sample_format_index++) {
         for (unsigned long sample_rate_index = 0; sample_rate_index < test_sample_rates.size(); sample_rate_index++) {
-            for (const ChannelLayout &probe_layout : kProbeLayouts) {
+            for (const ChannelLayout &probe_layout : test_channel_layouts) {
                 AudioDeviceProperties test_properties = AudioDeviceProperties();
                 test_properties.sample_format = test_sample_formats[sample_format_index];
                 test_properties.sample_rate = test_sample_rates[sample_rate_index];
@@ -399,7 +396,8 @@ Lowl::Audio::CoreAudioDevice::create_device_properties(AudioObjectID p_device_id
 
 bool Lowl::Audio::CoreAudioDevice::test_device_properties(AudioObjectID p_device_id,
                                                           AudioUnit p_audio_unit,
-                                                          AudioDeviceProperties p_properties) {
+                                                          AudioDeviceProperties p_properties,
+                                                          bool silent) {
     if (!p_properties.channel_layout.is_valid()) {
         return false;
     }
@@ -412,14 +410,16 @@ bool Lowl::Audio::CoreAudioDevice::test_device_properties(AudioObjectID p_device
                                            &description,
                                            sizeof(AudioStreamBasicDescription));
     if (result != noErr) {
-        LOWL_LOG_ERROR_F("failed to set AudioStreamBasicDescription (device:%u, OSStatus:%u)", p_device_id, result);
+        if (!silent) {
+            LOWL_LOG_ERROR_F("failed to set AudioStreamBasicDescription (device:%u, OSStatus:%u)", p_device_id, result);
+        }
         return false;
     }
 
     Error layout_error;
     if (!set_audio_unit_channel_layout(
             p_audio_unit, kAudioUnitScope_Input, CoreAudioUtilities::kOutputBus, p_properties, layout_error)) {
-        if (layout_error.has_error()) {
+        if (layout_error.has_error() && !silent) {
             LOWL_LOG_ERROR_F("failed to set AudioChannelLayout (device:%u)", p_device_id);
         }
         return false;
@@ -427,13 +427,13 @@ bool Lowl::Audio::CoreAudioDevice::test_device_properties(AudioObjectID p_device
 
     Error error;
     CoreAudioUtilities::set_input_sample_rate(p_audio_unit, p_properties.sample_rate, error);
-    if (error.has_error()) {
+    if (error.has_error() && !silent) {
         LOWL_LOG_ERROR_F("failed to set input sample rate (device:%u)", p_device_id);
         return false;
     }
 
     SampleRate output_sample_rate = CoreAudioUtilities::get_output_sample_rate(p_audio_unit, error);
-    if (error.has_error()) {
+    if (error.has_error() && !silent) {
         LOWL_LOG_ERROR_F("failed to get output sample rate (device:%u)", p_device_id);
         return false;
     }

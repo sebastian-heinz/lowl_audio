@@ -10,10 +10,30 @@ std::vector<Lowl::Audio::SampleFormat> Lowl::Audio::AudioSetting::test_sample_fo
                                                                                          SampleFormat::INT_8,
                                                                                          SampleFormat::U_INT_8};
 
+std::vector<Lowl::Audio::ChannelLayout> Lowl::Audio::AudioSetting::test_channel_layouts = {
+    ChannelLayout::Mono,
+    ChannelLayout::Stereo,
+    ChannelLayout::Surround_3_0,
+    ChannelLayout::Quad,
+    ChannelLayout::Quad_Side,
+    ChannelLayout::Surround_4_0,
+    ChannelLayout::Surround_5_0,
+    ChannelLayout::Surround_5_0_Rear,
+    ChannelLayout::Surround_5_1,
+    ChannelLayout::Surround_5_1_Rear,
+    ChannelLayout::Surround_6_1,
+    ChannelLayout::Surround_7_1,
+    ChannelLayout::Surround_7_1_Front,
+};
+
 std::vector<Lowl::Audio::SampleFormat> Lowl::Audio::AudioSetting::get_test_sample_formats() {
     return test_sample_formats;
 }
 
 std::vector<double> Lowl::Audio::AudioSetting::get_test_sample_rates() {
     return test_sample_rates;
+}
+
+std::vector<Lowl::Audio::ChannelLayout> Lowl::Audio::AudioSetting::get_test_channel_layouts() {
+    return test_channel_layouts;
 }

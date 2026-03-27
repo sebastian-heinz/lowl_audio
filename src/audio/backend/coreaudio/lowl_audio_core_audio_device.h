@@ -23,7 +23,8 @@ namespace Lowl::Audio {
 
         static bool test_device_properties(AudioObjectID p_device_id,
                                            AudioUnit _Nullable p_audio_unit,
-                                           AudioDeviceProperties p_properties);
+                                           AudioDeviceProperties p_properties,
+                                           bool silent = true);
 
         void release_hog();
 
