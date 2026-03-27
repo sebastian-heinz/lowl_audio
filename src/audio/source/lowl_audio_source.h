@@ -2,6 +2,7 @@
 #define LOWL_AUDIO_SOURCE_H
 
 #include <atomic>
+#include <mutex>
 #include <string>
 
 #include "audio/backend/lowl_audio_device_properties.h"
@@ -32,6 +33,7 @@ namespace Lowl::Audio {
     private:
         std::atomic<Volume> volume{};
         std::atomic<Volume> panning{};
+        mutable std::mutex name_mutex;
         std::string name;
 
     protected:

@@ -6,6 +6,7 @@ set(LOWL_TEST_FILES
         test_logger.cpp
         test_audio_device.cpp
         test_audio_data.cpp
+        test_audio_source.cpp
         test_audio_reader.cpp
         test_audio_space.cpp
         test_audio_stream.cpp

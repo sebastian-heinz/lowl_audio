@@ -109,9 +109,11 @@ bool Lowl::Audio::AudioSource::is_play() const {
 }
 
 std::string Lowl::Audio::AudioSource::get_name() const {
+    std::lock_guard<std::mutex> lock(name_mutex);
     return name;
 }
 
 void Lowl::Audio::AudioSource::set_name(const std::string &p_name) {
+    std::lock_guard<std::mutex> lock(name_mutex);
     name = p_name;
 }

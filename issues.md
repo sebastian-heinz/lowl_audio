@@ -30,7 +30,7 @@
 | 9  | High | Semantic | **Fixed** | Mixer scratch buffer truncates blocks larger than 8192 frames |
 | 10 | High | Semantic | **Fixed** | `AudioSpace::render()` ignores `playback_enabled` gate |
 | 11 | High | Thread | **Fixed** | `Lowl::Lib::drivers` data race between `initialize()` and readers |
-| 12 | High | Thread | Open | `AudioSource::name` data race between control and render threads |
+| 12 | High | Thread | **Fixed** | `AudioSource::name` data race between control and render threads |
 | 13 | Medium | Thread | **Fixed** | `Logger` static state unprotected across threads |
 | 14 | Medium | Performance | **Fixed** | Mixer linear scan over 1024 slots on the real-time thread |
 | 15 | Medium | Lifecycle | Open | Playback slot and asset-id monotonic exhaustion |
@@ -522,7 +522,7 @@ void Lowl::Lib::initialize(Error &error) {
 
 ---
 
-## Issue 12 — `AudioSource::name` Data Race
+## Issue 12 — `AudioSource::name` Data Race — **FIXED**
 
 **Severity:** High
 **Files:** `src/audio/source/lowl_audio_source.h`, `src/audio/source/lowl_audio_source.cpp`
@@ -539,9 +539,9 @@ Document that `set_name()` must be called before the source is added to a mixer.
 
 Use `std::mutex` around name access, or store name as `std::shared_ptr<const std::string>` with atomic load/store.
 
-### Recommendation
+### Fix applied
 
-**Solution A with an assertion.** The name is a debugging label, not a hot-path value. It is always set during construction or immediately after. Adding a mutex for a debug string is overkill. Instead, document the contract and optionally add a debug assertion that `set_name()` is only called when the source is not in a mixer (checked via `detached` or a similar flag). For `AudioVoice`, the name is set in `AudioSpace::create_playback()` before the voice is added to the mixer, so current usage is already safe.
+**Solution B with a mutex.** `AudioSource` now protects `name` with a dedicated `std::mutex`, and both `set_name()` and `get_name()` lock around the string access. This supports live modification safely instead of relying on a pre-mix naming contract.
 
 ---
 
