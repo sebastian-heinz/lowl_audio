@@ -368,6 +368,46 @@ TEST_CASE("AudioSpace") {
         REQUIRE_EQ(frame.right, doctest::Approx(pan_gain));
     }
 
+    SUBCASE("AudioSpace - base volume scales the mixed output once") {
+        const Lowl::AudioPlaybackHandle playback_handle = add_asset_and_create_playback(
+            audio_space,
+            make_stereo_audio_data({StereoSample{0.5f, 0.25f}}),
+            error
+        );
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE(playback_handle.is_valid());
+
+        static_cast<Lowl::Audio::AudioSource &>(audio_space).set_volume(0.5f);
+        audio_space.play(playback_handle);
+
+        auto [result, frame] = render_one_frame(audio_space);
+        REQUIRE_EQ(result.frames_produced, 1U);
+        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Ok);
+        REQUIRE_EQ(frame.left, doctest::Approx(0.25f));
+        REQUIRE_EQ(frame.right, doctest::Approx(0.125f));
+    }
+
+    SUBCASE("AudioSpace - base panning applies to the final mixed block") {
+        const Lowl::AudioPlaybackHandle playback_handle = add_asset_and_create_playback(
+            audio_space,
+            make_stereo_audio_data({StereoSample{0.5f, 0.5f}}),
+            error
+        );
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE(playback_handle.is_valid());
+
+        static_cast<Lowl::Audio::AudioSource &>(audio_space).set_panning(1.0f);
+        audio_space.play(playback_handle);
+
+        auto [result, frame] = render_one_frame(audio_space);
+        REQUIRE_EQ(result.frames_produced, 1U);
+        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Ok);
+        REQUIRE_EQ(frame.left, doctest::Approx(0.0f));
+        REQUIRE_EQ(frame.right, doctest::Approx(0.5f * std::sqrt(2.0f)));
+    }
+
     SUBCASE("AudioSpace - clear_all_audio retires active playbacks safely") {
         auto audio_data = make_stereo_audio_data({StereoSample{0.5f, -0.5f}});
         audio_data->set_name("one-shot");

@@ -34,7 +34,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 21 | ALREADY FIXED | High | Bug | Source | `process_panning` -- `sqrt` of negative value produces NaN on bad input |
 | 22 | FIXED | High | Semantic | Source | `AudioMixer::process_events` calls `on_removed_from_mixer` on never-added source |
 | 23 | FIXED | High | Semantic | Source | Double volume/panning application in `AudioSpace::render` |
-| 24 | FIXED | High | Thread | Source | `AudioVoice` compound state transitions observable in intermediate states |
+| 24 | OPEN | High | Thread | Source | `AudioVoice` compound state transitions observable in intermediate states |
 | 25 | FIXED | High | Thread | Source | `AudioData::name` data race (no mutex unlike `AudioSource`) |
 | 26 | FIXED | High | Bug | Reader | MP3 reader: VBR frame count may underestimate, silently losing frames |
 | 27 | FIXED | High | Bug | Reader | Opus reader: potential buffer overrun if `op_pcm_total` underestimates |
@@ -53,7 +53,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 40 | FIXED | High | Bug | Core | Logger level filter only applied to built-in receiver, not custom receivers |
 | 41 | FIXED | High | Bug | C API | Dangling pointer from `get_name()` returning `c_str()` of temporary |
 | 42 | FIXED | High | Bug | C API | Virtual C++ structs exposed as C API -- not ABI-stable or C-compatible |
-| 43 | DEFERRED | High | Bug | Demo | Off-by-one: `device_property_index > size()` should be `>=` |
+| 43 | FIXED | High | Bug | Demo | Off-by-one: `device_property_index > size()` should be `>=` |
 | 44 | DEFERRED | High | Build | Build | `cmake_minimum_required(VERSION 3.31)` is too aggressive |
 | 45 | FIXED | High | Build | Build | `test/CMakeLists.txt` typo: `CMAKE_CSS_STANDARD_LIBRARIES` |
 | 46 | DEFERRED | Medium | Bug | Source | `AudioSpace` ID space: `uint16_t` exhaustion after 65534 allocations |
@@ -121,8 +121,8 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 20 -- FIXED.** Options considered: wrap IDs to `1`, reserve a separate exhaustion state, or widen the ID type immediately. Decision: wrapping to `1` is the minimal correct fix and matches generation handling.
 - **Issue 21 -- VERIFIED ALREADY FIXED.** Options considered: add a clamp in `process_panning`, trust `set_panning`, or verify current code. Decision: current `process_panning` already clamps before `sqrt`, so no patch was needed.
 - **Issue 22 -- FIXED.** Options considered: keep calling `on_removed_from_mixer`, call a new rejection callback, or send only the rejection acknowledgement. Decision: rejection-only behavior matched the actual state transition and avoided lying to the source.
-- **Issue 23 -- FIXED.** Options considered: remove the internal mixer gain stage, keep `AudioSpace` post-processing, or synchronize `AudioSpace` gain/pan onto the private mixer and remove the extra post-processing. Decision: `AudioSpace` should expose the public group controls, but the private mixer should own the final mixed block, so I synchronized the public state onto the mixer and removed the redundant post-processing in `AudioSpace::render`.
-- **Issue 24 -- FIXED.** Options considered: tighten memory ordering on the existing atomics, publish a coherent versioned snapshot for queryable state, or redesign the public query API around explicit snapshots. Decision: a versioned published snapshot was the best fit here; it removes impossible mixed query states without putting locks into the render path or changing the public API.
+- **Issue 23 -- FIXED.** Options considered: remove the internal mixer gain stage, keep `AudioSpace` post-processing, or synchronize `AudioSpace` gain/pan onto the private mixer and remove the extra post-processing. Decision: the third option is the best fit for the current architecture. `AudioSpace` remains the public group-control surface, while the private mixer owns the final mixed block and applies that transform exactly once.
+- **Issue 24 -- OPEN.** Options considered: tighten memory ordering on the existing atomics, publish a coherent versioned snapshot for queryable state, or redesign the public query API around explicit snapshots. Decision: a coherent published snapshot is still the best fix, but the current tree no longer contains it. `AudioVoice` is back to independently updated atomics (`reported_position`, `playback_state`, `detached`), so the issue is reopened.
 - **Issue 25 -- FIXED.** Options considered: add a mutex around `AudioData::name`, make names immutable, or move naming outside the audio object. Decision: matching `AudioSource` and guarding the string with a mutex was the most consistent low-risk fix.
 - **Issue 26 -- FIXED.** Options considered: decode into a growable buffer, keep trimming and log truncation, or trust `drmp3_get_pcm_frame_count`. Decision: decode into a growable buffer was the correct fix. The MP3 reader already loads the whole asset into memory, so using the frame-count result only as a reserve hint removes silent truncation without changing the external reader API.
 - **Issue 27 -- FIXED.** Options considered: clamp each decoded chunk to the remaining capacity, switch Opus decoding to a growable buffer, or trust `op_pcm_total`. Decision: chunk clamping removes the overflow risk without changing the current fixed-allocation approach.
@@ -141,7 +141,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 40 -- FIXED.** Options considered: keep filtering only in the stdout receiver, push the filter into `Logger::write`, or require custom receivers to filter themselves. Decision: central filtering in `Logger::write` gives consistent behavior for all receivers.
 - **Issue 41 -- FIXED.** Options considered: store stable C strings, rewrite around opaque handles, or remove the C API. Decision: remove the C API entirely; that eliminates the dangling-pointer surface instead of trying to patch a dead ABI.
 - **Issue 42 -- FIXED.** Options considered: patch ABI details piecemeal, redesign as a real C API, or remove it. Decision: remove it. A proper C ABI would need a clean opaque-handle redesign, not incremental fixes to the existing code.
-- **Issue 43 -- DEFERRED.** Options considered: fix the demo bounds check, remove the demo code, or leave demos out of the core pass. Decision: demo code is outside the current repository-local scope for this pass.
+- **Issue 43 -- FIXED.** Options considered: change `>` to `>=`, switch the access to `.at()` and catch failures, or clamp invalid indices before selection. Decision: changing the guard to `>=` was the correct minimal fix because the intended behavior is already to reject out-of-range input before indexing.
 - **Issue 44 -- DEFERRED.** Options considered: lower the root CMake version, split minimum versions per subtree, or leave build requirements unchanged. Decision: root build files were outside this pass’s scope.
 - **Issue 45 -- FIXED.** Options considered: leave the typo, correct the variable in place, or restructure MinGW link flags entirely. Decision: correcting the typo was safe and directly improved the test build.
 - **Issue 46 -- DEFERRED.** Options considered: widen IDs to `uint32_t`, keep `uint16_t` and rely on free-list reuse, or add explicit exhaustion handling. Decision: widening public handle types is a broader ABI/API choice.
@@ -531,11 +531,11 @@ Do not call `on_removed_from_mixer()` when the source was never added. Only send
 
 ### Fix
 
-Keep `AudioSpace` as the public place where callers set group volume/panning, but synchronize those values onto the private mixer before rendering and remove the extra `process_volume` / `process_panning` pass from `AudioSpace::render`. That preserves `AudioSpace` gain/pan behavior while ensuring the final mixed block is transformed only once.
+Keep `AudioSpace` as the public place where callers set group volume/panning, but synchronize those values onto the private mixer before rendering and remove the extra `process_volume` / `process_panning` pass from `AudioSpace::render`. That preserves `AudioSpace` group controls while making the private mixer the single owner of the final mixed-block transform.
 
 ---
 
-## Issue 24 -- `AudioVoice` Compound State Transitions Observable in Intermediate States -- FIXED
+## Issue 24 -- `AudioVoice` Compound State Transitions Observable in Intermediate States -- OPEN
 
 **Severity:** High
 **Category:** Thread Safety
@@ -547,7 +547,7 @@ Keep `AudioSpace` as the public place where callers set group volume/panning, bu
 
 ### Fix
 
-Keep the internal render cursor and pending seek as separate render-thread state, but collapse the queryable state into one versioned published snapshot (`position`, `playback_state`, `detached`). Control operations now publish one coherent snapshot update, and the render path only publishes progress when no newer control-thread revision has superseded it. That preserves immediate control/query behavior while removing the impossible mixed states caused by independently published atomics.
+Required fix: keep the internal render cursor and pending seek as separate render-thread state, but collapse the queryable state into one coherent published snapshot (`position`, `playback_state`, `detached`). The current tree still uses independently updated atomics for those fields, so the intermediate-state bug remains.
 
 ---
 
@@ -839,7 +839,7 @@ Resolved by removing the dead C API surface. If a real C API is ever needed, bui
 
 ---
 
-## Issue 43 -- Demo: Off-by-One in Bounds Check -- OPEN
+## Issue 43 -- Demo: Off-by-One in Bounds Check -- FIXED
 
 **Severity:** High
 **Category:** Bug
@@ -851,7 +851,7 @@ Resolved by removing the dead C API surface. If a real C API is ever needed, bui
 
 ### Fix
 
-Change `>` to `>=`.
+Change `>` to `>=`. This preserves the existing "reject invalid selection" flow and closes the `index == size()` out-of-bounds case without changing the demo UX.
 
 ---
 

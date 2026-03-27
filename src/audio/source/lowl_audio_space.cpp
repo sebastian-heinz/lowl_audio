@@ -515,14 +515,9 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioSpace::render(AudioBloc
     if (!playback_enabled.load(std::memory_order_relaxed)) {
         return {0, RenderState::Starved};
     }
-    RenderResult result = mixer->render(p_block);
-    if (result.frames_produced > 0) {
-        AudioBlockView produced_block = p_block;
-        produced_block.frame_count = result.frames_produced;
-        process_volume(produced_block);
-        process_panning(produced_block);
-    }
-    return result;
+    mixer->set_volume(get_volume());
+    mixer->set_panning(get_panning());
+    return mixer->render(p_block);
 }
 
 Lowl::size_l Lowl::Audio::AudioSpace::get_frames_remaining() const {

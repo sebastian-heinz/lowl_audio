@@ -182,7 +182,7 @@ int run() {
         std::getline(std::cin, user_input);
         device_property_index = std::stoi(user_input);
     }
-    if (device_property_index > device_properties_list.size()) {
+    if (device_property_index >= device_properties_list.size()) {
         std::cout << "selected device_property_index out of range\n";
         return -1;
     } else if (device_property_index < 0) {
