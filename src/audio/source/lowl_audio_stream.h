@@ -14,13 +14,28 @@ namespace Lowl::Audio {
     class AudioStream : public AudioSource {
     private:
         static constexpr size_t DEFAULT_STREAM_SIZE = 375000; // ~ 7 Seconds(3 MB) of stereo 32-bit float audio
+        static constexpr size_t CacheLineSize = 64;
+
+        struct alignas(CacheLineSize) ProducerState {
+            std::atomic<size_t> write_position{0};
+            size_t cached_read_position = 0;
+        };
+
+        struct alignas(CacheLineSize) ConsumerState {
+            std::atomic<size_t> read_position{0};
+            size_t cached_write_position = 0;
+        };
+
         std::vector<std::vector<Sample>> channels;
-        std::atomic<size_t> read_position{0};
-        std::atomic<size_t> write_position{0};
         size_t frame_capacity = 0;
+        size_t storage_capacity = 0;
+        size_t capacity_mask = 0;
+        ProducerState producer_state;
+        ConsumerState consumer_state;
 
         size_t get_available_frames_to_read() const;
-        size_t get_available_frames_to_write() const;
+        size_t get_readable_frames(size_t p_current_read, size_t p_requested_frames);
+        size_t get_writable_frames(size_t p_current_write, size_t p_requested_frames);
         void copy_from_ring(AudioBlockView p_block, uint32_t p_frames_to_read, size_t p_read_position);
         void copy_interleaved_to_ring(const Sample *p_interleaved, size_t p_frame_count, size_t p_write_position);
         void copy_planar_to_ring(const std::vector<const Sample *> &p_channels,

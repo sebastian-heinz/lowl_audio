@@ -57,8 +57,8 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 44 | DEFERRED | High | Build | Build | `cmake_minimum_required(VERSION 3.31)` is too aggressive |
 | 45 | FIXED | High | Build | Build | `test/CMakeLists.txt` typo: `CMAKE_CSS_STANDARD_LIBRARIES` |
 | 46 | DEFERRED | Medium | Bug | Source | `AudioSpace` ID space: `uint16_t` exhaustion after 65534 allocations |
-| 47 | DEFERRED | Medium | Thread | Source | `AudioSource::sample_rate` and `channel` are non-const, non-atomic |
-| 48 | DEFERRED | Medium | Bug | Source | `AudioStream` ring buffer positions overflow on 32-bit after ~24 hours |
+| 47 | ALREADY FIXED | Medium | Thread | Source | `AudioSource::sample_rate` and `channel_layout` are non-const, non-atomic |
+| 48 | FIXED | Medium | Bug | Source | `AudioStream` ring buffer positions overflow on 32-bit after ~24 hours |
 | 49 | ALREADY FIXED | Medium | Bug | Reader | WAV reader: unrecognized PCM bit depth leaves `sample_format` as `Unknown`, leaks `drwav` |
 | 50 | FIXED | Medium | Bug | Reader | `create_audio_data`: `reinterpret_cast` from `uint8_t[]` violates alignment |
 | 51 | FIXED | Medium | Bug | Reader | Opus reader: does not set error on `op_open_memory` failure |
@@ -145,8 +145,8 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 44 -- DEFERRED.** Options considered: lower the root CMake version, split minimum versions per subtree, or leave build requirements unchanged. Decision: root build files were outside this pass’s scope.
 - **Issue 45 -- FIXED.** Options considered: leave the typo, correct the variable in place, or restructure MinGW link flags entirely. Decision: correcting the typo was safe and directly improved the test build.
 - **Issue 46 -- DEFERRED.** Options considered: widen IDs to `uint32_t`, keep `uint16_t` and rely on free-list reuse, or add explicit exhaustion handling. Decision: widening public handle types is a broader ABI/API choice.
-- **Issue 47 -- DEFERRED.** Options considered: make fields `const`, make them atomic, or document publication ordering. Decision: this is low-risk cleanup, but it touches type declarations and publication guarantees beyond the current bug-fix pass.
-- **Issue 48 -- DEFERRED.** Options considered: re-base positions periodically, require 64-bit `size_t`, or make the ring indices fixed-width 64-bit counters. Decision: that needs a dedicated 32-bit correctness pass.
+- **Issue 47 -- VERIFIED ALREADY FIXED.** Options considered: make fields `const`, make them atomic, or document publication ordering. Decision: the current `AudioSource` already declares `sample_rate` and `channel_layout` as constructor-initialized `const` members, so this issue no longer reproduces.
+- **Issue 48 -- FIXED.** Options considered: re-base positions periodically, require 64-bit `size_t`, or make the ring backing capacity a power of two. Decision: keep the monotonic counters, preserve the requested logical capacity, round the backing storage to a power of two, and mask ring indices so 32-bit counter overflow no longer breaks the index mapping.
 - **Issue 49 -- VERIFIED ALREADY FIXED.** Options considered: add an explicit `Unknown` fast-fail before `create_audio_data`, rely on post-call `drwav_uninit`, or wrap `drwav` in RAII. Decision: after the current cleanup pass, `drwav_uninit` still runs on this path, so no extra code was required.
 - **Issue 50 -- FIXED.** Options considered: trust allocator alignment, copy into aligned typed buffers first, or replace typed buffer access with `memcpy`. Decision: `memcpy` inside the conversion path removed the UB without changing the external reader API.
 - **Issue 51 -- FIXED.** Options considered: map all Opus errors to one generic code, preserve the vendor error code, or leave the null return unannotated. Decision: preserving the vendor error code gives callers the most useful signal with minimal churn.
@@ -164,6 +164,13 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 63 -- DEFERRED.** Options considered: rename `_INLINE_`, leave it alone, or replace it with compiler attributes directly. Decision: this is worthwhile cleanup, but orthogonal to the correctness fixes in this pass.
 - **Issue 64 -- DEFERRED.** Options considered: move the include, leave the current conditional layout, or restructure the logger header. Decision: header-hygiene cleanup was lower priority than the concrete functional bugs fixed here.
 - **Issue 65 -- FIXED.** Options considered: leave the unsigned comparison, change only the reported line, or normalize the checks to `== 0`. Decision: `== 0` is the correct low-noise fix and removes the tautological compare.
+
+## Validation Pass -- 2026-03-28
+
+- Revalidated every remaining `OPEN` and `DEFERRED` issue against the current tree.
+- **Issue 47 -- VERIFIED ALREADY FIXED.** `AudioSource` now stores `sample_rate` and `channel_layout` as constructor-initialized `const` members.
+- **Issue 48 -- FIXED.** `AudioStream` now keeps the requested logical capacity separate from a power-of-two backing store and uses masked ring indices, so 32-bit `size_t` wrap no longer breaks ring indexing.
+- All other `OPEN` and `DEFERRED` issues were rechecked and remain valid.
 
 ---
 
@@ -903,35 +910,35 @@ Widen to `uint32_t` for both types, and fix `advance_id` to skip 0 (Issue 20).
 
 ---
 
-## Issue 47 -- `AudioSource::sample_rate` and `channel` Are Non-Const, Non-Atomic -- OPEN
+## Issue 47 -- `AudioSource::sample_rate` and `channel_layout` Are Non-Const, Non-Atomic -- ALREADY FIXED
 
 **Severity:** Medium
 **Category:** Thread Safety
-**Files:** `src/audio/source/lowl_audio_source.h:40-41`
+**Files:** `src/audio/source/lowl_audio_source.h`
 
-### Problem
+### Validation
 
-These are set in the constructor and never modified, but they are not `const`. They are read from the audio thread without synchronization. The happens-before relationship depends on the caller's publication mechanism (e.g., the mixer's `ConcurrentQueue::enqueue`), which is implicit and undocumented.
+The current `AudioSource` declares `const SampleRate sample_rate;` and `const ChannelLayout channel_layout;` and initializes them in the constructor initializer list. The reported mutable-field publication issue no longer reproduces in the current tree.
 
 ### Fix
 
-Declare as `const SampleRate sample_rate; const AudioChannel channel;` using the initializer list.
+No source change was required during this validation pass.
 
 ---
 
-## Issue 48 -- `AudioStream` Ring Buffer Overflow on 32-bit -- OPEN
+## Issue 48 -- `AudioStream` Ring Buffer Overflow on 32-bit -- FIXED
 
 **Severity:** Medium
 **Category:** Bug
-**Files:** `src/audio/source/lowl_audio_stream.cpp`
+**Files:** `src/audio/source/lowl_audio_stream.h`, `src/audio/source/lowl_audio_stream.cpp`, `test/test_audio_stream.cpp`
 
 ### Problem
 
-`read_position` and `write_position` are monotonically increasing `size_t` atomics. On a 32-bit system (`size_t` = 32 bits), at 48kHz, `size_t` wraps in ~24.8 hours. When `position % frame_capacity` is used, the modular arithmetic breaks if `frame_capacity` is not a power of 2.
+The previous implementation used monotonically increasing `size_t` positions together with `position % frame_capacity` for ring indexing. On a 32-bit system, `size_t` wraps in roughly 24.8 hours at 48 kHz. If `frame_capacity` is not a power of two, that wrap breaks the ring index mapping and can corrupt reads and writes after overflow.
 
 ### Fix
 
-Add `static_assert(sizeof(size_t) >= 8, "...")`, or periodically re-base positions.
+`AudioStream` now keeps the requested logical capacity (`frame_capacity`) separate from an internal power-of-two backing capacity (`storage_capacity`) and stores a `capacity_mask`. The copy helpers use `position & capacity_mask` instead of `%`, while readable/writable distance still uses unsigned subtraction between monotonically increasing positions. That keeps the ring index mapping correct across 32-bit wrap without requiring 64-bit `size_t` or periodic rebasing.
 
 ---
 

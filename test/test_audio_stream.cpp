@@ -297,6 +297,39 @@ TEST_CASE("AudioStream") {
         REQUIRE_EQ(read2.right, doctest::Approx(-0.4f));
     }
 
+    SUBCASE("AudioStream - requested capacity remains the writable limit") {
+        Lowl::Audio::AudioStream small_stream(44100.0, Lowl::Audio::ChannelLayout::Stereo, 3);
+        const Lowl::Sample frames[] = {
+            0.1f, -0.1f,
+            0.2f, -0.2f,
+            0.3f, -0.3f,
+            0.4f, -0.4f
+        };
+
+        REQUIRE_EQ(small_stream.write_interleaved(frames, 4), 3U);
+
+        auto [result0, read0] = render_one_frame(small_stream);
+        REQUIRE_EQ(result0.frames_produced, 1U);
+        REQUIRE_EQ(read0.left, doctest::Approx(0.1f));
+        REQUIRE_EQ(read0.right, doctest::Approx(-0.1f));
+
+        auto [result1, read1] = render_one_frame(small_stream);
+        REQUIRE_EQ(result1.frames_produced, 1U);
+        REQUIRE_EQ(read1.left, doctest::Approx(0.2f));
+        REQUIRE_EQ(read1.right, doctest::Approx(-0.2f));
+
+        auto [result2, read2] = render_one_frame(small_stream);
+        REQUIRE_EQ(result2.frames_produced, 1U);
+        REQUIRE_EQ(read2.left, doctest::Approx(0.3f));
+        REQUIRE_EQ(read2.right, doctest::Approx(-0.3f));
+
+        auto [result3, read3] = render_one_frame(small_stream);
+        REQUIRE_EQ(result3.frames_produced, 0U);
+        REQUIRE_EQ(result3.state, Lowl::Audio::AudioSource::RenderState::Starved);
+        REQUIRE_EQ(read3.left, doctest::Approx(0.0f));
+        REQUIRE_EQ(read3.right, doctest::Approx(0.0f));
+    }
+
     SUBCASE("AudioStream - concurrent single producer and single consumer preserve frame order") {
         constexpr size_t total_frames = 64;
         Lowl::Audio::AudioStream stream(44100.0, Lowl::Audio::ChannelLayout::Stereo, 4);
