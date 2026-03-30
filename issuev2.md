@@ -73,7 +73,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 60 | DEFERRED | Medium | Bug | Backend | `AudioDevice::render_to_device_buffer` trusts caller buffer size |
 | 61 | FIXED | Medium | Bug | Core | `Buffer::get_available()` underflows if `position > virtual_length` |
 | 62 | FIXED | Medium | Bug | Core | `File::is_eof` returns `false` when no file is open |
-| 63 | DEFERRED | Medium | Quality | Core | `_INLINE_` macro uses reserved identifier pattern |
+| 63 | FIXED | Medium | Quality | Core | `_INLINE_` macro uses reserved identifier pattern |
 | 64 | FIXED | Medium | Quality | Core | `#include <sal.h>` placed inside Logger class body |
 | 65 | FIXED | Medium | Bug | Core | `Buffer::write_data` compares `size_t <= 0` (tautological) |
 | 66 | OPEN | Medium | Build | Build | `CMAKE_OSX_ARCHITECTURES` set after `project()` -- may be too late |
@@ -161,7 +161,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 60 -- DEFERRED.** Options considered: trust the API contract, add debug assertions on written byte count, or change the API to pass an explicit output span. Decision: strict runtime enforcement needs API-level bounds information that the current signature does not carry.
 - **Issue 61 -- FIXED.** Options considered: clamp the subtraction, assert `position <= virtual_length`, or rely on callers. Decision: clamping to zero was the safest behavior-preserving fix.
 - **Issue 62 -- FIXED.** Options considered: return `true` when unopened, add `is_open()`, or leave the semantic mismatch alone. Decision: returning `true` matches the existing empty-read behavior without expanding the API.
-- **Issue 63 -- DEFERRED.** Options considered: rename `_INLINE_`, leave it alone, or replace it with compiler attributes directly. Decision: this is worthwhile cleanup, but orthogonal to the correctness fixes in this pass.
+- **Issue 63 -- FIXED.** Options considered: rename `_INLINE_`, leave it alone, or replace it with compiler attributes directly. Decision: rename it to `LOWL_INLINE`, which keeps the existing abstraction but removes the reserved-identifier pattern.
 - **Issue 64 -- FIXED.** Options considered: move the include, leave the current conditional layout, or restructure the logger header. Decision: move `sal.h` to normal header scope and leave only the MSVC-specific SAL annotations in the class declaration.
 - **Issue 65 -- FIXED.** Options considered: leave the unsigned comparison, change only the reported line, or normalize the checks to `== 0`. Decision: `== 0` is the correct low-noise fix and removes the tautological compare.
 
@@ -171,6 +171,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 29 -- FIXED.** `SampleConverter::sample_to_int24` now clamps and returns a sign-preserving signed value instead of zero-extending negatives with `& 0xFFFFFF`.
 - **Issue 30 -- FIXED.** `SampleConverter::write_sample` now writes `FLOAT_64`, returns failure for `Unknown`, and `AudioDevice::render_to_device_buffer` falls back to silence if an unsupported format slips through.
 - **Issue 31 -- FIXED.** `ReSamplerR8b` now probes r8brain for the exact reachable output frame count instead of trusting a floor estimate, and it rejects frame counts that exceed the library's `int`-based API before any large allocations or truncating casts happen.
+- **Issue 63 -- FIXED.** The shared inline helper macro is now named `LOWL_INLINE`, so common headers no longer rely on a reserved identifier.
 - **Issue 47 -- VERIFIED ALREADY FIXED.** `AudioSource` now stores `sample_rate` and `channel_layout` as constructor-initialized `const` members.
 - **Issue 48 -- FIXED.** `AudioStream` now keeps the requested logical capacity separate from a power-of-two backing store and uses masked ring indices, so 32-bit `size_t` wrap no longer breaks ring indexing.
 - **Issue 52 -- FIXED.** dr_lib implementation macros now live in `src/audio/reader/lowl_audio_reader_dr_lib.cpp`, and the MP3/WAV/FLAC readers consume internal wrapper classes instead of instantiating vendor implementations in multiple reader translation units.
@@ -1171,7 +1172,7 @@ Return `true` when no file is open, or add an `is_open()` method.
 
 ---
 
-## Issue 63 -- `_INLINE_` Macro Uses Reserved Identifier Pattern -- OPEN
+## Issue 63 -- `_INLINE_` Macro Uses Reserved Identifier Pattern -- FIXED
 
 **Severity:** Medium
 **Category:** Quality / UB
@@ -1183,7 +1184,7 @@ Names beginning with underscore followed by uppercase (`_INLINE_`) are reserved 
 
 ### Fix
 
-Rename to `LOWL_INLINE` or `LOWL_ALWAYS_INLINE`.
+The shared macro is now named `LOWL_INLINE`, and all call sites were updated to use the non-reserved identifier.
 
 ---
 

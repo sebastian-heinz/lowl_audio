@@ -6,13 +6,13 @@
 #include <cstdint>
 
 // Should always inline no matter what.
-#ifndef _INLINE_
+#ifndef LOWL_INLINE
 #if defined(__GNUC__)
-#define _INLINE_ __attribute__((always_inline)) inline
+#define LOWL_INLINE __attribute__((always_inline)) inline
 #elif defined(_MSC_VER)
-#define _INLINE_ __forceinline
+#define LOWL_INLINE __forceinline
 #else
-#define _INLINE_ inline
+#define LOWL_INLINE inline
 #endif
 #endif
 

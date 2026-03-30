@@ -42,7 +42,7 @@ namespace Lowl::Audio {
         }
     }
 
-    _INLINE_ size_t get_sample_size_bytes(SampleFormat p_format) {
+    LOWL_INLINE size_t get_sample_size_bytes(SampleFormat p_format) {
         switch (p_format) {
             case SampleFormat::FLOAT_64:
                 return 8;
@@ -63,7 +63,7 @@ namespace Lowl::Audio {
         }
     }
 
-    _INLINE_ size_t get_sample_size_bits(SampleFormat p_format) {
+    LOWL_INLINE size_t get_sample_size_bits(SampleFormat p_format) {
         return get_sample_size_bytes(p_format) * 8;
     }
 
