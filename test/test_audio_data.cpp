@@ -5,7 +5,10 @@
 #include "audio/lowl_audio_buffer.h"
 #include "audio/source/lowl_audio_voice.h"
 
+#include <atomic>
+#include <chrono>
 #include <memory>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -251,5 +254,50 @@ TEST_CASE("AudioData") {
         voice.seek_time(-1.0);
 
         REQUIRE_EQ(voice.get_frame_position(), 0U);
+    }
+
+    SUBCASE("AudioVoice - stop_playback never publishes stopped with a stale position") {
+        std::shared_ptr<Lowl::Audio::AudioData> long_audio = std::move(make_stereo_audio_data({
+            StereoSample{0.10f, 0.20f},
+            StereoSample{0.30f, 0.40f},
+            StereoSample{0.50f, 0.60f},
+            StereoSample{0.70f, 0.80f},
+        }));
+        Lowl::Audio::AudioVoice voice(long_audio);
+
+        std::atomic<bool> start{false};
+        std::atomic<bool> invalid_state_seen{false};
+
+        std::thread writer([&]() {
+            while (!start.load(std::memory_order_acquire)) {
+            }
+            for (int index = 0; index < 250000 && !invalid_state_seen.load(std::memory_order_relaxed); index++) {
+                voice.seek_frame(2);
+                voice.stop_playback();
+                voice.restart_playback();
+            }
+        });
+
+        std::thread reader([&]() {
+            while (!start.load(std::memory_order_acquire)) {
+            }
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+            while (std::chrono::steady_clock::now() < deadline &&
+                   !invalid_state_seen.load(std::memory_order_relaxed)) {
+                const Lowl::Audio::AudioVoice::PlaybackState playback_state = voice.get_playback_state();
+                const Lowl::size_l position = voice.get_frame_position();
+                if (playback_state == Lowl::Audio::AudioVoice::PlaybackState::Stopped && position != 0U) {
+                    invalid_state_seen.store(true, std::memory_order_relaxed);
+                    return;
+                }
+                std::this_thread::yield();
+            }
+        });
+
+        start.store(true, std::memory_order_release);
+        writer.join();
+        reader.join();
+
+        REQUIRE_FALSE(invalid_state_seen.load(std::memory_order_relaxed));
     }
 }

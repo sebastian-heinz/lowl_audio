@@ -95,19 +95,19 @@ void Lowl::Audio::AudioSource::process_panning(AudioBlockView p_block) const {
 }
 
 void Lowl::Audio::AudioSource::pause() {
-    playback_enabled.store(false, std::memory_order_relaxed);
+    playback_enabled.store(false, std::memory_order_release);
 }
 
 bool Lowl::Audio::AudioSource::is_pause() const {
-    return !playback_enabled.load(std::memory_order_relaxed);
+    return !playback_enabled.load(std::memory_order_acquire);
 }
 
 void Lowl::Audio::AudioSource::play() {
-    playback_enabled.store(true, std::memory_order_relaxed);
+    playback_enabled.store(true, std::memory_order_release);
 }
 
 bool Lowl::Audio::AudioSource::is_play() const {
-    return playback_enabled.load(std::memory_order_relaxed);
+    return playback_enabled.load(std::memory_order_acquire);
 }
 
 std::string Lowl::Audio::AudioSource::get_name() const {
