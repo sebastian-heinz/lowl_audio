@@ -5,6 +5,7 @@
 #include "audio/lowl_audio_buffer.h"
 
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -436,6 +437,78 @@ TEST_CASE("AudioSpace") {
         REQUIRE(audio_space.get_name_mapping().empty());
     }
 
+    SUBCASE("AudioSpace - destroy_playback immediately reuses an unsubmitted slot") {
+        const Lowl::AudioAssetHandle asset_handle = audio_space.add_audio(
+            make_stereo_audio_data({StereoSample{0.5f, -0.25f}}),
+            error
+        );
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE(asset_handle.is_valid());
+
+        const Lowl::AudioPlaybackHandle first_playback = audio_space.create_playback(asset_handle);
+        REQUIRE(first_playback.is_valid());
+
+        audio_space.destroy_playback(first_playback);
+
+        REQUIRE_EQ(audio_space.get_frame_count(first_playback), 0U);
+
+        const Lowl::AudioPlaybackHandle second_playback = audio_space.create_playback(asset_handle);
+        REQUIRE(second_playback.is_valid());
+        REQUIRE_EQ(second_playback.id, first_playback.id);
+        REQUIRE_NE(second_playback.generation, first_playback.generation);
+
+        audio_space.play(first_playback);
+
+        auto [stale_result, stale_frame] = render_one_frame(audio_space);
+        REQUIRE_EQ(stale_result.frames_produced, 0U);
+        REQUIRE_EQ(stale_result.state, Lowl::Audio::AudioSource::RenderState::Finished);
+        REQUIRE_EQ(stale_frame.left, doctest::Approx(0.0f));
+        REQUIRE_EQ(stale_frame.right, doctest::Approx(0.0f));
+
+        audio_space.play(second_playback);
+
+        auto [reused_result, reused_frame] = render_one_frame(audio_space);
+        REQUIRE_EQ(reused_result.frames_produced, 1U);
+        REQUIRE_EQ(reused_result.state, Lowl::Audio::AudioSource::RenderState::Ok);
+        REQUIRE_EQ(reused_frame.left, doctest::Approx(0.5f));
+        REQUIRE_EQ(reused_frame.right, doctest::Approx(-0.25f));
+    }
+
+    SUBCASE("AudioSpace - remove_audio retires a single asset without interrupting existing playbacks") {
+        const Lowl::AudioAssetHandle first_asset_handle = audio_space.add_audio(
+            make_stereo_audio_data({StereoSample{0.25f, -0.5f}}),
+            error
+        );
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE(first_asset_handle.is_valid());
+
+        const Lowl::AudioPlaybackHandle playback_handle = audio_space.create_playback(first_asset_handle);
+        REQUIRE(playback_handle.is_valid());
+
+        audio_space.play(playback_handle);
+        audio_space.remove_audio(first_asset_handle);
+
+        REQUIRE_EQ(audio_space.create_playback(first_asset_handle), Lowl::Audio::AudioSpace::InvalidAudioPlaybackHandle);
+
+        auto [result, frame] = render_one_frame(audio_space);
+        REQUIRE_EQ(result.frames_produced, 1U);
+        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Ok);
+        REQUIRE_EQ(frame.left, doctest::Approx(0.25f));
+        REQUIRE_EQ(frame.right, doctest::Approx(-0.5f));
+
+        const Lowl::AudioAssetHandle second_asset_handle = audio_space.add_audio(
+            make_stereo_audio_data({StereoSample{0.75f, 0.125f}}),
+            error
+        );
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE(second_asset_handle.is_valid());
+        REQUIRE_EQ(second_asset_handle.id, first_asset_handle.id);
+        REQUIRE_NE(second_asset_handle.generation, first_asset_handle.generation);
+    }
+
     SUBCASE("AudioSpace - retired playback slots are reused with a new generation") {
         const Lowl::AudioAssetHandle first_asset_handle = audio_space.add_audio(
             make_stereo_audio_data({StereoSample{0.25f, 0.25f}}),
@@ -512,6 +585,36 @@ TEST_CASE("AudioSpace") {
         REQUIRE_NE(second_asset_handle.generation, first_asset_handle.generation);
         REQUIRE_EQ(audio_space.create_playback(first_asset_handle), Lowl::Audio::AudioSpace::InvalidAudioPlaybackHandle);
         REQUIRE(audio_space.create_playback(second_asset_handle).is_valid());
+    }
+
+    SUBCASE("AudioSpace - create_playback fails cleanly at 16-bit exhaustion and recovers after destroy_playback") {
+        const Lowl::AudioAssetHandle asset_handle = audio_space.add_audio(
+            make_stereo_audio_data({StereoSample{0.125f, -0.25f}}),
+            error
+        );
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE(asset_handle.is_valid());
+
+        const size_t max_playbacks = static_cast<size_t>(std::numeric_limits<Lowl::AudioPlaybackId>::max());
+        std::vector<Lowl::AudioPlaybackHandle> playback_handles;
+        playback_handles.reserve(max_playbacks);
+
+        for (size_t playback_index = 0; playback_index < max_playbacks; playback_index++) {
+            const Lowl::AudioPlaybackHandle playback_handle = audio_space.create_playback(asset_handle);
+            REQUIRE(playback_handle.is_valid());
+            playback_handles.push_back(playback_handle);
+        }
+
+        REQUIRE_EQ(audio_space.create_playback(asset_handle), Lowl::Audio::AudioSpace::InvalidAudioPlaybackHandle);
+
+        const Lowl::AudioPlaybackHandle retired_playback = playback_handles.front();
+        audio_space.destroy_playback(retired_playback);
+
+        const Lowl::AudioPlaybackHandle replacement_playback = audio_space.create_playback(asset_handle);
+        REQUIRE(replacement_playback.is_valid());
+        REQUIRE_EQ(replacement_playback.id, retired_playback.id);
+        REQUIRE_NE(replacement_playback.generation, retired_playback.generation);
     }
 
     SUBCASE("AudioSpace - handles are rejected across spaces even when ids and generations match") {

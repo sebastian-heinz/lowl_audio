@@ -57,6 +57,7 @@ namespace Lowl::Audio {
             AudioMixerHandle mixer_handle{};
             uint16_l generation = 1;
             SlotState slot_state = SlotState::Active;
+            bool mixer_submission_started = false;
         };
 
         struct AssetSlot {
@@ -81,6 +82,7 @@ namespace Lowl::Audio {
                                                    AudioAssetHandle p_audio_asset_handle);
         void recycle_audio_asset_locked(AudioAssetId p_asset_id, AssetSlot &p_slot);
         void recycle_playback_locked(AudioPlaybackId p_slot_id, PlaybackSlot &p_slot);
+        void retire_playback_locked(AudioPlaybackId p_slot_id, PlaybackSlot &p_slot);
 
         void drain_mixer_acks_locked();
 
@@ -111,7 +113,11 @@ namespace Lowl::Audio {
 
         AudioAssetHandle add_audio(std::unique_ptr<AudioData> p_audio_data, Error &error);
 
+        void remove_audio(AudioAssetHandle p_audio_asset_handle);
+
         AudioPlaybackHandle create_playback(AudioAssetHandle p_audio_asset_handle);
+
+        void destroy_playback(AudioPlaybackHandle p_audio_playback_handle);
 
         std::map<AudioAssetId, std::string> get_name_mapping() const;
 
