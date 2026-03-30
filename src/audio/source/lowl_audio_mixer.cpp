@@ -202,7 +202,6 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render_mixed_blo
         }
         remaining_active_sources--;
         has_sources = true;
-        scratch_buffer.clear(p_block.frame_count);
         RenderResult render_result = source->render(scratch_view);
         if (render_result.frames_produced > 0) {
             const uint32_t frames_to_mix = std::min(render_result.frames_produced, p_block.frame_count);
@@ -301,11 +300,6 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render(AudioBloc
     }
 
     const uint32_t scratch_frames = scratch_buffer.get_frame_capacity();
-
-    for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
-        Sample *dst = p_block.channel(channel_index);
-        std::fill_n(dst, p_block.frame_count, static_cast<Sample>(0));
-    }
 
     if (p_block.frame_count <= scratch_frames) {
         return render_mixed_block(p_block);
