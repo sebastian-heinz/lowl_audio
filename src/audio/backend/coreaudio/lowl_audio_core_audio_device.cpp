@@ -112,7 +112,7 @@ OSStatus Lowl::Audio::CoreAudioDevice::audio_callback(AudioUnitRenderActionFlags
     }
 
     void *dst = ioData->mBuffers[0].mData;
-    render_to_device_buffer(published_state, dst, inNumberFrames, bytes_per_frame);
+    render_to_device_buffer(published_state, dst, ioData->mBuffers[0].mDataByteSize, inNumberFrames, bytes_per_frame);
     return noErr;
 }
 

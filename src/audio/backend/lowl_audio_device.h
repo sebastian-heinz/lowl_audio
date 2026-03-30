@@ -38,6 +38,7 @@ namespace Lowl::Audio {
 
         void render_to_device_buffer(const std::shared_ptr<RenderState> &p_render_state,
                                      void *p_dst,
+                                     size_t p_dst_byte_size,
                                      unsigned long p_frames_per_buffer,
                                      unsigned long p_bytes_per_frame);
 

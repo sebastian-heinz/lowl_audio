@@ -100,7 +100,11 @@ namespace {
         }
 
         void write(void *p_dst, unsigned long p_frames_per_buffer, unsigned long p_bytes_per_frame) {
-            render_to_device_buffer(load_render_state(), p_dst, p_frames_per_buffer, p_bytes_per_frame);
+            render_to_device_buffer(load_render_state(),
+                                    p_dst,
+                                    static_cast<size_t>(p_frames_per_buffer) * p_bytes_per_frame,
+                                    p_frames_per_buffer,
+                                    p_bytes_per_frame);
         }
 
         void start(Lowl::Audio::AudioDeviceProperties, std::shared_ptr<Lowl::Audio::AudioSource>, Lowl::Error &) override {

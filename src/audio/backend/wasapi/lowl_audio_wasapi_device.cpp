@@ -524,7 +524,11 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
         const uint32_t bytes_per_frame =
             static_cast<uint32_t>(get_sample_size_bytes(published_properties.sample_format) *
                                   published_properties.channel_layout.channel_count);
-        render_to_device_buffer(published_state, audio_buffer_byte_ptr, available_frames_in_buffer, bytes_per_frame);
+        render_to_device_buffer(published_state,
+                                audio_buffer_byte_ptr,
+                                static_cast<size_t>(available_frames_in_buffer) * bytes_per_frame,
+                                available_frames_in_buffer,
+                                bytes_per_frame);
 
         result = audio_render_client->ReleaseBuffer(available_frames_in_buffer, 0);
         if (FAILED(result)) {

@@ -4,16 +4,16 @@ Generated from an audit of `issuev2.md` against the current tree on 2026-03-30.
 
 Notes:
 - Issue 57 is no longer included here because `CoreAudioDevice::create_description()` now reports unsupported formats explicitly instead of returning a zeroed `AudioStreamBasicDescription`.
+- Issue 44 is no longer included here because the repo policy explicitly accepts `cmake_minimum_required(VERSION 3.31)`.
 - Issue 58 is no longer included here because the library-wide WASAPI COM bootstrap now prefers `COINIT_MULTITHREADED`, matching the render callback thread's COM model.
 - Issue 59 is no longer included here because `WasapiDevice::start()` now routes partial-start failures through centralized cleanup.
-- `issuev2.md` still has stale section headings for Issues 44, 46, 58, 59, and 60. Their current status in that file no longer matches the current tree.
+- `issuev2.md` still has stale section headings for Issues 46, 58, 59, and 60. Their current status in that file no longer matches the current tree.
 
 ## Current Unresolved Set
 
 | #  | Status | Severity | Category | Subsystem | Title |
 |----|--------|----------|----------|-----------|-------|
 | 24 | OPEN | High | Thread | Source | `AudioVoice` compound state transitions observable in intermediate states |
-| 44 | DEFERRED | High | Build | Build | `cmake_minimum_required(VERSION 3.31)` is too aggressive |
 | 46 | DEFERRED | Medium | Architecture | Source | `AudioSpace` ID space: `uint16_t` exhaustion after 65534 allocations |
 | 60 | DEFERRED | Medium | Bug | Backend | `AudioDevice::render_to_device_buffer` trusts caller buffer size |
 | 68 | OPEN | Medium | Architecture | Architecture | No Linux audio backend (PulseAudio / ALSA / PipeWire) |
@@ -38,27 +38,6 @@ Notes:
 ### Proposed Fix
 
 Keep the internal render cursor as render-thread state, but publish one coherent snapshot for externally visible state such as `position`, `playback_state`, and `detached`.
-
----
-
-## Issue 44 -- CMake Minimum Version Too Aggressive
-
-**Status:** DEFERRED  
-**Severity:** High  
-**Category:** Build  
-**Files:** `CMakeLists.txt`
-
-### Validation
-
-The root build still starts with `cmake_minimum_required(VERSION 3.31)`.
-
-### Problem
-
-That requirement is still much newer than the rest of the build appears to need, which unnecessarily raises the entry cost for contributors and CI environments.
-
-### Proposed Fix
-
-Lower the root minimum version to a justified baseline such as `3.16`, or document a concrete requirement for `3.31` if one exists.
 
 ---
 
