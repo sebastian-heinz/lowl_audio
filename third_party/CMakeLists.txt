@@ -60,11 +60,6 @@ target_link_libraries(${LOWL_THIRD_PARTY} PUBLIC vorbisfile)
 
 # r8brain-free-src
 set(LOWL_LIB_R8BRAIN lowl_r8brain_lib)
-set(LOWL_LIB_R8BRAIN_SOURCES
-        r8brain-free-src/pffft.cpp
-        r8brain-free-src/r8bbase.cpp
-        )
-add_library(${LOWL_LIB_R8BRAIN} STATIC ${LOWL_LIB_R8BRAIN_SOURCES})
+add_library(${LOWL_LIB_R8BRAIN} INTERFACE)
 target_include_directories(${LOWL_LIB_R8BRAIN} SYSTEM INTERFACE r8brain-free-src) # SYSTEM to suppress warnings
-target_compile_definitions(${LOWL_LIB_R8BRAIN} PRIVATE _USE_MATH_DEFINES)
 target_link_libraries(${LOWL_THIRD_PARTY} PUBLIC ${LOWL_LIB_R8BRAIN})
