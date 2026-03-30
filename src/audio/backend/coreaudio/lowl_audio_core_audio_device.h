@@ -22,7 +22,9 @@ namespace Lowl::Audio {
 
         static AudioUnit _Nullable create_audio_unit(AudioObjectID p_device_id, Error &error);
 
-        static AudioStreamBasicDescription create_description(AudioDeviceProperties p_device_id);
+        static bool create_description(const AudioDeviceProperties &p_device_properties,
+                                       AudioStreamBasicDescription &r_description,
+                                       Error &error);
 
         static bool test_device_properties(AudioObjectID p_device_id,
                                            AudioUnit _Nullable p_audio_unit,

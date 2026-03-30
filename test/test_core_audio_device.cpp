@@ -54,6 +54,32 @@ TEST_CASE("CoreAudioDevice") {
         REQUIRE_EQ(device.property_callback(kAudioObjectSystemObject, 0, &dummy_address), noErr);
         REQUIRE(device.get_seen_selectors().empty());
     }
+
+    SUBCASE("CoreAudioDevice - start rejects unsupported sample formats before CoreAudio setup") {
+        RecordingCoreAudioDevice device;
+        const Lowl::Audio::SampleFormat unsupported_formats[] = {
+            Lowl::Audio::SampleFormat::U_INT_8,
+            Lowl::Audio::SampleFormat::Unknown,
+        };
+
+        for (const Lowl::Audio::SampleFormat sample_format : unsupported_formats) {
+            Lowl::Audio::AudioDeviceProperties properties{};
+            properties.is_supported = true;
+            properties.sample_rate = 44100.0;
+            properties.channel_layout = Lowl::Audio::ChannelLayout::Stereo;
+            properties.sample_format = sample_format;
+
+            Lowl::Error error;
+            device.start(properties, nullptr, error);
+
+            REQUIRE(error.has_error());
+            REQUIRE_EQ(error.get_error(), Lowl::ErrorCode::UnsupportedAudioFormat);
+
+            Lowl::Error stop_error;
+            device.stop(stop_error);
+            REQUIRE_FALSE(stop_error.has_error());
+        }
+    }
 }
 
 #endif

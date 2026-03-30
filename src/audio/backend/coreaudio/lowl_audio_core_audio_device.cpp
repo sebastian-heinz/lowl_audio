@@ -213,6 +213,14 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
         error.set_error(Lowl::ErrorCode::InvalidParameter);
         return;
     }
+
+    AudioStreamBasicDescription description{};
+    if (!create_description(p_audio_device_properties, description, error)) {
+        LOWL_LOG_ERROR("CoreAudioDevice::start: failed to create stream description for properties " +
+                       p_audio_device_properties.to_string() + ".");
+        return;
+    }
+
     audio_device_properties = p_audio_device_properties;
     audio_source = p_audio_source;
 
@@ -256,7 +264,6 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
         return;
     }
 
-    AudioStreamBasicDescription description = create_description(audio_device_properties);
     result = AudioUnitSetProperty(audio_unit,
                                   kAudioUnitProperty_StreamFormat,
                                   kAudioUnitScope_Input,
@@ -458,7 +465,16 @@ bool Lowl::Audio::CoreAudioDevice::test_device_properties(AudioObjectID p_device
         return false;
     }
 
-    AudioStreamBasicDescription description = create_description(p_properties);
+    AudioStreamBasicDescription description{};
+    Error description_error;
+    if (!create_description(p_properties, description, description_error)) {
+        if (!silent) {
+            LOWL_LOG_ERROR("failed to create AudioStreamBasicDescription (device:" + std::to_string(p_device_id) +
+                           ", properties:" + p_properties.to_string() +
+                           ", error:" + description_error.get_error_text() + ")");
+        }
+        return false;
+    }
     OSStatus result = AudioUnitSetProperty(p_audio_unit,
                                            kAudioUnitProperty_StreamFormat,
                                            kAudioUnitScope_Input,
@@ -539,11 +555,12 @@ AudioUnit _Nullable Lowl::Audio::CoreAudioDevice::create_audio_unit(AudioObjectI
     return new_audio_unit;
 }
 
-AudioStreamBasicDescription
-Lowl::Audio::CoreAudioDevice::create_description(Lowl::Audio::AudioDeviceProperties p_device_properties) {
-    const unsigned long channel_num = p_device_properties.channel_layout.channel_count;
-    if (channel_num == 0) {
-        return {};
+bool Lowl::Audio::CoreAudioDevice::create_description(const Lowl::Audio::AudioDeviceProperties &p_device_properties,
+                                                      AudioStreamBasicDescription &r_description,
+                                                      Error &error) {
+    if (p_device_properties.sample_rate <= Lowl::NO_SAMPLE_RATE || !p_device_properties.channel_layout.is_valid()) {
+        error.set_error(ErrorCode::InvalidParameter);
+        return false;
     }
 
     AudioStreamBasicDescription description{};
@@ -552,10 +569,12 @@ Lowl::Audio::CoreAudioDevice::create_description(Lowl::Audio::AudioDevicePropert
     description.mFramesPerPacket = 1;
     description.mBitsPerChannel = static_cast<UInt32>(get_sample_size_bits(p_device_properties.sample_format));
     description.mBytesPerPacket =
-        static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) * channel_num);
+        static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
+                            p_device_properties.channel_layout.channel_count);
     description.mBytesPerFrame =
-        static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) * channel_num);
-    description.mChannelsPerFrame = static_cast<UInt32>(channel_num);
+        static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
+                            p_device_properties.channel_layout.channel_count);
+    description.mChannelsPerFrame = static_cast<UInt32>(p_device_properties.channel_layout.channel_count);
 
     switch (p_device_properties.sample_format) {
         case Lowl::Audio::SampleFormat::FLOAT_32: {
@@ -583,18 +602,21 @@ Lowl::Audio::CoreAudioDevice::create_description(Lowl::Audio::AudioDevicePropert
             break;
         }
         case Lowl::Audio::SampleFormat::U_INT_8: {
-            return {};
+            error.set_error(ErrorCode::UnsupportedAudioFormat);
+            return false;
         }
         case Lowl::Audio::SampleFormat::FLOAT_64: {
             description.mFormatFlags = kAudioFormatFlagsNativeFloatPacked;
             break;
         }
         case Lowl::Audio::SampleFormat::Unknown: {
-            return {};
+            error.set_error(ErrorCode::UnsupportedAudioFormat);
+            return false;
         }
     }
 
-    return description;
+    r_description = description;
+    return true;
 }
 
 void Lowl::Audio::CoreAudioDevice::release_hog() {

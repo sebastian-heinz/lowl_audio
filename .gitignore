@@ -10,3 +10,4 @@ Doxyfile.in
 /doc/html
 /build
 /build-bench
+/build-debug
