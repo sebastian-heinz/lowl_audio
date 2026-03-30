@@ -35,6 +35,10 @@ namespace Lowl::Audio {
 
         void release_hog();
 
+    protected:
+
+        virtual void handle_property_address(const AudioObjectPropertyAddress &p_address);
+
     public:
         static std::unique_ptr<CoreAudioDevice>
         construct(const std::string &p_driver_name, AudioObjectID p_device_id, Error &error);

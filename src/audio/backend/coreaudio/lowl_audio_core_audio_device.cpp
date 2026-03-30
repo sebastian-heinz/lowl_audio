@@ -125,12 +125,24 @@ void Lowl::Audio::CoreAudioDevice::start_stop_callback(AudioUnit inUnit,
 OSStatus Lowl::Audio::CoreAudioDevice::property_callback(AudioObjectID inObjectID,
                                                          UInt32 inNumberAddresses,
                                                          const AudioObjectPropertyAddress *inAddresses) {
-    AudioDevicePropertyID inPropertyID = inAddresses->mSelector;
-    switch (inPropertyID) {
-        case kAudioDeviceProcessorOverload:
-            break;
+    (void)inObjectID;
+    if (inNumberAddresses == 0 || inAddresses == nullptr) {
+        return noErr;
+    }
+
+    for (UInt32 address_index = 0; address_index < inNumberAddresses; address_index++) {
+        handle_property_address(inAddresses[address_index]);
     }
     return noErr;
+}
+
+void Lowl::Audio::CoreAudioDevice::handle_property_address(const AudioObjectPropertyAddress &p_address) {
+    switch (p_address.mSelector) {
+        case kAudioDeviceProcessorOverload:
+            break;
+        default:
+            break;
+    }
 }
 
 Lowl::Audio::CoreAudioDevice::CoreAudioDevice(_constructor_tag ct) : AudioDevice(ct) {

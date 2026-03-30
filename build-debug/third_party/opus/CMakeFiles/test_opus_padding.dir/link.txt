@@ -1,0 +1,1 @@
+/usr/bin/cc -g -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/test_opus_padding.dir/tests/test_opus_padding.c.o -o test_opus_padding  libopus.a -lm

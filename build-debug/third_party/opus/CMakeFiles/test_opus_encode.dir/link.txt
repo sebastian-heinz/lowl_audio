@@ -1,0 +1,1 @@
+/usr/bin/cc -g -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/test_opus_encode.dir/tests/test_opus_encode.c.o CMakeFiles/test_opus_encode.dir/tests/opus_encode_regressions.c.o -o test_opus_encode  libopus.a -lm

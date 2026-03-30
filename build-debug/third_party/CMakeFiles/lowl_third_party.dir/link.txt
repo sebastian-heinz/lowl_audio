@@ -1,0 +1,2 @@
+/usr/bin/ar qc liblowl_third_party.a CMakeFiles/lowl_third_party.dir/src/dummy.cpp.o
+/usr/bin/ranlib liblowl_third_party.a

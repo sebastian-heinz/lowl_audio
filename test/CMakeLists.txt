@@ -5,6 +5,7 @@ set(LOWL_TEST_FILES
         test_buffer.cpp
         test_logger.cpp
         test_audio_device.cpp
+        test_core_audio_device.cpp
         test_audio_data.cpp
         test_channel_layout.cpp
         test_channel_converter.cpp
@@ -24,6 +25,10 @@ add_executable(${LOWL_TEST_MAIN} ${LOWL_TEST_FILES})
 
 # lowl
 target_link_libraries(${LOWL_TEST_MAIN} PRIVATE ${LOWL_LIB_MAIN})
+
+if (APPLE)
+    target_compile_definitions(${LOWL_TEST_MAIN} PRIVATE LOWL_DRIVER_CORE_AUDIO)
+endif ()
 
 # doctest
 add_subdirectory(../third_party/doctest ../third_party/doctest)

@@ -13,7 +13,6 @@ message("[LOWL] CMAKE_CXX_COMPILER_ID: ${CMAKE_CXX_COMPILER_ID}")
 message("[LOWL] CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 
 # config - start
-set(LOWL_DEBUG FALSE)
 set(LOWL_DRIVER_DUMMY TRUE)
 set(LOWL_DRIVER_CORE_AUDIO FALSE)
 set(LOWL_DRIVER_WASAPI FALSE)
@@ -115,35 +114,27 @@ if (MINGW)
     message("[LOWL] MINGW")
 endif ()
 
-IF (CMAKE_BUILD_TYPE MATCHES Debug)
-    set(LOWL_DEBUG TRUE)
-ENDIF ()
+if (CMAKE_CONFIGURATION_TYPES)
+    message("[LOWL] Multi-config generator: ${CMAKE_CONFIGURATION_TYPES}")
+else ()
+    if (CMAKE_BUILD_TYPE)
+        message("[LOWL] Active config: ${CMAKE_BUILD_TYPE}")
+    else ()
+        message("[LOWL] Active config: default")
+    endif ()
+endif ()
 
-
-IF (LOWL_DEBUG)
-    message("[LOWL] Debug")
-    target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DEBUG)
-ELSE ()
-    message("[LOWL] Release")
-ENDIF ()
+target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE
+        $<$<CONFIG:Debug>:LOWL_DEBUG>
+)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message("[LOWL] Clang")
-    IF (LOWL_DEBUG)
-        message("[LOWL] Setting Debug Flags")
-        target_compile_options(${LOWL_LIB_MAIN} PRIVATE
-                -O0
-                -Werror
-        )
-    ELSE ()
-        message("[LOWL] Setting Release Flags")
-        target_compile_options(${LOWL_LIB_MAIN} PRIVATE
-                -O2
-                -Werror
-                -D_FORTIFY_SOURCE=2
-        )
-    ENDIF ()
+    message("[LOWL] Compile flags follow the active CMake configuration")
     target_compile_options(${LOWL_LIB_MAIN} PRIVATE
+            $<$<CONFIG:Debug>:-O0>
+            $<$<NOT:$<CONFIG:Debug>>:-O2>
+            -Werror
             -Walloca
             -Wcast-qual
             -Wconversion
@@ -172,6 +163,9 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
             -Wthread-safety
             -Wthread-safety-beta
             -Wcomma
+    )
+    target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE
+            $<$<NOT:$<CONFIG:Debug>>:_FORTIFY_SOURCE=2>
     )
     if (UNIX AND NOT APPLE)
         target_link_options(${LOWL_LIB_MAIN} PRIVATE

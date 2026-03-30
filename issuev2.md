@@ -66,7 +66,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 53 | FIXED | Medium | Bug | Converter | ReSampler: no null check on input `p_audio_data` |
 | 54 | ALREADY FIXED | Medium | Bug | Converter | Channel converter: null `storage` pointer dereference when `frame_count == 0` |
 | 55 | FIXED | Medium | Thread | Backend | CoreAudio: audio callback reads `audio_source` without memory fence |
-| 56 | DEFERRED | Medium | Bug | Backend | CoreAudio: `property_callback` only processes first address in array |
+| 56 | FIXED | Medium | Bug | Backend | CoreAudio: `property_callback` only processes first address in array |
 | 57 | DEFERRED | Medium | Bug | Backend | CoreAudio: `create_description` returns zeroed struct for unsupported formats |
 | 58 | DEFERRED | Medium | Bug | Backend | WASAPI: STA apartment model; audio thread may need MTA |
 | 59 | DEFERRED | Medium | Bug | Backend | WASAPI: `start()` error paths leak `audio_client` and handles |
@@ -154,7 +154,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 53 -- FIXED.** Options considered: assume non-null input, add a null early return, or surface an error object from the resampler. Decision: early return was consistent with the current signature and removed the null dereference.
 - **Issue 54 -- VERIFIED ALREADY FIXED.** Options considered: add a zero-frame early return, restructure pointer arithmetic, or verify the current guards. Decision: the existing `storage ? ... : nullptr` path already avoids null-pointer arithmetic here.
 - **Issue 55 -- FIXED.** Options considered: add a standalone fence around CoreAudio start, make only `audio_source` atomic, or publish one callback render snapshot. Decision: publish an atomic shared render snapshot containing the source, format/layout, and scratch buffer so callbacks never read the live startup fields directly.
-- **Issue 56 -- DEFERRED.** Options considered: iterate all addresses, split callback handling by selector, or leave current single-address behavior. Decision: not enough CoreAudio callback coverage was in scope for this pass.
+- **Issue 56 -- FIXED.** Options considered: iterate all addresses inline, split callback handling into a per-address helper, or leave the current single-address behavior. Decision: iterate the full address array and route each selector through a small helper so CoreAudio-only regression coverage can validate batched notifications.
 - **Issue 57 -- DEFERRED.** Options considered: signal failure with `Error`, return `std::optional`, or keep zeroed descriptions. Decision: fixing this cleanly needs a small CoreAudio API redesign.
 - **Issue 58 -- DEFERRED.** Options considered: switch global WASAPI COM init to MTA, keep STA and rely on thread-local COM init, or document the split model. Decision: Issue 36 is fixed, but the library-wide apartment policy still needs a deliberate backend decision.
 - **Issue 59 -- DEFERRED.** Options considered: add manual cleanup at each error site, use scope guards, or refactor `start()` into staged helpers. Decision: this wants a focused WASAPI startup cleanup pass.
@@ -178,6 +178,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 48 -- FIXED.** `AudioStream` now keeps the requested logical capacity separate from a power-of-two backing store and uses masked ring indices, so 32-bit `size_t` wrap no longer breaks ring indexing.
 - **Issue 52 -- FIXED.** dr_lib implementation macros now live in `src/audio/reader/lowl_audio_reader_dr_lib.cpp`, and the MP3/WAV/FLAC readers consume internal wrapper classes instead of instantiating vendor implementations in multiple reader translation units.
 - **Issue 55 -- FIXED.** `AudioDevice` now publishes callback state through an atomic `shared_ptr` snapshot, and the CoreAudio callback loads that snapshot before using the source, format, or render buffer. That gives the callback an explicit acquire/release publication path instead of relying on CoreAudio startup ordering.
+- **Issue 56 -- FIXED.** `CoreAudioDevice::property_callback()` now iterates every `AudioObjectPropertyAddress` in the callback batch and dispatches each one through a per-address handler. A CoreAudio-only doctest now verifies that batched notifications do not silently drop selectors after the first entry.
 - **Issue 64 -- FIXED.** `sal.h` is now included at normal header scope in `lowl_logger.h`, and the `Logger` class body no longer contains `#include` directives.
 - **Issue 66 -- FIXED.** The root `CMakeLists.txt` no longer assigns `CMAKE_OSX_ARCHITECTURES` after `project()`. macOS architecture selection is now left to CMake defaults or explicit caller/toolchain configuration.
 - **Issue 67 -- FIXED.** `LOWL_DEBUG` is now a `PRIVATE` compile definition on `${LOWL_LIB_MAIN}`, so debug logging stays available inside the library build without leaking into tests, the demo, or external consumers.
@@ -1065,19 +1066,19 @@ The audio callback used to read `audio_device_properties`, `audio_source`, and t
 
 ---
 
-## Issue 56 -- CoreAudio: `property_callback` Only Processes First Address -- OPEN
+## Issue 56 -- CoreAudio: `property_callback` Only Processes First Address -- FIXED
 
 **Severity:** Medium
 **Category:** Bug
-**Files:** `src/audio/backend/coreaudio/lowl_audio_core_audio_device.cpp:101-110`
+**Files:** `src/audio/backend/coreaudio/lowl_audio_core_audio_device.h`, `src/audio/backend/coreaudio/lowl_audio_core_audio_device.cpp`, `test/test_core_audio_device.cpp`
 
 ### Problem
 
-The callback receives `inNumberAddresses` but only inspects `inAddresses->mSelector` (index 0). Batched property change notifications are silently dropped.
+The callback receives `inNumberAddresses` but only inspected `inAddresses->mSelector` (index 0). Batched property change notifications after the first entry were silently dropped.
 
 ### Fix
 
-Iterate over all `inNumberAddresses` entries.
+`CoreAudioDevice::property_callback()` now iterates over every `AudioObjectPropertyAddress` in the callback batch and dispatches each one through `handle_property_address()`. A CoreAudio-only regression test subclasses `CoreAudioDevice`, records every selector passed through the helper, and verifies that multi-address batches reach all entries in order.
 
 ---
 
