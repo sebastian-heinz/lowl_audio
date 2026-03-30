@@ -424,18 +424,15 @@ bool Lowl::Audio::WasapiDevice::enable_avrt() {
 }
 
 uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
-    LOWL_LOG_DEBUG_F("audio_callback->%s - enter", name.c_str());
     const HRESULT com_result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     const bool should_uninitialize_com = SUCCEEDED(com_result);
     if (FAILED(com_result) && com_result != RPC_E_CHANGED_MODE) {
-        LOWL_LOG_DEBUG_F("audio_callback->%s - CoInitializeEx failed (%ld)", name.c_str(), com_result);
         return 0;
     }
 
     UINT32 total_frames_in_buffer;
     HRESULT result = audio_client->GetBufferSize(&total_frames_in_buffer);
     if (FAILED(result)) {
-        LOWL_LOG_DEBUG_F("audio_callback->%s - GetBufferSize failed", name.c_str());
         if (should_uninitialize_com) {
             CoUninitialize();
         }
@@ -454,7 +451,6 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
 
         switch (wait_result) {
             case WAIT_OBJECT_0 + 0: // wasapi_audio_stop_handle
-                LOWL_LOG_DEBUG_F("audio_callback->%s - stop signal", name.c_str());
                 playing = false;
                 continue;
             case WAIT_OBJECT_0 + 1: // wasapi_audio_event_handle
@@ -468,7 +464,6 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
             UINT32 padding_frames_count;
             result = audio_client->GetCurrentPadding(&padding_frames_count);
             if (FAILED(result)) {
-                LOWL_LOG_DEBUG_F("audio_callback->%s - audio_client->GetCurrentPadding:FAILED", name.c_str());
                 break;
             }
             if (total_frames_in_buffer <= padding_frames_count) {
@@ -481,32 +476,6 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
         BYTE *audio_buffer_byte_ptr = nullptr;
         result = audio_render_client->GetBuffer(available_frames_in_buffer, &audio_buffer_byte_ptr);
         if (FAILED(result)) {
-            switch (result) {
-                case AUDCLNT_E_BUFFER_ERROR:
-                    LOWL_LOG_DEBUG_F("audio_callback->%s - AUDCLNT_E_BUFFER_ERROR", name.c_str());
-                    break;
-                case AUDCLNT_E_BUFFER_TOO_LARGE:
-                    LOWL_LOG_DEBUG_F("audio_callback->%s - AUDCLNT_E_BUFFER_TOO_LARGE", name.c_str());
-                    break;
-                case AUDCLNT_E_BUFFER_SIZE_ERROR:
-                    LOWL_LOG_DEBUG_F("audio_callback->%s - AUDCLNT_E_BUFFER_SIZE_ERROR", name.c_str());
-                    break;
-                case AUDCLNT_E_OUT_OF_ORDER:
-                    LOWL_LOG_DEBUG_F("audio_callback->%s - AUDCLNT_E_OUT_OF_ORDER", name.c_str());
-                    break;
-                case AUDCLNT_E_DEVICE_INVALIDATED:
-                    LOWL_LOG_DEBUG_F("audio_callback->%s - AUDCLNT_E_DEVICE_INVALIDATED", name.c_str());
-                    break;
-                case AUDCLNT_E_BUFFER_OPERATION_PENDING:
-                    LOWL_LOG_DEBUG_F("audio_callback->%s - AUDCLNT_E_BUFFER_OPERATION_PENDING", name.c_str());
-                    break;
-                case AUDCLNT_E_SERVICE_NOT_RUNNING:
-                    LOWL_LOG_DEBUG_F("audio_callback->%s - AUDCLNT_E_SERVICE_NOT_RUNNING", name.c_str());
-                    break;
-                case E_POINTER:
-                    LOWL_LOG_DEBUG_F("audio_callback->%s - E_POINTER", name.c_str());
-                    break;
-            }
             break;
         }
 
@@ -514,7 +483,6 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
         if (published_state == nullptr) {
             result = audio_render_client->ReleaseBuffer(available_frames_in_buffer, AUDCLNT_BUFFERFLAGS_SILENT);
             if (FAILED(result)) {
-                LOWL_LOG_DEBUG_F("audio_callback->%s - ReleaseBuffer failed", name.c_str());
                 break;
             }
             continue;
@@ -532,7 +500,6 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
 
         result = audio_render_client->ReleaseBuffer(available_frames_in_buffer, 0);
         if (FAILED(result)) {
-            LOWL_LOG_DEBUG_F("audio_callback->%s - ReleaseBuffer failed", name.c_str());
             break;
         }
     }
@@ -544,7 +511,6 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
     if (should_uninitialize_com) {
         CoUninitialize();
     }
-    LOWL_LOG_DEBUG_F("audio_callback->%s - exit", name.c_str());
     return 0;
 }
 

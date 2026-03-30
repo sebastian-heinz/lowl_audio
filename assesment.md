@@ -113,7 +113,7 @@ Recommendation:
 
 - Handle zero-frame blocks as `{0, RenderState::Ok}` or `{0, RenderState::Starved}` and leave transport state unchanged.
 
-### Medium: published transport position is truncated to 32 bits
+### ~~Medium~~ Intentional: published transport position is truncated to 32 bits
 
 Files:
 
@@ -122,19 +122,12 @@ Files:
 - `src/audio/source/lowl_audio_voice.cpp:100-102`
 - `src/audio/source/lowl_audio_voice.cpp:160-162`
 
-Problem:
+Note:
 
 - `render_position` is `size_t`, but the published snapshot stores `position` as `uint32_t`.
-
-Impact:
-
-- Long clips wrap reported position after `2^32 - 1` frames.
-- At 48 kHz that is about 24.8 hours; at higher rates it wraps sooner.
-- `get_frame_position()` / `get_frames_remaining()` can report incorrect values for long assets.
-
-Recommendation:
-
-- Store the published position in 64 bits as well, even if the packed state becomes larger.
+- This is intentional. `PublishedState` packs position (32 bits), playback state (2 bits), and detached flag (1 bit) into a single `uint64_t` so the entire snapshot can be read/written with one lock-free atomic operation.
+- At 48 kHz, `2^32 - 1` frames is ~24.8 hours of audio — well beyond any realistic clip length for this use case.
+- No change needed.
 
 ### Low: CoreAudio callback does not zero the output buffer when render state is missing
 

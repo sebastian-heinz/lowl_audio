@@ -54,7 +54,10 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::render(AudioBloc
                                                      std::memory_order_acq_rel,
                                                      std::memory_order_acquire);
     }
-    if (current_position >= frame_count || p_block.frame_count == 0) {
+    if (p_block.frame_count == 0) {
+        return {0, RenderState::Ok};
+    }
+    if (current_position >= frame_count) {
         render_position.store(0, std::memory_order_relaxed);
         if ((observed_control_state_serial & 0x1U) == 0U &&
             control_state_serial.load(std::memory_order_acquire) == observed_control_state_serial) {
