@@ -17,7 +17,6 @@
 #include "lowl_logger.h"
 
 namespace Lowl {
-    // TODO move this to lowl_audio as it only audio related
     class Lib {
     private:
         static std::once_flag initialized;
