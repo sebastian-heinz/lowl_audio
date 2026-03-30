@@ -1,3 +1,4 @@
 - do not work on upper levels of this folder, this folder is the core library root and no exploration upwards is needed.
 - only read this file (AGENT.md) and everything inside the src/ and test/ folder, everything else is unrelated and should not be accessed.
 - never access /doc folder
+- cmake 3.31 is acceptable for this repo; do not lower `cmake_minimum_required(VERSION 3.31)` unless explicitly asked.

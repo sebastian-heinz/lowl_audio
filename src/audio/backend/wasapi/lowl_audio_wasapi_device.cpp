@@ -126,6 +126,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
     if (result != S_OK) {
         LOWL_LOG_DEBUG_F("start->%s - audio_client->Activate:FAILED", name.c_str());
         error.set_error(Lowl::ErrorCode::Error);
+        cleanup_failed_start();
         return;
     }
     LOWL_LOG_DEBUG_F("start->%s - audio_client->Activate:OK", name.c_str());
@@ -136,6 +137,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
     if (result != S_OK) {
         LOWL_LOG_DEBUG_F("start->%s - audio_client->GetDevicePeriod:FAILED", name.c_str());
         error.set_error(Lowl::ErrorCode::Error);
+        cleanup_failed_start();
         return;
     }
     LOWL_LOG_DEBUG_F("start->%s - audio_client->GetDevicePeriod:OK", name.c_str());
@@ -169,6 +171,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
                              name.c_str(),
                              audio_device_properties.to_string().c_str());
             error.set_error(Lowl::ErrorCode::Error);
+            cleanup_failed_start();
             return;
         }
 
@@ -188,6 +191,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
                              name.c_str(),
                              audio_device_properties.to_string().c_str());
             error.set_error(Lowl::ErrorCode::Error);
+            cleanup_failed_start();
             return;
         }
 
@@ -208,6 +212,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
                              name.c_str(),
                              audio_device_properties.to_string().c_str());
             error.set_error(Lowl::ErrorCode::Error);
+            cleanup_failed_start();
             return;
         }
 
@@ -300,6 +305,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
         }
         LOWL_LOG_DEBUG_F("start->%s - audio_client->Initialize:FAILED", name.c_str());
         error.set_error(Lowl::ErrorCode::Error);
+        cleanup_failed_start();
         return;
     }
     LOWL_LOG_DEBUG_F("start->%s - audio_client->Initialize:OK", name.c_str());
@@ -308,6 +314,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
     if (result != S_OK) {
         LOWL_LOG_DEBUG_F("start->%s - audio_client->GetService:FAILED", name.c_str());
         error.set_error(Lowl::ErrorCode::Error);
+        cleanup_failed_start();
         return;
     }
     LOWL_LOG_DEBUG_F("start->%s - audio_client->GetService:OK", name.c_str());
@@ -317,6 +324,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
     if (result != S_OK) {
         LOWL_LOG_DEBUG_F("start->%s - audio_client->GetBufferSize:FAILED", name.c_str());
         error.set_error(Lowl::ErrorCode::Error);
+        cleanup_failed_start();
         return;
     }
     allocate_render_buffer(total_frames_in_buffer);
@@ -325,6 +333,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
     if (wasapi_audio_stop_handle == INVALID_HANDLE_VALUE || wasapi_audio_stop_handle == nullptr) {
         wasapi_audio_stop_handle = nullptr;
         error.set_error(Lowl::ErrorCode::Error);
+        cleanup_failed_start();
         return;
     }
 
@@ -332,6 +341,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
     if (wasapi_audio_event_handle == INVALID_HANDLE_VALUE || wasapi_audio_event_handle == nullptr) {
         wasapi_audio_event_handle = nullptr;
         error.set_error(Lowl::ErrorCode::Error);
+        cleanup_failed_start();
         return;
     }
 
@@ -339,6 +349,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
     if (result != S_OK) {
         LOWL_LOG_DEBUG_F("start->%s - audio_client->SetEventHandle:FAILED", name.c_str());
         error.set_error(Lowl::ErrorCode::Error);
+        cleanup_failed_start();
         return;
     }
     LOWL_LOG_DEBUG_F("start->%s - audio_client->SetEventHandle:OK", name.c_str());
@@ -346,6 +357,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
     wasapi_audio_thread_handle = CreateThread(nullptr, 0, wasapi_audio_callback, this, 0, nullptr);
     if (wasapi_audio_thread_handle == nullptr) {
         error.set_error(Lowl::ErrorCode::Error);
+        cleanup_failed_start();
         return;
     }
 
@@ -353,11 +365,20 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
     if (result != S_OK) {
         LOWL_LOG_DEBUG_F("start->%s - audio_client->Start:FAILED", name.c_str());
         error.set_error(Lowl::ErrorCode::Error);
+        cleanup_failed_start();
         return;
     }
     LOWL_LOG_DEBUG_F("start->%s - audio_client->Start:OK", name.c_str());
 
     LOWL_LOG_DEBUG_F("started->%s", name.c_str());
+}
+
+void Lowl::Audio::WasapiDevice::cleanup_failed_start() {
+    Lowl::Error cleanup_error;
+    stop(cleanup_error);
+    if (cleanup_error.has_error()) {
+        LOWL_LOG_ERROR_F("WasapiDevice::start cleanup failed (%s)", name.c_str());
+    }
 }
 
 void Lowl::Audio::WasapiDevice::stop(Lowl::Error &error) {
@@ -380,6 +401,7 @@ void Lowl::Audio::WasapiDevice::stop(Lowl::Error &error) {
     SAFE_CLOSE(wasapi_audio_event_handle)
     SAFE_CLOSE(wasapi_audio_thread_handle)
     clear_render_state();
+    audio_source.reset();
     LOWL_LOG_DEBUG_F("stopped->%s", name.c_str());
 }
 

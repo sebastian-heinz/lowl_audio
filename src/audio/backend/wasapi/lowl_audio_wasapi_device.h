@@ -44,6 +44,7 @@ namespace Lowl::Audio {
         DWORD avrt_task_index;
 
         bool enable_avrt();
+        void cleanup_failed_start();
 
     public:
         static std::unique_ptr<WasapiDevice>

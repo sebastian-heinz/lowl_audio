@@ -11,7 +11,8 @@
 std::unique_ptr<Lowl::Audio::WasapiCom> Lowl::Audio::WasapiCom::wasapi_com = std::make_unique<Lowl::Audio::WasapiCom>();
 
 void Lowl::Audio::WasapiCom::initialize(Lowl::Error &error) {
-    HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    // Prefer MTA to match the WASAPI render callback thread's COM model.
+    HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     if (FAILED(hr) && hr != RPC_E_CHANGED_MODE) {
         error.set_vendor_error(hr, Error::VendorError::WasapiVendorError);
         LOWL_LOG_ERROR_F("Wasapi failed CoInitializeEx (HRESULT:%ld)", hr);
