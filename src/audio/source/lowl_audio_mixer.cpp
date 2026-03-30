@@ -549,7 +549,7 @@ bool Lowl::Audio::AudioMixer::try_dequeue_ack(const uint16_l p_owner_id, AudioMi
 }
 
 Lowl::size_l Lowl::Audio::AudioMixer::get_frames_remaining() const {
-    return 1;
+    return LiveFrameCountSentinel;
 }
 
 Lowl::size_l Lowl::Audio::AudioMixer::get_frame_position() const {
@@ -557,5 +557,5 @@ Lowl::size_l Lowl::Audio::AudioMixer::get_frame_position() const {
 }
 
 Lowl::size_l Lowl::Audio::AudioMixer::get_frame_count() const {
-    return 0;
+    return LiveFrameCountSentinel;
 }

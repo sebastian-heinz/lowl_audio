@@ -23,6 +23,10 @@ namespace Lowl::Audio {
      * methods that touch asset or playback bookkeeping synchronize on `state_mutex`; they are safe to
      * call concurrently, but they are not real-time safe and should stay off the audio callback
      * thread.
+     *
+     * As an aggregate live source, this class has no finite total frame count. Its aggregate
+     * `get_frames_remaining()` / `get_frame_count()` queries therefore use a one-frame sentinel so
+     * callers can treat it as renderable without observing `frames_remaining > frame_count`.
      */
     class AudioSpace : public AudioSource {
     public:
@@ -40,6 +44,7 @@ namespace Lowl::Audio {
         static constexpr AudioPlaybackId InvalidPlaybackSlotId = 0;
         static constexpr AudioPlaybackId FirstPlaybackSlotId = 1;
         static constexpr int LookupGrowth = 100;
+        static constexpr size_l LiveFrameCountSentinel = 1;
 
         enum class SlotState : uint8_t {
             Active = 0,

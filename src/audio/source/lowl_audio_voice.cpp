@@ -16,7 +16,8 @@ Lowl::Audio::AudioVoice::AudioVoice(std::shared_ptr<const AudioData> p_audio_dat
                   p_audio_data ? p_audio_data->get_channel_layout() : ChannelLayout{}),
       audio_data(std::move(p_audio_data)) {
     render_position.store(0, std::memory_order_relaxed);
-    published_state.store(PublishedStateSnapshot{0, PlaybackState::Playing, false});
+    pause();
+    published_state.store(PublishedStateSnapshot{0, PlaybackState::Stopped, false});
 }
 
 Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::render(AudioBlockView p_block) {

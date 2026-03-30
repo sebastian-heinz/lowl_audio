@@ -141,7 +141,6 @@ Lowl::AudioPlaybackHandle Lowl::Audio::AudioSpace::insert_playback_locked(std::u
         slot.generation = 1;
     }
     slot.slot_state = SlotState::Active;
-    slot.voice->stop_playback();
     mixer_handle_lookup[mixer_handle.playback_id] = slot_id;
 
     AudioPlaybackHandle handle{};
@@ -526,7 +525,7 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioSpace::render(AudioBloc
 }
 
 Lowl::size_l Lowl::Audio::AudioSpace::get_frames_remaining() const {
-    return 1;
+    return LiveFrameCountSentinel;
 }
 
 Lowl::size_l Lowl::Audio::AudioSpace::get_frame_position() const {
@@ -534,7 +533,7 @@ Lowl::size_l Lowl::Audio::AudioSpace::get_frame_position() const {
 }
 
 Lowl::size_l Lowl::Audio::AudioSpace::get_frame_count() const {
-    return 0;
+    return LiveFrameCountSentinel;
 }
 
 std::map<Lowl::AudioAssetId, std::string> Lowl::Audio::AudioSpace::get_name_mapping() const {

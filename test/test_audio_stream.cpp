@@ -161,6 +161,14 @@ TEST_CASE("AudioStream") {
     std::shared_ptr<Lowl::Audio::AudioStream> audio_stream
             = std::make_unique<Lowl::Audio::AudioStream>(44100.0, Lowl::Audio::ChannelLayout::Stereo);
 
+    SUBCASE("AudioMixer - aggregate frame queries use a consistent live sentinel") {
+        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+
+        REQUIRE_EQ(mixer.get_frames_remaining(), 1U);
+        REQUIRE_EQ(mixer.get_frame_count(), 1U);
+        REQUIRE_EQ(mixer.get_frame_position(), 0U);
+    }
+
     SUBCASE("AudioStream - Frame") {
         const Lowl::Sample samples[] = {0.5f, 0.5f};
         REQUIRE_EQ(audio_stream->write_interleaved(samples, 1), 1U);

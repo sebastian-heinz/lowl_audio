@@ -16,6 +16,10 @@
 namespace Lowl::Audio {
     /**
      * Mixes multiple active sources into a single renderable output stream.
+     *
+     * This is a live aggregate source with no finite total frame count. Its frame-count queries
+     * therefore use a one-frame sentinel so callers can treat it as renderable without observing
+     * `frames_remaining > frame_count`.
      */
     class AudioMixer : public AudioSource {
     private:
@@ -24,6 +28,7 @@ namespace Lowl::Audio {
         static constexpr size_t InvalidSourceIndex = MAX_ACTIVE_SOURCES;
         static constexpr AudioPlaybackId InvalidHandleId = 0;
         static constexpr AudioPlaybackId FirstHandleId = 1;
+        static constexpr size_l LiveFrameCountSentinel = 1;
 
         struct ActiveSourceSlot {
             AudioMixerHandle handle{};

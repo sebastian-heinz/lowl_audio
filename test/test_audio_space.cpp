@@ -62,6 +62,12 @@ TEST_CASE("AudioSpace") {
     Lowl::Error error;
     Lowl::Audio::AudioSpace audio_space(44100.0, Lowl::Audio::ChannelLayout::Stereo);
 
+    SUBCASE("AudioSpace - aggregate frame queries use a consistent live sentinel") {
+        REQUIRE_EQ(audio_space.get_frames_remaining(), 1U);
+        REQUIRE_EQ(audio_space.get_frame_count(), 1U);
+        REQUIRE_EQ(audio_space.get_frame_position(), 0U);
+    }
+
     SUBCASE("AudioSpace - play restarts a playback from the beginning") {
         const Lowl::AudioPlaybackHandle playback_handle = add_asset_and_create_playback(
             audio_space,

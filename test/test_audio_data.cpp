@@ -70,7 +70,27 @@ TEST_CASE("AudioData") {
     std::shared_ptr<Lowl::Audio::AudioData> audio_data = std::move(make_stereo_audio_data({StereoSample{0.5f, 0.5f}}));
     Lowl::Audio::AudioVoice audio_voice(audio_data);
 
+    SUBCASE("AudioVoice - starts stopped until playback is explicitly started") {
+        REQUIRE_EQ(audio_voice.get_playback_state(), Lowl::Audio::AudioVoice::PlaybackState::Stopped);
+        REQUIRE(audio_voice.is_pause());
+
+        auto [stopped_result, stopped_frame] = render_one_frame(audio_voice);
+        REQUIRE_EQ(stopped_result.frames_produced, 0U);
+        REQUIRE_EQ(stopped_result.state, Lowl::Audio::AudioSource::RenderState::Starved);
+        REQUIRE_EQ(stopped_frame.left, doctest::Approx(0.0f));
+        REQUIRE_EQ(stopped_frame.right, doctest::Approx(0.0f));
+
+        audio_voice.restart_playback();
+
+        auto [started_result, started_frame] = render_one_frame(audio_voice);
+        REQUIRE_EQ(started_result.frames_produced, 1U);
+        REQUIRE_EQ(started_result.state, Lowl::Audio::AudioSource::RenderState::Remove);
+        REQUIRE_EQ(started_frame.left, doctest::Approx(0.5f));
+        REQUIRE_EQ(started_frame.right, doctest::Approx(0.5f));
+    }
+
     SUBCASE("AudioVoice - Frame") {
+        audio_voice.restart_playback();
         auto [result, read] = render_one_frame(audio_voice);
         REQUIRE_EQ(result.frames_produced, 1U);
         REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Remove);
@@ -79,6 +99,7 @@ TEST_CASE("AudioData") {
     }
 
     SUBCASE("AudioVoice - Panning") {
+        audio_voice.restart_playback();
         auto [result0, read0] = render_one_frame(audio_voice);
         REQUIRE_EQ(result0.frames_produced, 1U);
         REQUIRE_EQ(result0.state, Lowl::Audio::AudioSource::RenderState::Remove);
@@ -86,6 +107,7 @@ TEST_CASE("AudioData") {
         REQUIRE_EQ(read0.right, 0.5);
 
         audio_voice.set_panning(1);
+        audio_voice.restart_playback();
         auto [result1, read1] = render_one_frame(audio_voice);
         REQUIRE_EQ(result1.frames_produced, 1U);
         REQUIRE_EQ(result1.state, Lowl::Audio::AudioSource::RenderState::Remove);
@@ -93,6 +115,7 @@ TEST_CASE("AudioData") {
         REQUIRE_EQ(read1.right, doctest::Approx(0.70711));
 
         audio_voice.set_panning(-1);
+        audio_voice.restart_playback();
         auto [result2, read2] = render_one_frame(audio_voice);
         REQUIRE_EQ(result2.frames_produced, 1U);
         REQUIRE_EQ(result2.state, Lowl::Audio::AudioSource::RenderState::Remove);
@@ -100,6 +123,7 @@ TEST_CASE("AudioData") {
         REQUIRE_EQ(read2.right, 0.0);
 
         audio_voice.set_panning(0);
+        audio_voice.restart_playback();
         auto [result3, read3] = render_one_frame(audio_voice);
         REQUIRE_EQ(result3.frames_produced, 1U);
         REQUIRE_EQ(result3.state, Lowl::Audio::AudioSource::RenderState::Remove);
@@ -112,6 +136,7 @@ TEST_CASE("AudioData") {
             Lowl::Audio::ChannelLayout::Surround_5_1, {0.5f, 0.5f, 0.25f, 0.125f, 0.75f, -0.75f}));
         Lowl::Audio::AudioVoice surround_voice(surround_audio);
         surround_voice.set_panning(1);
+        surround_voice.restart_playback();
 
         Lowl::Audio::AudioBuffer buffer(1, surround_voice.get_channel_count());
         Lowl::Audio::AudioBlockView block = buffer.view(1);
@@ -133,6 +158,7 @@ TEST_CASE("AudioData") {
             std::move(make_audio_data(Lowl::Audio::ChannelLayout::Mono, {0.5f}));
         Lowl::Audio::AudioVoice mono_voice(mono_audio);
         mono_voice.set_panning(-1);
+        mono_voice.restart_playback();
 
         Lowl::Audio::AudioBuffer buffer(1, mono_voice.get_channel_count());
         Lowl::Audio::AudioBlockView block = buffer.view(1);
@@ -145,6 +171,7 @@ TEST_CASE("AudioData") {
     }
 
     SUBCASE("AudioVoice - render rejects mismatched channel block") {
+        audio_voice.restart_playback();
         Lowl::Audio::AudioBuffer mono_buffer(1, 1);
         Lowl::Audio::AudioBlockView mono_block = mono_buffer.view(1);
         mono_buffer.clear(1);
