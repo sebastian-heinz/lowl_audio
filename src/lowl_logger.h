@@ -5,6 +5,10 @@
 #include <mutex>
 #include <string>
 
+#if defined(_MSC_VER) && _MSC_VER >= 1400
+#include <sal.h>
+#endif
+
 namespace Lowl {
     class Logger {
     public:
@@ -64,11 +68,9 @@ namespace Lowl {
 
         static std::string format_arguments(const char *const p_fmt, ...) __attribute__((format(printf, 1, 2)));
 
-#elif _MSC_VER == 1400
-#include <sal.h>
+#elif defined(_MSC_VER) && _MSC_VER == 1400
         static std::string format_arguments(__format_string const char *const p_fmt, ...);
-#elif _MSC_VER > 1400
-#include <sal.h>
+#elif defined(_MSC_VER) && _MSC_VER > 1400
         static std::string format_arguments(_Printf_format_string_ const char *const p_fmt, ...);
 #else
         static std::string format_arguments(const char *const p_fmt, ...);

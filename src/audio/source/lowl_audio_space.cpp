@@ -230,6 +230,11 @@ Lowl::AudioAssetHandle Lowl::Audio::AudioSpace::add_audio(std::unique_ptr<AudioD
 
     if (!Lowl::Audio::sample_rates_equal(rate, sample_rate)) {
         std::unique_ptr<AudioData> resampled = ReSamplerR8b::resample(audio, sample_rate);
+        if (!resampled) {
+            error.set_error(ErrorCode::Error);
+            LOWL_LOG_ERROR("Lowl::Space::load resample failed.");
+            return InvalidAudioAssetHandle;
+        }
         audio = std::move(resampled);
     }
 

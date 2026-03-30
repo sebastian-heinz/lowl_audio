@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <string>
 #include <unistd.h>
@@ -72,6 +73,52 @@ namespace {
             return path;
         }
     };
+
+    int compute_exact_resampled_frame_count(const size_t p_input_frames,
+                                            const Lowl::SampleRate p_sample_rate_src,
+                                            const Lowl::SampleRate p_sample_rate_dst) {
+        REQUIRE(p_input_frames <= static_cast<size_t>(std::numeric_limits<int>::max()));
+
+        r8b::CDSPResampler24 resampler(
+            p_sample_rate_src, p_sample_rate_dst, static_cast<int>(p_input_frames));
+
+        const long double estimated_frames = std::ceil(
+            static_cast<long double>(p_input_frames) * static_cast<long double>(p_sample_rate_dst) /
+            static_cast<long double>(p_sample_rate_src));
+        int low = 0;
+        int high = std::max(
+            1,
+            static_cast<int>(
+                std::min<long double>(estimated_frames, static_cast<long double>(std::numeric_limits<int>::max()))));
+
+        while (high < std::numeric_limits<int>::max() && resampler.getInputRequiredForOutput(high) <= static_cast<int>(p_input_frames)) {
+            low = high;
+            const int remaining = std::numeric_limits<int>::max() - high;
+            high += std::max(1, std::min(high, remaining));
+        }
+
+        while (low < high) {
+            const int mid = low + (high - low + 1) / 2;
+            if (resampler.getInputRequiredForOutput(mid) <= static_cast<int>(p_input_frames)) {
+                low = mid;
+            } else {
+                high = mid - 1;
+            }
+        }
+
+        return low;
+    }
+
+    std::shared_ptr<Lowl::Audio::AudioData>
+    make_mono_audio_data(const std::vector<Lowl::Sample> &p_samples, const Lowl::SampleRate p_sample_rate) {
+        std::unique_ptr<Lowl::Sample[]> storage;
+        if (!p_samples.empty()) {
+            storage = std::make_unique<Lowl::Sample[]>(p_samples.size());
+            std::memcpy(storage.get(), p_samples.data(), p_samples.size() * sizeof(Lowl::Sample));
+        }
+        return std::make_shared<Lowl::Audio::AudioData>(
+            std::move(storage), p_samples.size(), p_sample_rate, Lowl::Audio::ChannelLayout::Mono);
+    }
 }
 
 TEST_CASE("AudioReader") {
@@ -137,6 +184,45 @@ TEST_CASE("AudioReader") {
     SUBCASE("ReSampler - null input returns nullptr") {
         std::unique_ptr<Lowl::Audio::AudioData> audio_data = Lowl::Audio::ReSamplerR8b::resample(nullptr, 48000.0);
         REQUIRE(audio_data == nullptr);
+    }
+
+    SUBCASE("ReSampler - zero-frame clips stay empty") {
+        std::shared_ptr<Lowl::Audio::AudioData> audio =
+            std::make_shared<Lowl::Audio::AudioData>(std::unique_ptr<Lowl::Sample[]>(), 0, 44100.0, Lowl::Audio::ChannelLayout::Mono);
+
+        std::unique_ptr<Lowl::Audio::AudioData> resampled = Lowl::Audio::ReSamplerR8b::resample(audio, 48000.0);
+
+        REQUIRE(resampled != nullptr);
+        REQUIRE_EQ(resampled->get_frame_count(), 0U);
+        REQUIRE_EQ(resampled->get_channel_count(), 1U);
+    }
+
+    SUBCASE("ReSampler - output frame count matches r8brain exact requirement") {
+        constexpr Lowl::SampleRate sample_rate_src = 44100.0;
+        constexpr Lowl::SampleRate sample_rate_dst = 48000.0;
+
+        std::vector<Lowl::Sample> samples(127);
+        for (size_t frame_index = 0; frame_index < samples.size(); frame_index++) {
+            samples[frame_index] = static_cast<Lowl::Sample>((frame_index % 11) / 10.0f);
+        }
+
+        std::shared_ptr<Lowl::Audio::AudioData> audio = make_mono_audio_data(samples, sample_rate_src);
+        std::unique_ptr<Lowl::Audio::AudioData> resampled = Lowl::Audio::ReSamplerR8b::resample(audio, sample_rate_dst);
+
+        REQUIRE(resampled != nullptr);
+        REQUIRE_EQ(
+            resampled->get_frame_count(),
+            static_cast<size_t>(compute_exact_resampled_frame_count(samples.size(), sample_rate_src, sample_rate_dst)));
+    }
+
+    SUBCASE("ReSampler - frame counts beyond r8brain int API fail safely") {
+        const size_t too_many_frames = static_cast<size_t>(std::numeric_limits<int>::max()) + 1U;
+        std::shared_ptr<Lowl::Audio::AudioData> audio = std::make_shared<Lowl::Audio::AudioData>(
+            std::unique_ptr<Lowl::Sample[]>(), too_many_frames, 44100.0, Lowl::Audio::ChannelLayout::Mono);
+
+        std::unique_ptr<Lowl::Audio::AudioData> resampled;
+        REQUIRE_NOTHROW(resampled = Lowl::Audio::ReSamplerR8b::resample(audio, 48000.0));
+        REQUIRE(resampled == nullptr);
     }
 
     SUBCASE("AudioReader - detect_format sniffs WAV magic without relying on extension") {

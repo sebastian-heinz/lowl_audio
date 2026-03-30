@@ -41,7 +41,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 28 | FIXED | High | Bug | Reader | Ogg reader: `assert(element_size == 1)` is no-op in release builds |
 | 29 | FIXED | High | Bug | Converter | `sample_to_int24` returns unsigned-masked value in signed return type |
 | 30 | FIXED | High | Bug | Converter | `write_sample` silently does nothing for `FLOAT_64` and `Unknown` formats |
-| 31 | DEFERRED | High | Bug | Converter | ReSampler: `expected_frames` estimate may be too small; `int` overflow on large files |
+| 31 | FIXED | High | Bug | Converter | ReSampler: `expected_frames` estimate may be too small; `int` overflow on large files |
 | 32 | FIXED | High | Bug | Backend | WASAPI: `wc_to_utf8` leaks heap-allocated char array |
 | 33 | FIXED | High | Bug | Backend | WASAPI: `device_id` allocated with `new` but never freed |
 | 34 | FIXED | High | Bug | Backend | WASAPI: `cbSize` set to wrong value for `WAVEFORMATEXTENSIBLE` |
@@ -74,7 +74,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 61 | FIXED | Medium | Bug | Core | `Buffer::get_available()` underflows if `position > virtual_length` |
 | 62 | FIXED | Medium | Bug | Core | `File::is_eof` returns `false` when no file is open |
 | 63 | DEFERRED | Medium | Quality | Core | `_INLINE_` macro uses reserved identifier pattern |
-| 64 | DEFERRED | Medium | Quality | Core | `#include <sal.h>` placed inside Logger class body |
+| 64 | FIXED | Medium | Quality | Core | `#include <sal.h>` placed inside Logger class body |
 | 65 | FIXED | Medium | Bug | Core | `Buffer::write_data` compares `size_t <= 0` (tautological) |
 | 66 | OPEN | Medium | Build | Build | `CMAKE_OSX_ARCHITECTURES` set after `project()` -- may be too late |
 | 67 | OPEN | Medium | Build | Build | `LOWL_DEBUG` defined as `PUBLIC`, leaking into consumers |
@@ -129,7 +129,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 28 -- FIXED.** Options considered: keep the assert, compute byte counts and return item counts correctly, or refuse non-1-byte reads outright. Decision: implementing correct item-sized reads made the callback valid in both debug and release builds.
 - **Issue 29 -- FIXED.** Options considered: keep the packed `int32_t` contract, change the return type to `uint32_t`, or add a separate sign-extended helper. Decision: keep the current API and make it actually return a sign-preserving signed 24-bit `int32_t`.
 - **Issue 30 -- FIXED.** Options considered: implement `FLOAT_64`, assert/fail on unsupported formats, or add an error-returning write API. Decision: implement `FLOAT_64`, make `write_sample` report success/failure, and make the device render path fall back to silence for unsupported formats.
-- **Issue 31 -- DEFERRED.** Options considered: over-allocate output with margin, chunk the resampling work, or add hard guards around `int` conversion. Decision: this depends on the exact r8b output contract and deserves a focused resampler pass.
+- **Issue 31 -- FIXED.** Options considered: over-allocate output with margin, chunk the resampling work, or add hard guards around `int` conversion. Decision: derive the exact reachable output length from `r8b::getInputRequiredForOutput()`, short-circuit zero-length clips, and reject sizes that cannot be represented through the resampler's `int`-based API.
 - **Issue 32 -- FIXED.** Options considered: manually `delete[]` the UTF-8 buffer, wrap it in smart ownership, or return `std::string`. Decision: returning `std::string` matched the rest of the code and removed ownership ambiguity entirely.
 - **Issue 33 -- FIXED.** Options considered: free the copied device id, store it in an owning C++ type, or remove it because it was unused. Decision: removing the unused copy was the cleanest result.
 - **Issue 34 -- FIXED.** Options considered: leave `cbSize` as-is, set it to the documented extensible payload size, or special-case per format. Decision: the documented `sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX)` value was the right direct fix.
@@ -162,17 +162,19 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 61 -- FIXED.** Options considered: clamp the subtraction, assert `position <= virtual_length`, or rely on callers. Decision: clamping to zero was the safest behavior-preserving fix.
 - **Issue 62 -- FIXED.** Options considered: return `true` when unopened, add `is_open()`, or leave the semantic mismatch alone. Decision: returning `true` matches the existing empty-read behavior without expanding the API.
 - **Issue 63 -- DEFERRED.** Options considered: rename `_INLINE_`, leave it alone, or replace it with compiler attributes directly. Decision: this is worthwhile cleanup, but orthogonal to the correctness fixes in this pass.
-- **Issue 64 -- DEFERRED.** Options considered: move the include, leave the current conditional layout, or restructure the logger header. Decision: header-hygiene cleanup was lower priority than the concrete functional bugs fixed here.
+- **Issue 64 -- FIXED.** Options considered: move the include, leave the current conditional layout, or restructure the logger header. Decision: move `sal.h` to normal header scope and leave only the MSVC-specific SAL annotations in the class declaration.
 - **Issue 65 -- FIXED.** Options considered: leave the unsigned comparison, change only the reported line, or normalize the checks to `== 0`. Decision: `== 0` is the correct low-noise fix and removes the tautological compare.
 
-## Validation Pass -- 2026-03-28
+## Validation Pass -- 2026-03-30
 
 - Revalidated every remaining `OPEN` and `DEFERRED` issue against the current tree.
 - **Issue 29 -- FIXED.** `SampleConverter::sample_to_int24` now clamps and returns a sign-preserving signed value instead of zero-extending negatives with `& 0xFFFFFF`.
 - **Issue 30 -- FIXED.** `SampleConverter::write_sample` now writes `FLOAT_64`, returns failure for `Unknown`, and `AudioDevice::render_to_device_buffer` falls back to silence if an unsupported format slips through.
+- **Issue 31 -- FIXED.** `ReSamplerR8b` now probes r8brain for the exact reachable output frame count instead of trusting a floor estimate, and it rejects frame counts that exceed the library's `int`-based API before any large allocations or truncating casts happen.
 - **Issue 47 -- VERIFIED ALREADY FIXED.** `AudioSource` now stores `sample_rate` and `channel_layout` as constructor-initialized `const` members.
 - **Issue 48 -- FIXED.** `AudioStream` now keeps the requested logical capacity separate from a power-of-two backing store and uses masked ring indices, so 32-bit `size_t` wrap no longer breaks ring indexing.
 - **Issue 52 -- FIXED.** dr_lib implementation macros now live in `src/audio/reader/lowl_audio_reader_dr_lib.cpp`, and the MP3/WAV/FLAC readers consume internal wrapper classes instead of instantiating vendor implementations in multiple reader translation units.
+- **Issue 64 -- FIXED.** `sal.h` is now included at normal header scope in `lowl_logger.h`, and the `Logger` class body no longer contains `#include` directives.
 - All other `OPEN` and `DEFERRED` issues were rechecked and remain valid.
 
 ---
@@ -657,7 +659,7 @@ The `SampleFormat::FLOAT_64` and `SampleFormat::Unknown` branches used to behave
 
 ---
 
-## Issue 31 -- ReSampler: Output Size Estimate and `int` Overflow -- OPEN
+## Issue 31 -- ReSampler: Output Size Estimate and `int` Overflow -- FIXED
 
 **Severity:** High
 **Category:** Bug
@@ -665,11 +667,11 @@ The `SampleFormat::FLOAT_64` and `SampleFormat::Unknown` branches used to behave
 
 ### Problem
 
-Two issues: (1) `expected_frames` estimate may be smaller than what r8b actually produces (due to filter latency), causing out-of-bounds writes. (2) `static_cast<int>(total_frames)` on line 26 truncates `size_t` to `int`. For a 48kHz 12-hour recording (~2 billion frames), this overflows.
+The old implementation guessed the final frame count with a floor division and then passed `size_t` lengths through `static_cast<int>` into r8brain's `int`-based API. That left two failure modes: undersized output buffers if the reachable output length ever exceeded the floor estimate, and truncating overflow for very large clips.
 
 ### Fix
 
-Add margin to `expected_frames` (+32), check r8b's return value for actual frames produced. Validate that `total_frames` fits in `int` or process in chunks.
+The resampler now asks r8brain for the exact reachable output frame count via `getInputRequiredForOutput()` before allocating the destination buffer, writes directly into the final planar storage with `oneshot()`, short-circuits zero-frame clips, and rejects inputs that exceed the library's `int`-based length limits. `AudioSpace::add_audio()` also now handles a failed resample instead of assuming success.
 
 ---
 
@@ -1185,7 +1187,7 @@ Rename to `LOWL_INLINE` or `LOWL_ALWAYS_INLINE`.
 
 ---
 
-## Issue 64 -- `#include <sal.h>` Placed Inside Logger Class Body -- OPEN
+## Issue 64 -- `#include <sal.h>` Placed Inside Logger Class Body -- FIXED
 
 **Severity:** Medium
 **Category:** Quality
@@ -1193,11 +1195,11 @@ Rename to `LOWL_INLINE` or `LOWL_ALWAYS_INLINE`.
 
 ### Problem
 
-`#include <sal.h>` directives are inside the class body in conditional compilation blocks. Headers included inside class scope could define macros that interfere with the class definition.
+`#include <sal.h>` used to sit inside the `Logger` class body under MSVC-specific preprocessor branches. Including headers inside class scope is poor header hygiene and can let vendor macros interfere with the class definition.
 
 ### Fix
 
-Move these includes to the top of the file.
+`sal.h` now lives at normal header scope behind an MSVC version guard, and the class body only contains the SAL-annotated declarations.
 
 ---
 
