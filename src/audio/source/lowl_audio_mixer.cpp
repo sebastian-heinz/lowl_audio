@@ -60,7 +60,6 @@ Lowl::Audio::AudioMixer::AudioMixer(const SampleRate p_sample_rate,
     : AudioSource(p_sample_rate, p_channel_layout),
       scratch_buffer(std::max<uint32_t>(1U, p_scratch_buffer_capacity), get_channel_count()) {
     sources.fill(ActiveSourceSlot{});
-    events = std::make_unique<moodycamel::ConcurrentQueue<AudioMixerEvent>>();
 }
 
 size_t Lowl::Audio::AudioMixer::find_source_index(const AudioMixerHandle p_handle) const {
@@ -113,12 +112,29 @@ void Lowl::Audio::AudioMixer::remove_source(const size_t p_source_index) {
 }
 
 void Lowl::Audio::AudioMixer::clear_ack_queue(AckOwnerSlot &p_owner_slot) {
-    if (!p_owner_slot.acknowledgements) {
+    AudioMixerAck ack = {};
+    while (p_owner_slot.acknowledgements.try_dequeue(ack)) {
+    }
+    p_owner_slot.pending_sync_acks.clear();
+    p_owner_slot.queued_ack_overflow.store(false, std::memory_order_release);
+}
+
+void Lowl::Audio::AudioMixer::enqueue_sync_ack_locked(const AudioMixerAck &p_ack) {
+    if (!p_ack.handle.is_valid()) {
         return;
     }
-    AudioMixerAck ack = {};
-    while (p_owner_slot.acknowledgements->try_dequeue(ack)) {
+
+    const size_t owner_index = static_cast<size_t>(p_ack.handle.owner_id - 1);
+    if (owner_index >= ack_owners.size()) {
+        return;
     }
+
+    AckOwnerSlot &owner_slot = ack_owners[owner_index];
+    if (!owner_slot.registered.load(std::memory_order_acquire)) {
+        return;
+    }
+
+    owner_slot.pending_sync_acks.push_back(p_ack);
 }
 
 void Lowl::Audio::AudioMixer::enqueue_ack(const AudioMixerAck &p_ack) {
@@ -132,15 +148,17 @@ void Lowl::Audio::AudioMixer::enqueue_ack(const AudioMixerAck &p_ack) {
     }
 
     AckOwnerSlot &owner_slot = ack_owners[owner_index];
-    if (!owner_slot.registered.load(std::memory_order_acquire) || !owner_slot.acknowledgements) {
+    if (!owner_slot.registered.load(std::memory_order_acquire)) {
         return;
     }
-    owner_slot.acknowledgements->enqueue(p_ack);
+    if (!owner_slot.acknowledgements.try_enqueue(p_ack)) {
+        owner_slot.queued_ack_overflow.store(true, std::memory_order_release);
+    }
 }
 
 void Lowl::Audio::AudioMixer::process_events() {
     AudioMixerEvent event;
-    while (events->try_dequeue(event)) {
+    while (events.try_dequeue(event)) {
         switch (event.type) {
             case AudioMixerEvent::Type::Mix: {
                 if (!event.handle.is_valid() || event.audio_source == nullptr) {
@@ -321,18 +339,12 @@ void Lowl::Audio::AudioMixer::mix(const AudioMixerHandle p_handle, AudioSource *
         HandleSlot *slot = get_handle_slot_locked(p_handle);
         if (slot == nullptr) {
             LOWL_LOG_ERROR("Lowl::AudioMixer::mix: p_handle is stale or not allocated.");
-            AudioMixerAck ack = {};
-            ack.type = AudioMixerAck::Type::Rejected;
-            ack.handle = p_handle;
-            enqueue_ack(ack);
+            enqueue_sync_ack_locked({AudioMixerAck::Type::Rejected, p_handle});
             return;
         }
         if (slot->bound_source != nullptr && slot->bound_source != p_audio_source) {
             LOWL_LOG_ERROR("Lowl::AudioMixer::mix: p_handle is already bound to a different source.");
-            AudioMixerAck ack = {};
-            ack.type = AudioMixerAck::Type::Rejected;
-            ack.handle = p_handle;
-            enqueue_ack(ack);
+            enqueue_sync_ack_locked({AudioMixerAck::Type::Rejected, p_handle});
             return;
         }
     }
@@ -340,12 +352,8 @@ void Lowl::Audio::AudioMixer::mix(const AudioMixerHandle p_handle, AudioSource *
     if (p_audio_source->get_channel_layout() != channel_layout) {
         LOWL_LOG_ERROR("Lowl::AudioMixer::mix: source layout(" + p_audio_source->get_channel_layout().to_string() +
                        ") does not match mixer layout(" + channel_layout.to_string() + ").");
-        if (p_handle.is_valid()) {
-            AudioMixerAck ack = {};
-            ack.type = AudioMixerAck::Type::Rejected;
-            ack.handle = p_handle;
-            enqueue_ack(ack);
-        }
+        std::lock_guard<std::mutex> lock(ack_owner_mutex);
+        enqueue_sync_ack_locked({AudioMixerAck::Type::Rejected, p_handle});
         return;
     }
 
@@ -359,29 +367,30 @@ void Lowl::Audio::AudioMixer::mix(const AudioMixerHandle p_handle, AudioSource *
         HandleSlot *slot = get_handle_slot_locked(p_handle);
         if (slot == nullptr) {
             LOWL_LOG_ERROR("Lowl::AudioMixer::mix: p_handle became stale before enqueue.");
-            AudioMixerAck ack = {};
-            ack.type = AudioMixerAck::Type::Rejected;
-            ack.handle = p_handle;
-            enqueue_ack(ack);
+            enqueue_sync_ack_locked({AudioMixerAck::Type::Rejected, p_handle});
             return;
         }
+        const bool handle_was_unbound = slot->bound_source == nullptr;
         if (slot->bound_source == nullptr) {
             slot->bound_source = p_audio_source;
         } else if (slot->bound_source != p_audio_source) {
             LOWL_LOG_ERROR("Lowl::AudioMixer::mix: p_handle changed source before enqueue.");
-            AudioMixerAck ack = {};
-            ack.type = AudioMixerAck::Type::Rejected;
-            ack.handle = p_handle;
-            enqueue_ack(ack);
+            enqueue_sync_ack_locked({AudioMixerAck::Type::Rejected, p_handle});
             return;
         }
-    }
 
-    AudioMixerEvent event = {};
-    event.type = AudioMixerEvent::Type::Mix;
-    event.handle = p_handle;
-    event.audio_source = p_audio_source;
-    events->enqueue(event);
+        AudioMixerEvent event = {};
+        event.type = AudioMixerEvent::Type::Mix;
+        event.handle = p_handle;
+        event.audio_source = p_audio_source;
+        if (!events.try_enqueue(event)) {
+            if (handle_was_unbound) {
+                slot->bound_source = nullptr;
+                enqueue_sync_ack_locked({AudioMixerAck::Type::Rejected, p_handle});
+            }
+            LOWL_LOG_ERROR("Lowl::AudioMixer::mix: event queue is full.");
+        }
+    }
 }
 
 void Lowl::Audio::AudioMixer::remove(const AudioMixerHandle p_handle) {
@@ -398,20 +407,22 @@ void Lowl::Audio::AudioMixer::remove(const AudioMixerHandle p_handle, const bool
         if (get_handle_slot_locked(p_handle) == nullptr) {
             LOWL_LOG_ERROR("Lowl::AudioMixer::remove: p_handle is stale or not allocated.");
             if (p_acknowledge_removal) {
-                AudioMixerAck ack = {};
-                ack.type = AudioMixerAck::Type::Rejected;
-                ack.handle = p_handle;
-                enqueue_ack(ack);
+                enqueue_sync_ack_locked({AudioMixerAck::Type::Rejected, p_handle});
             }
             return;
         }
-    }
 
-    AudioMixerEvent event = {};
-    event.type = AudioMixerEvent::Type::Remove;
-    event.handle = p_handle;
-    event.acknowledge_removal = p_acknowledge_removal;
-    events->enqueue(event);
+        AudioMixerEvent event = {};
+        event.type = AudioMixerEvent::Type::Remove;
+        event.handle = p_handle;
+        event.acknowledge_removal = p_acknowledge_removal;
+        if (!events.try_enqueue(event)) {
+            if (p_acknowledge_removal) {
+                enqueue_sync_ack_locked({AudioMixerAck::Type::Rejected, p_handle});
+            }
+            LOWL_LOG_ERROR("Lowl::AudioMixer::remove: event queue is full.");
+        }
+    }
 }
 
 Lowl::uint16_l Lowl::Audio::AudioMixer::register_ack_owner() {
@@ -421,10 +432,8 @@ Lowl::uint16_l Lowl::Audio::AudioMixer::register_ack_owner() {
         if (owner_slot.registered.load(std::memory_order_acquire)) {
             continue;
         }
-        if (!owner_slot.acknowledgements) {
-            owner_slot.acknowledgements = std::make_unique<moodycamel::ConcurrentQueue<AudioMixerAck>>();
-        }
         clear_ack_queue(owner_slot);
+        owner_slot.pending_sync_acks.reserve(4);
         owner_slot.handles.clear();
         owner_slot.free_handle_ids.clear();
         owner_slot.next_handle_id = FirstHandleId;
@@ -541,11 +550,23 @@ bool Lowl::Audio::AudioMixer::try_dequeue_ack(const uint16_l p_owner_id, AudioMi
         return false;
     }
 
+    std::lock_guard<std::mutex> lock(ack_owner_mutex);
     AckOwnerSlot &owner_slot = ack_owners[owner_index];
-    if (!owner_slot.registered.load(std::memory_order_acquire) || !owner_slot.acknowledgements) {
+    if (!owner_slot.registered.load(std::memory_order_acquire)) {
         return false;
     }
-    return owner_slot.acknowledgements->try_dequeue(p_ack);
+    if (!owner_slot.pending_sync_acks.empty()) {
+        p_ack = owner_slot.pending_sync_acks.front();
+        owner_slot.pending_sync_acks.erase(owner_slot.pending_sync_acks.begin());
+        return true;
+    }
+    if (owner_slot.acknowledgements.try_dequeue(p_ack)) {
+        return true;
+    }
+    if (owner_slot.queued_ack_overflow.exchange(false, std::memory_order_acq_rel)) {
+        LOWL_LOG_ERROR("Lowl::AudioMixer::try_dequeue_ack: queued acknowledgement overflowed.");
+    }
+    return false;
 }
 
 Lowl::size_l Lowl::Audio::AudioMixer::get_frames_remaining() const {

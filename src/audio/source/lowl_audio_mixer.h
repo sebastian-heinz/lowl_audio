@@ -1,13 +1,12 @@
 #ifndef LOWL_AUDIO_MIXER_H
 #define LOWL_AUDIO_MIXER_H
 
-#include <concurrentqueue.h>
-
 #include <array>
 #include <atomic>
 #include <mutex>
 #include <vector>
 
+#include "audio/lowl_audio_lock_free_queue.h"
 #include "audio/source/lowl_audio_mixer_handle.h"
 #include "audio/source/lowl_audio_mixer_event.h"
 #include "audio/source/lowl_audio_source.h"
@@ -25,6 +24,8 @@ namespace Lowl::Audio {
     private:
         static constexpr size_t MAX_ACTIVE_SOURCES = 1024;
         static constexpr size_t MAX_ACK_OWNERS = 64;
+        static constexpr size_t EVENT_QUEUE_CAPACITY = MAX_ACTIVE_SOURCES * 4;
+        static constexpr size_t ACK_QUEUE_CAPACITY = MAX_ACTIVE_SOURCES * 2;
         static constexpr size_t InvalidSourceIndex = MAX_ACTIVE_SOURCES;
         static constexpr AudioPlaybackId InvalidHandleId = 0;
         static constexpr AudioPlaybackId FirstHandleId = 1;
@@ -43,7 +44,9 @@ namespace Lowl::Audio {
 
         struct AckOwnerSlot {
             std::atomic<bool> registered{false};
-            std::unique_ptr<moodycamel::ConcurrentQueue<AudioMixerAck>> acknowledgements;
+            BoundedSpscQueue<AudioMixerAck, ACK_QUEUE_CAPACITY> acknowledgements{};
+            std::vector<AudioMixerAck> pending_sync_acks;
+            std::atomic<bool> queued_ack_overflow{false};
             std::vector<HandleSlot> handles;
             std::vector<AudioPlaybackId> free_handle_ids;
             AudioPlaybackId next_handle_id = FirstHandleId;
@@ -51,7 +54,7 @@ namespace Lowl::Audio {
 
         std::array<ActiveSourceSlot, MAX_ACTIVE_SOURCES> sources{};
         std::array<AckOwnerSlot, MAX_ACK_OWNERS> ack_owners{};
-        std::unique_ptr<moodycamel::ConcurrentQueue<AudioMixerEvent>> events;
+        BoundedMpscQueue<AudioMixerEvent, EVENT_QUEUE_CAPACITY> events{};
         std::mutex ack_owner_mutex;
         AudioBuffer scratch_buffer;
         size_t active_source_count = 0;
@@ -65,6 +68,7 @@ namespace Lowl::Audio {
         RenderResult render_mixed_block(AudioBlockView p_block);
         RenderResult render_chunked_block(AudioBlockView p_block, uint32_t p_chunk_frame_count);
         void enqueue_ack(const AudioMixerAck &p_ack);
+        void enqueue_sync_ack_locked(const AudioMixerAck &p_ack);
         void clear_ack_queue(AckOwnerSlot &p_owner_slot);
 
     public:

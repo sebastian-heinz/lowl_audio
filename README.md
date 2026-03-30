@@ -42,10 +42,70 @@ cmake --build build --target lowl_audio_test
 ./build/test/lowl_audio_test
 ```
 
-Benchmarks are optional:
+Benchmarks are optional. Use a dedicated Release build for them:
+
+Run these commands from the repository root.
 
 ```bash
-cmake -S . -B build -DLOWL_BUILD_BENCHMARKS=ON
+cmake -S . -B build-bench -DCMAKE_BUILD_TYPE=Release -DLOWL_BUILD_BENCHMARKS=ON
+cmake --build build-bench --target lowl_audio_bench
+```
+
+
+## Run
+
+Run the full benchmark suite:
+
+```bash
+./build-bench/bench/lowl_audio_bench
+```
+
+Run a subset:
+
+```bash
+./build-bench/bench/lowl_audio_bench --benchmark_filter=AudioDevice
+```
+
+Save machine-readable output:
+
+```bash
+./build-bench/bench/lowl_audio_bench \
+  --benchmark_out=bench/results/current.json \
+  --benchmark_out_format=json
+```
+
+Recommended flags for more stable comparisons:
+
+```bash
+./build-bench/bench/lowl_audio_bench \
+  --benchmark_repetitions=10 \
+  --benchmark_report_aggregates_only=true \
+  --benchmark_min_time=0.1s \
+  --benchmark_out=bench/results/current.json \
+  --benchmark_out_format=json
+```
+
+## Baselines
+
+Store intentional baselines under `bench/baselines/`, for example:
+
+```bash
+./build-bench/bench/lowl_audio_bench \
+  --benchmark_repetitions=10 \
+  --benchmark_report_aggregates_only=true \
+  --benchmark_min_time=0.1s \
+  --benchmark_out=bench/baselines/macos-arm64-release.json \
+  --benchmark_out_format=json
+```
+
+Compare a new run against a saved baseline:
+
+```bash
+python3 bench/compare_baseline.py \
+  bench/baselines/macos-arm64-release.json \
+  bench/results/current.json \
+  --warn-threshold 0.05 \
+  --fail-threshold 0.10
 ```
 
 ## CMake Integration
