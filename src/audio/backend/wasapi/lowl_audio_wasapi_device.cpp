@@ -379,6 +379,7 @@ void Lowl::Audio::WasapiDevice::stop(Lowl::Error &error) {
     SAFE_CLOSE(wasapi_audio_stop_handle)
     SAFE_CLOSE(wasapi_audio_event_handle)
     SAFE_CLOSE(wasapi_audio_thread_handle)
+    clear_render_state();
     LOWL_LOG_DEBUG_F("stopped->%s", name.c_str());
 }
 
@@ -487,10 +488,21 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
             break;
         }
 
+        const std::shared_ptr<RenderState> published_state = load_render_state();
+        if (published_state == nullptr) {
+            result = audio_render_client->ReleaseBuffer(available_frames_in_buffer, AUDCLNT_BUFFERFLAGS_SILENT);
+            if (FAILED(result)) {
+                LOWL_LOG_DEBUG_F("audio_callback->%s - ReleaseBuffer failed", name.c_str());
+                break;
+            }
+            continue;
+        }
+
+        const AudioDeviceProperties &published_properties = published_state->audio_device_properties;
         const uint32_t bytes_per_frame =
-            static_cast<uint32_t>(get_sample_size_bytes(audio_device_properties.sample_format) *
-                                  audio_device_properties.channel_layout.channel_count);
-        render_to_device_buffer(audio_buffer_byte_ptr, available_frames_in_buffer, bytes_per_frame);
+            static_cast<uint32_t>(get_sample_size_bytes(published_properties.sample_format) *
+                                  published_properties.channel_layout.channel_count);
+        render_to_device_buffer(published_state, audio_buffer_byte_ptr, available_frames_in_buffer, bytes_per_frame);
 
         result = audio_render_client->ReleaseBuffer(available_frames_in_buffer, 0);
         if (FAILED(result)) {

@@ -30,6 +30,11 @@ namespace Lowl::Audio {
         static constexpr AudioAssetHandle InvalidAudioAssetHandle = {};
         static constexpr AudioPlaybackHandle InvalidAudioPlaybackHandle = {};
 
+        using AudioSource::pause;
+        using AudioSource::play;
+        using AudioSource::set_panning;
+        using AudioSource::set_volume;
+
     private:
         static constexpr AudioAssetId FirstAudioAssetId = 1;
         static constexpr AudioPlaybackId InvalidPlaybackSlotId = 0;

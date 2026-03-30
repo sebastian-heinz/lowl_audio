@@ -68,9 +68,26 @@ namespace {
             audio_source = std::move(p_audio_source);
         }
 
-        void write(void *p_dst, unsigned long p_frames_per_buffer, unsigned long p_bytes_per_frame) {
+        void prepare(unsigned long p_frames_per_buffer) {
             allocate_render_buffer(p_frames_per_buffer);
-            render_to_device_buffer(p_dst, p_frames_per_buffer, p_bytes_per_frame);
+        }
+
+        void poison_live_configuration() {
+            audio_device_properties = Lowl::Audio::AudioDeviceProperties{};
+            audio_source.reset();
+        }
+
+        void clear_published_state() {
+            clear_render_state();
+        }
+
+        void write(void *p_dst, unsigned long p_frames_per_buffer, unsigned long p_bytes_per_frame) {
+            prepare(p_frames_per_buffer);
+            write_published(p_dst, p_frames_per_buffer, p_bytes_per_frame);
+        }
+
+        void write_published(void *p_dst, unsigned long p_frames_per_buffer, unsigned long p_bytes_per_frame) {
+            render_to_device_buffer(load_render_state(), p_dst, p_frames_per_buffer, p_bytes_per_frame);
         }
 
         void set_properties_list(std::vector<Lowl::Audio::AudioDeviceProperties> p_properties_list) {
@@ -225,6 +242,65 @@ TEST_CASE("AudioDevice") {
 
         for (size_t current_byte = audio_bytes; current_byte < buffer.size(); current_byte++) {
             REQUIRE_EQ(buffer[current_byte], static_cast<uint8_t>(0x7F));
+        }
+    }
+
+    SUBCASE("AudioDevice - published render state is independent from live configuration") {
+        constexpr unsigned long frames_per_buffer = 2;
+        constexpr unsigned long channels = 2;
+        constexpr unsigned long bytes_per_frame = sizeof(float) * channels;
+        constexpr size_t audio_bytes = frames_per_buffer * bytes_per_frame;
+
+        alignas(float) std::array<uint8_t, audio_bytes> buffer{};
+        buffer.fill(0);
+
+        auto source = std::make_shared<ShortReadAudioSource>(
+            std::vector<StereoSample>{StereoSample{0.25f, -0.25f}, StereoSample{0.5f, -0.5f}}
+        );
+
+        Lowl::Audio::AudioDeviceProperties properties{};
+        properties.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
+        properties.channel_layout = Lowl::Audio::ChannelLayout::Stereo;
+
+        TestAudioDevice device;
+        device.configure(properties, source);
+        device.prepare(frames_per_buffer);
+        device.poison_live_configuration();
+        device.write_published(buffer.data(), frames_per_buffer, bytes_per_frame);
+
+        auto *samples = reinterpret_cast<const float *>(buffer.data());
+        REQUIRE_EQ(samples[0], doctest::Approx(0.25f));
+        REQUIRE_EQ(samples[1], doctest::Approx(-0.25f));
+        REQUIRE_EQ(samples[2], doctest::Approx(0.5f));
+        REQUIRE_EQ(samples[3], doctest::Approx(-0.5f));
+    }
+
+    SUBCASE("AudioDevice - cleared published render state produces silence") {
+        constexpr unsigned long frames_per_buffer = 2;
+        constexpr unsigned long channels = 2;
+        constexpr unsigned long bytes_per_frame = sizeof(float) * channels;
+        constexpr size_t audio_bytes = frames_per_buffer * bytes_per_frame;
+
+        alignas(float) std::array<uint8_t, audio_bytes> buffer{};
+        buffer.fill(0x7F);
+
+        auto source = std::make_shared<ShortReadAudioSource>(
+            std::vector<StereoSample>{StereoSample{0.25f, -0.25f}, StereoSample{0.5f, -0.5f}}
+        );
+
+        Lowl::Audio::AudioDeviceProperties properties{};
+        properties.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
+        properties.channel_layout = Lowl::Audio::ChannelLayout::Stereo;
+
+        TestAudioDevice device;
+        device.configure(properties, source);
+        device.prepare(frames_per_buffer);
+        device.clear_published_state();
+        device.write_published(buffer.data(), frames_per_buffer, bytes_per_frame);
+
+        auto *samples = reinterpret_cast<const float *>(buffer.data());
+        for (size_t current_sample = 0; current_sample < frames_per_buffer * channels; current_sample++) {
+            REQUIRE_EQ(samples[current_sample], doctest::Approx(0.0f));
         }
     }
 }

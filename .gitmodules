@@ -26,3 +26,6 @@
 [submodule "third_party/vorbis"]
 	path = third_party/vorbis
 	url = https://github.com/xiph/vorbis.git
+[submodule "third_party/benchmark"]
+	path = third_party/benchmark
+	url = https://github.com/google/benchmark.git

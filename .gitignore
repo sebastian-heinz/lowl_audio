@@ -9,3 +9,4 @@ out/
 Doxyfile.in
 /doc/html
 /build
+/build-bench

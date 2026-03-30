@@ -1,6 +1,7 @@
 #include "lowl_audio_device.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstring>
 #include <tuple>
@@ -41,7 +42,7 @@ Lowl::Audio::AudioDevice::AudioDevice(_constructor_tag) {
     name = std::string();
     audio_source = std::shared_ptr<AudioSource>();
     audio_device_properties = AudioDeviceProperties{};
-    render_buffer = nullptr;
+    render_state = std::shared_ptr<RenderState>();
 }
 
 Lowl::Audio::AudioDeviceProperties
@@ -71,11 +72,24 @@ Lowl::Audio::AudioDevice::~AudioDevice() {
 }
 
 void Lowl::Audio::AudioDevice::allocate_render_buffer(const unsigned long p_frame_capacity) {
+    auto published_state = std::make_shared<RenderState>();
+    published_state->audio_device_properties = audio_device_properties;
+    published_state->audio_source = audio_source;
     const uint8_t channel_count = audio_device_properties.channel_layout.channel_count;
-    render_buffer = std::make_unique<AudioBuffer>(static_cast<uint32_t>(p_frame_capacity), channel_count);
+    published_state->render_buffer = AudioBuffer(static_cast<uint32_t>(p_frame_capacity), channel_count);
+    std::atomic_store_explicit(&render_state, std::move(published_state), std::memory_order_release);
 }
 
-void Lowl::Audio::AudioDevice::render_to_device_buffer(void *p_dst,
+std::shared_ptr<Lowl::Audio::AudioDevice::RenderState> Lowl::Audio::AudioDevice::load_render_state() const {
+    return std::atomic_load_explicit(&render_state, std::memory_order_acquire);
+}
+
+void Lowl::Audio::AudioDevice::clear_render_state() {
+    std::atomic_store_explicit(&render_state, std::shared_ptr<RenderState>(), std::memory_order_release);
+}
+
+void Lowl::Audio::AudioDevice::render_to_device_buffer(const std::shared_ptr<RenderState> &p_render_state,
+                                                       void *p_dst,
                                                        unsigned long p_frames_per_buffer,
                                                        unsigned long p_bytes_per_frame) {
     if (p_dst == nullptr) {
@@ -83,19 +97,25 @@ void Lowl::Audio::AudioDevice::render_to_device_buffer(void *p_dst,
     }
 
     const size_t total_bytes = static_cast<size_t>(p_frames_per_buffer) * p_bytes_per_frame;
-    if (get_sample_size_bytes(audio_device_properties.sample_format) == 0) {
+    if (!p_render_state) {
         std::memset(p_dst, 0, total_bytes);
         return;
     }
 
-    if (!audio_source || !render_buffer) {
+    const AudioDeviceProperties &published_properties = p_render_state->audio_device_properties;
+    if (get_sample_size_bytes(published_properties.sample_format) == 0) {
         std::memset(p_dst, 0, total_bytes);
         return;
     }
 
-    AudioBlockView output_block = render_buffer->view(static_cast<uint32_t>(p_frames_per_buffer));
-    render_buffer->clear(output_block.frame_count);
-    AudioSource::RenderResult render_result = audio_source->render(output_block);
+    if (!p_render_state->audio_source) {
+        std::memset(p_dst, 0, total_bytes);
+        return;
+    }
+
+    AudioBlockView output_block = p_render_state->render_buffer.view(static_cast<uint32_t>(p_frames_per_buffer));
+    p_render_state->render_buffer.clear(output_block.frame_count);
+    AudioSource::RenderResult render_result = p_render_state->audio_source->render(output_block);
     const uint32_t produced_frames = std::min(render_result.frames_produced, output_block.frame_count);
 
     void *write_ptr = p_dst;
@@ -103,7 +123,7 @@ void Lowl::Audio::AudioDevice::render_to_device_buffer(void *p_dst,
         for (uint8_t channel_index = 0; channel_index < output_block.channel_count; channel_index++) {
             const Sample sample = std::clamp(
                 output_block.channel(channel_index)[frame_index], static_cast<Sample>(-1.0), static_cast<Sample>(1.0));
-            if (!SampleConverter::write_sample(audio_device_properties.sample_format, sample, &write_ptr)) {
+            if (!SampleConverter::write_sample(published_properties.sample_format, sample, &write_ptr)) {
                 std::memset(p_dst, 0, total_bytes);
                 return;
             }

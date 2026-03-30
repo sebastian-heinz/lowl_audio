@@ -13,11 +13,12 @@ message("[LOWL] CMAKE_CXX_COMPILER_ID: ${CMAKE_CXX_COMPILER_ID}")
 message("[LOWL] CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 
 # config - start
-set(LOWL_DEBUG TRUE)
+set(LOWL_DEBUG FALSE)
 set(LOWL_DRIVER_DUMMY TRUE)
 set(LOWL_DRIVER_CORE_AUDIO FALSE)
 set(LOWL_DRIVER_WASAPI FALSE)
 set(LOWL_TYPE_SAMPLE_64 FALSE)
+option(LOWL_BUILD_BENCHMARKS "Build lowl_audio microbenchmarks" OFF)
 # config - end
 
 set(LOWL_SOURCES
@@ -82,12 +83,10 @@ if (WIN32)
 endif ()
 if (APPLE)
     set(LOWL_DRIVER_CORE_AUDIO TRUE)
-    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
-        message("[LOWL] APPLE arm64")
-        set(CMAKE_OSX_ARCHITECTURES "arm64")
+    if (CMAKE_OSX_ARCHITECTURES)
+        message("[LOWL] APPLE ${CMAKE_OSX_ARCHITECTURES}")
     else ()
-        message("[LOWL] APPLE x86_64")
-        set(CMAKE_OSX_ARCHITECTURES "x86_64")
+        message("[LOWL] APPLE default (${CMAKE_SYSTEM_PROCESSOR})")
     endif ()
 
     IF (LOWL_DRIVER_CORE_AUDIO)
@@ -123,7 +122,7 @@ ENDIF ()
 
 IF (LOWL_DEBUG)
     message("[LOWL] Debug")
-    target_compile_definitions(${LOWL_LIB_MAIN} PUBLIC LOWL_DEBUG)
+    target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DEBUG)
 ELSE ()
     message("[LOWL] Release")
 ENDIF ()
@@ -207,6 +206,14 @@ target_link_libraries(${LOWL_LIB_MAIN} PUBLIC lowl_third_party)
 
 # Unit Test
 add_subdirectory(test)
+
+# Benchmarks
+if (LOWL_BUILD_BENCHMARKS)
+    if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/benchmark/CMakeLists.txt")
+        message(FATAL_ERROR "LOWL_BUILD_BENCHMARKS=ON requires third_party/benchmark. Run git submodule update --init --recursive.")
+    endif ()
+    add_subdirectory(bench)
+endif ()
 
 # Example App
 add_subdirectory(demo)

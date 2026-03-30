@@ -65,7 +65,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 52 | FIXED | Medium | Bug | Reader | MP3 / WAV: `DR_*_IMPLEMENTATION` defines risk ODR violations |
 | 53 | FIXED | Medium | Bug | Converter | ReSampler: no null check on input `p_audio_data` |
 | 54 | ALREADY FIXED | Medium | Bug | Converter | Channel converter: null `storage` pointer dereference when `frame_count == 0` |
-| 55 | DEFERRED | Medium | Thread | Backend | CoreAudio: audio callback reads `audio_source` without memory fence |
+| 55 | FIXED | Medium | Thread | Backend | CoreAudio: audio callback reads `audio_source` without memory fence |
 | 56 | DEFERRED | Medium | Bug | Backend | CoreAudio: `property_callback` only processes first address in array |
 | 57 | DEFERRED | Medium | Bug | Backend | CoreAudio: `create_description` returns zeroed struct for unsupported formats |
 | 58 | DEFERRED | Medium | Bug | Backend | WASAPI: STA apartment model; audio thread may need MTA |
@@ -76,8 +76,8 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 63 | FIXED | Medium | Quality | Core | `_INLINE_` macro uses reserved identifier pattern |
 | 64 | FIXED | Medium | Quality | Core | `#include <sal.h>` placed inside Logger class body |
 | 65 | FIXED | Medium | Bug | Core | `Buffer::write_data` compares `size_t <= 0` (tautological) |
-| 66 | OPEN | Medium | Build | Build | `CMAKE_OSX_ARCHITECTURES` set after `project()` -- may be too late |
-| 67 | OPEN | Medium | Build | Build | `LOWL_DEBUG` defined as `PUBLIC`, leaking into consumers |
+| 66 | FIXED | Medium | Build | Build | `CMAKE_OSX_ARCHITECTURES` set after `project()` -- may be too late |
+| 67 | FIXED | Medium | Build | Build | `LOWL_DEBUG` defined as `PUBLIC`, leaking into consumers |
 | 68 | OPEN | Medium | Architecture | Architecture | No Linux audio backend (PulseAudio / ALSA / PipeWire) |
 | 69 | FIXED | Medium | Architecture | Architecture | `Lib::terminate` does not clear `drivers` or allow re-initialization |
 | 70 | FIXED | Medium | Bug | Demo | `std::stoi` on user input with no exception handling |
@@ -153,7 +153,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 52 -- FIXED.** Options considered: leave implementation defines in place, move each implementation define into a dedicated TU, or build wrapper libraries. Decision: move the dr_lib implementations into one internal wrapper TU with reader-facing wrappers, which removes the ODR hazard without changing the public reader API.
 - **Issue 53 -- FIXED.** Options considered: assume non-null input, add a null early return, or surface an error object from the resampler. Decision: early return was consistent with the current signature and removed the null dereference.
 - **Issue 54 -- VERIFIED ALREADY FIXED.** Options considered: add a zero-frame early return, restructure pointer arithmetic, or verify the current guards. Decision: the existing `storage ? ... : nullptr` path already avoids null-pointer arithmetic here.
-- **Issue 55 -- DEFERRED.** Options considered: make callback-visible fields atomic, add explicit synchronization at startup, or document CoreAudio’s publication guarantees. Decision: this belongs in the CoreAudio concurrency pass.
+- **Issue 55 -- FIXED.** Options considered: add a standalone fence around CoreAudio start, make only `audio_source` atomic, or publish one callback render snapshot. Decision: publish an atomic shared render snapshot containing the source, format/layout, and scratch buffer so callbacks never read the live startup fields directly.
 - **Issue 56 -- DEFERRED.** Options considered: iterate all addresses, split callback handling by selector, or leave current single-address behavior. Decision: not enough CoreAudio callback coverage was in scope for this pass.
 - **Issue 57 -- DEFERRED.** Options considered: signal failure with `Error`, return `std::optional`, or keep zeroed descriptions. Decision: fixing this cleanly needs a small CoreAudio API redesign.
 - **Issue 58 -- DEFERRED.** Options considered: switch global WASAPI COM init to MTA, keep STA and rely on thread-local COM init, or document the split model. Decision: Issue 36 is fixed, but the library-wide apartment policy still needs a deliberate backend decision.
@@ -164,6 +164,8 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 63 -- FIXED.** Options considered: rename `_INLINE_`, leave it alone, or replace it with compiler attributes directly. Decision: rename it to `LOWL_INLINE`, which keeps the existing abstraction but removes the reserved-identifier pattern.
 - **Issue 64 -- FIXED.** Options considered: move the include, leave the current conditional layout, or restructure the logger header. Decision: move `sal.h` to normal header scope and leave only the MSVC-specific SAL annotations in the class declaration.
 - **Issue 65 -- FIXED.** Options considered: leave the unsigned comparison, change only the reported line, or normalize the checks to `== 0`. Decision: `== 0` is the correct low-noise fix and removes the tautological compare.
+- **Issue 66 -- FIXED.** Options considered: set `CMAKE_OSX_ARCHITECTURES` before `project()`, push architecture selection into a toolchain or CLI override, or keep forcing a single arch in the project. Decision: stop setting the variable in-project and let CMake or the caller supply it before configuration, which avoids the too-late assignment and preserves universal-binary overrides.
+- **Issue 67 -- FIXED.** Options considered: keep `LOWL_DEBUG` public, convert it to `INTERFACE`, or scope it to the library target only. Decision: make it `PRIVATE`, because the macro only controls the library's internal logging behavior and should not leak into consumers.
 
 ## Validation Pass -- 2026-03-30
 
@@ -175,7 +177,10 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 47 -- VERIFIED ALREADY FIXED.** `AudioSource` now stores `sample_rate` and `channel_layout` as constructor-initialized `const` members.
 - **Issue 48 -- FIXED.** `AudioStream` now keeps the requested logical capacity separate from a power-of-two backing store and uses masked ring indices, so 32-bit `size_t` wrap no longer breaks ring indexing.
 - **Issue 52 -- FIXED.** dr_lib implementation macros now live in `src/audio/reader/lowl_audio_reader_dr_lib.cpp`, and the MP3/WAV/FLAC readers consume internal wrapper classes instead of instantiating vendor implementations in multiple reader translation units.
+- **Issue 55 -- FIXED.** `AudioDevice` now publishes callback state through an atomic `shared_ptr` snapshot, and the CoreAudio callback loads that snapshot before using the source, format, or render buffer. That gives the callback an explicit acquire/release publication path instead of relying on CoreAudio startup ordering.
 - **Issue 64 -- FIXED.** `sal.h` is now included at normal header scope in `lowl_logger.h`, and the `Logger` class body no longer contains `#include` directives.
+- **Issue 66 -- FIXED.** The root `CMakeLists.txt` no longer assigns `CMAKE_OSX_ARCHITECTURES` after `project()`. macOS architecture selection is now left to CMake defaults or explicit caller/toolchain configuration.
+- **Issue 67 -- FIXED.** `LOWL_DEBUG` is now a `PRIVATE` compile definition on `${LOWL_LIB_MAIN}`, so debug logging stays available inside the library build without leaking into tests, the demo, or external consumers.
 - All other `OPEN` and `DEFERRED` issues were rechecked and remain valid.
 
 ---
@@ -1044,19 +1049,19 @@ Add an early return when `frame_count == 0`.
 
 ---
 
-## Issue 55 -- CoreAudio: Audio Callback Reads Fields Without Memory Fence -- OPEN
+## Issue 55 -- CoreAudio: Audio Callback Reads Fields Without Memory Fence -- FIXED
 
 **Severity:** Medium
 **Category:** Thread Safety
-**Files:** `src/audio/backend/coreaudio/lowl_audio_core_audio_device.cpp:74-93`
+**Files:** `src/audio/backend/lowl_audio_device.h`, `src/audio/backend/lowl_audio_device.cpp`, `src/audio/backend/coreaudio/lowl_audio_core_audio_device.cpp`
 
 ### Problem
 
-The audio callback reads `audio_device_properties` and `audio_source` set by `start()` on the main thread. There is no explicit memory fence between the two threads. CoreAudio likely provides implicit ordering via `AudioOutputUnitStart`, but this is not guaranteed by the C++ memory model.
+The audio callback used to read `audio_device_properties`, `audio_source`, and the render buffer setup written by `start()` on another thread. That relied on CoreAudio startup behavior for publication, but there was no explicit C++ synchronization edge protecting those reads.
 
 ### Fix
 
-Use `std::atomic` for `audio_source`, or document the ordering guarantee from CoreAudio's start function.
+`AudioDevice` now publishes a `RenderState` snapshot through `std::atomic_load/store` on `std::shared_ptr`. The callback acquires that snapshot before reading the source, device properties, or scratch buffer, so the CoreAudio handoff no longer depends on undocumented callback-start ordering. The same published snapshot path now also backs WASAPI's render callback.
 
 ---
 
@@ -1220,7 +1225,7 @@ Change to `== 0`.
 
 ---
 
-## Issue 66 -- CMake: `CMAKE_OSX_ARCHITECTURES` Set After `project()` -- OPEN
+## Issue 66 -- CMake: `CMAKE_OSX_ARCHITECTURES` Set After `project()` -- FIXED
 
 **Severity:** Medium
 **Category:** Build
@@ -1228,27 +1233,27 @@ Change to `== 0`.
 
 ### Problem
 
-`CMAKE_OSX_ARCHITECTURES` must be set before `project()` to take effect. Setting it on line 86/89 after `project()` on line 2 may be too late. Also prevents building universal binaries.
+`CMAKE_OSX_ARCHITECTURES` only takes effect when supplied before the first `project()`/language enablement. The old root `CMakeLists.txt` assigned it later in the Apple block, which was too late to reliably affect configuration and also forced a single architecture in-project.
 
 ### Fix
 
-Move to a toolchain file or before `project()`.
+The project no longer sets `CMAKE_OSX_ARCHITECTURES` internally. That leaves architecture selection to normal CMake defaults or an explicit caller/toolchain override supplied before configuration, which is the correct timing and no longer blocks universal-binary builds.
 
 ---
 
-## Issue 67 -- `LOWL_DEBUG` Defined as `PUBLIC` -- OPEN
+## Issue 67 -- `LOWL_DEBUG` Defined as `PUBLIC` -- FIXED
 
 **Severity:** Medium
 **Category:** Build
-**Files:** `CMakeLists.txt:125`
+**Files:** `CMakeLists.txt:124`
 
 ### Problem
 
-`LOWL_DEBUG` is a `PUBLIC` compile definition, leaking debug-mode behavior into all consumers (tests, demo, and external projects linking this library).
+`LOWL_DEBUG` is an internal library implementation detail used by `lowl_logger.h`, but the old build exported it as a `PUBLIC` compile definition. That leaked debug-mode behavior into all consumers (tests, demo, and external projects linking this library).
 
 ### Fix
 
-Change to `PRIVATE`.
+`LOWL_DEBUG` is now applied as a `PRIVATE` compile definition on `${LOWL_LIB_MAIN}`. That preserves the library's internal debug logging while keeping consumer compile environments clean.
 
 ---
 

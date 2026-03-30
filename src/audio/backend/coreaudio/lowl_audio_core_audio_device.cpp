@@ -94,9 +94,15 @@ OSStatus Lowl::Audio::CoreAudioDevice::audio_callback(AudioUnitRenderActionFlags
                                                       UInt32 inBusNumber,
                                                       UInt32 inNumberFrames,
                                                       AudioBufferList *ioData) {
+    const std::shared_ptr<RenderState> published_state = load_render_state();
+    if (published_state == nullptr || ioData == nullptr || ioData->mNumberBuffers == 0) {
+        return noErr;
+    }
+
+    const AudioDeviceProperties &published_properties = published_state->audio_device_properties;
     const uint32_l sample_size_bytes =
-        static_cast<uint32_l>(get_sample_size_bytes(audio_device_properties.sample_format));
-    const uint32_l channels = static_cast<uint32_l>(audio_device_properties.channel_layout.channel_count);
+        static_cast<uint32_l>(get_sample_size_bytes(published_properties.sample_format));
+    const uint32_l channels = static_cast<uint32_l>(published_properties.channel_layout.channel_count);
     const uint32_l bytes_per_frame = sample_size_bytes * channels;
 
     const uint32_l actual_bytes_needed = inNumberFrames * bytes_per_frame;
@@ -106,7 +112,7 @@ OSStatus Lowl::Audio::CoreAudioDevice::audio_callback(AudioUnitRenderActionFlags
     }
 
     void *dst = ioData->mBuffers[0].mData;
-    render_to_device_buffer(dst, inNumberFrames, bytes_per_frame);
+    render_to_device_buffer(published_state, dst, inNumberFrames, bytes_per_frame);
     return noErr;
 }
 
@@ -643,7 +649,7 @@ void Lowl::Audio::CoreAudioDevice::cleanup_audio_unit(Error &error) {
 
     release_hog();
     dispose_audio_unit(audio_unit, &error);
-    render_buffer.reset();
+    clear_render_state();
     audio_source.reset();
 }
 
