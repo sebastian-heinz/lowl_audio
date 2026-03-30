@@ -62,7 +62,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 49 | ALREADY FIXED | Medium | Bug | Reader | WAV reader: unrecognized PCM bit depth leaves `sample_format` as `Unknown`, leaks `drwav` |
 | 50 | FIXED | Medium | Bug | Reader | `create_audio_data`: `reinterpret_cast` from `uint8_t[]` violates alignment |
 | 51 | FIXED | Medium | Bug | Reader | Opus reader: does not set error on `op_open_memory` failure |
-| 52 | DEFERRED | Medium | Bug | Reader | MP3 / WAV: `DR_*_IMPLEMENTATION` defines risk ODR violations |
+| 52 | FIXED | Medium | Bug | Reader | MP3 / WAV: `DR_*_IMPLEMENTATION` defines risk ODR violations |
 | 53 | FIXED | Medium | Bug | Converter | ReSampler: no null check on input `p_audio_data` |
 | 54 | ALREADY FIXED | Medium | Bug | Converter | Channel converter: null `storage` pointer dereference when `frame_count == 0` |
 | 55 | DEFERRED | Medium | Thread | Backend | CoreAudio: audio callback reads `audio_source` without memory fence |
@@ -150,7 +150,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 49 -- VERIFIED ALREADY FIXED.** Options considered: add an explicit `Unknown` fast-fail before `create_audio_data`, rely on post-call `drwav_uninit`, or wrap `drwav` in RAII. Decision: after the current cleanup pass, `drwav_uninit` still runs on this path, so no extra code was required.
 - **Issue 50 -- FIXED.** Options considered: trust allocator alignment, copy into aligned typed buffers first, or replace typed buffer access with `memcpy`. Decision: `memcpy` inside the conversion path removed the UB without changing the external reader API.
 - **Issue 51 -- FIXED.** Options considered: map all Opus errors to one generic code, preserve the vendor error code, or leave the null return unannotated. Decision: preserving the vendor error code gives callers the most useful signal with minimal churn.
-- **Issue 52 -- DEFERRED.** Options considered: leave implementation defines in place, move each implementation define into a dedicated TU, or build wrapper libraries. Decision: that is a build-structure change and not a quick library-core patch.
+- **Issue 52 -- FIXED.** Options considered: leave implementation defines in place, move each implementation define into a dedicated TU, or build wrapper libraries. Decision: move the dr_lib implementations into one internal wrapper TU with reader-facing wrappers, which removes the ODR hazard without changing the public reader API.
 - **Issue 53 -- FIXED.** Options considered: assume non-null input, add a null early return, or surface an error object from the resampler. Decision: early return was consistent with the current signature and removed the null dereference.
 - **Issue 54 -- VERIFIED ALREADY FIXED.** Options considered: add a zero-frame early return, restructure pointer arithmetic, or verify the current guards. Decision: the existing `storage ? ... : nullptr` path already avoids null-pointer arithmetic here.
 - **Issue 55 -- DEFERRED.** Options considered: make callback-visible fields atomic, add explicit synchronization at startup, or document CoreAudio’s publication guarantees. Decision: this belongs in the CoreAudio concurrency pass.
@@ -170,6 +170,7 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - Revalidated every remaining `OPEN` and `DEFERRED` issue against the current tree.
 - **Issue 47 -- VERIFIED ALREADY FIXED.** `AudioSource` now stores `sample_rate` and `channel_layout` as constructor-initialized `const` members.
 - **Issue 48 -- FIXED.** `AudioStream` now keeps the requested logical capacity separate from a power-of-two backing store and uses masked ring indices, so 32-bit `size_t` wrap no longer breaks ring indexing.
+- **Issue 52 -- FIXED.** dr_lib implementation macros now live in `src/audio/reader/lowl_audio_reader_dr_lib.cpp`, and the MP3/WAV/FLAC readers consume internal wrapper classes instead of instantiating vendor implementations in multiple reader translation units.
 - All other `OPEN` and `DEFERRED` issues were rechecked and remain valid.
 
 ---
@@ -990,19 +991,19 @@ Map `_error` to an `ErrorCode` and call `error.set_error(...)`.
 
 ---
 
-## Issue 52 -- MP3 / WAV: `DR_*_IMPLEMENTATION` Defines Risk ODR Violations -- OPEN
+## Issue 52 -- MP3 / WAV: `DR_*_IMPLEMENTATION` Defines Risk ODR Violations -- FIXED
 
 **Severity:** Medium
-**Category:** Architecture
-**Files:** `src/audio/reader/lowl_audio_reader_mp3.cpp:29`, `src/audio/reader/lowl_audio_reader_wav.cpp:5`
+**Category:** Bug
+**Files:** `src/audio/reader/lowl_audio_reader_dr_lib.cpp`, `src/audio/reader/lowl_audio_reader_dr_lib.h`, `src/audio/reader/lowl_audio_reader_mp3.cpp`, `src/audio/reader/lowl_audio_reader_wav.cpp`, `src/audio/reader/lowl_audio_reader_flac.cpp`
 
 ### Problem
 
-`DR_MP3_IMPLEMENTATION` and `DR_WAV_IMPLEMENTATION` are defined before including the headers. If any other TU in the build (or a consumer) also defines them, all dr_libs functions get duplicate definitions. The MP3 reader's 23 `#define` symbol remappings are fragile -- new dr_mp3 symbols break them.
+The reader translation units used to define vendor `DR_*_IMPLEMENTATION` macros directly. That is fragile: if another translation unit also instantiates the same dr_lib implementation, the build can hit duplicate symbol/ODR failures. The MP3 reader also depended on symbol-remapping macros to avoid collisions, which is brittle and easy to break when the upstream header adds new exported names.
 
 ### Fix
 
-Isolate each `_IMPLEMENTATION` define into a dedicated TU. Consider a namespace wrapper.
+The dr_lib implementations now live in a single internal wrapper translation unit, `src/audio/reader/lowl_audio_reader_dr_lib.cpp`. That file defines the vendor implementations with internal linkage and exposes project-local `WavDecoder`, `FlacDecoder`, and `Mp3Decoder` wrappers declared in `src/audio/reader/lowl_audio_reader_dr_lib.h`. The MP3, WAV, and FLAC readers now consume those wrappers instead of instantiating dr_lib directly, eliminating the original ODR hazard.
 
 ---
 

@@ -49,6 +49,7 @@ set(LOWL_SOURCES
         src/audio/convert/lowl_audio_re_sampler_r8b.cpp
 
         src/audio/reader/lowl_audio_reader.cpp
+        src/audio/reader/lowl_audio_reader_dr_lib.cpp
         src/audio/reader/lowl_audio_reader_flac.cpp
         src/audio/reader/lowl_audio_reader_mp3.cpp
         src/audio/reader/lowl_audio_reader_ogg.cpp
