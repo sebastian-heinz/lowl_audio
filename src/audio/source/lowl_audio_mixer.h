@@ -3,6 +3,7 @@
 
 #include <array>
 #include <atomic>
+#include <memory>
 #include <mutex>
 #include <vector>
 
@@ -25,7 +26,7 @@ namespace Lowl::Audio {
         static constexpr size_t MAX_ACTIVE_SOURCES = 1024;
         static constexpr size_t MAX_ACK_OWNERS = 64;
         static constexpr size_t EVENT_QUEUE_CAPACITY = MAX_ACTIVE_SOURCES * 4;
-        static constexpr size_t ACK_QUEUE_CAPACITY = MAX_ACTIVE_SOURCES * 2;
+        static constexpr size_t ACK_QUEUE_CAPACITY = EVENT_QUEUE_CAPACITY * 2;
         static constexpr size_t InvalidSourceIndex = MAX_ACTIVE_SOURCES;
         static constexpr AudioPlaybackId InvalidHandleId = 0;
         static constexpr AudioPlaybackId FirstHandleId = 1;
@@ -44,8 +45,7 @@ namespace Lowl::Audio {
 
         struct AckOwnerSlot {
             std::atomic<bool> registered{false};
-            BoundedSpscQueue<AudioMixerAck, ACK_QUEUE_CAPACITY> acknowledgements{};
-            std::vector<AudioMixerAck> pending_sync_acks;
+            BoundedMpscQueue<AudioMixerAck, ACK_QUEUE_CAPACITY> acknowledgements{};
             std::atomic<bool> queued_ack_overflow{false};
             std::vector<HandleSlot> handles;
             std::vector<AudioPlaybackId> free_handle_ids;
@@ -53,7 +53,7 @@ namespace Lowl::Audio {
         };
 
         std::array<ActiveSourceSlot, MAX_ACTIVE_SOURCES> sources{};
-        std::array<AckOwnerSlot, MAX_ACK_OWNERS> ack_owners{};
+        std::unique_ptr<AckOwnerSlot[]> ack_owners;
         BoundedMpscQueue<AudioMixerEvent, EVENT_QUEUE_CAPACITY> events{};
         std::mutex ack_owner_mutex;
         AudioBuffer scratch_buffer;
@@ -68,8 +68,8 @@ namespace Lowl::Audio {
         RenderResult render_mixed_block(AudioBlockView p_block);
         RenderResult render_chunked_block(AudioBlockView p_block, uint32_t p_chunk_frame_count);
         void enqueue_ack(const AudioMixerAck &p_ack);
-        void enqueue_sync_ack_locked(const AudioMixerAck &p_ack);
-        void clear_ack_queue(AckOwnerSlot &p_owner_slot);
+        void clear_pending_acks_locked(AckOwnerSlot &p_owner_slot);
+        void reset_owner_handles_locked(AckOwnerSlot &p_owner_slot);
 
     public:
         static constexpr uint32_t DefaultScratchBufferCapacity = 16384;

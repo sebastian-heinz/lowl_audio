@@ -47,7 +47,7 @@ AudioSource
 - `AudioDriver` owns enumerated `AudioDevice` instances for a backend.
 - `AudioDevice` is the backend-neutral output abstraction. Its backend callback calls `render_to_device_buffer()`, which renders from an `AudioSource` into a reusable planar float buffer and then converts/interleaves into the device buffer.
 - `AudioSource` is the common renderable interface.
-- `AudioMixer` is the real aggregator. It mixes multiple active `AudioSource*` objects into one output stream. Control-thread add/remove work is sent through `AudioMixerEvent`, and render-thread completion/removal feedback is sent back through `AudioMixerAck`.
+- `AudioMixer` is the real aggregator. It mixes multiple active `AudioSource*` objects into one output stream. Control-thread add/remove work is sent through a bounded MPSC `AudioMixerEvent` queue, and terminal acknowledgements are returned through a per-owner bounded MPSC `AudioMixerAck` queue shared by render-thread completions and control-thread immediate rejections.
 - `AudioSpace` is a higher-level asset/playback manager wrapped around an internal `AudioMixer`. It owns:
   - decoded assets in `AudioData`
   - live playback slots containing `AudioVoice`
@@ -77,47 +77,23 @@ CoreAudio/WASAPI callback
   - `AudioSpace::render()` does not take `state_mutex` (`src/audio/source/lowl_audio_space.cpp:572-578`).
   - `AudioVoice::render()` does not take `control_state_mutex` (`src/audio/source/lowl_audio_voice.cpp:23-105`).
   - `AudioStream::render()` is atomic/ring-buffer based.
+- The mixer callback/control handoff is now bounded and non-allocating on the render thread:
+  - control-thread submissions use `events.try_enqueue()` into a bounded MPSC queue
+  - terminal acknowledgements use a per-owner bounded MPSC queue
+  - submission failures are checked and surfaced explicitly instead of relying on a potentially allocating queue path
 - Backend callbacks do not do file I/O.
 
 ### What is not real-time safe enough
 
-- The mixer acknowledgement path is not RT-safe. `AudioMixer::enqueue_ack()` is called from render-thread code paths (`src/audio/source/lowl_audio_mixer.cpp:124-139`, `src/audio/source/lowl_audio_mixer.cpp:157-161`, `src/audio/source/lowl_audio_mixer.cpp:172-176`, `src/audio/source/lowl_audio_mixer.cpp:216-223`) and uses `moodycamel::ConcurrentQueue::enqueue()`. The queue documentation explicitly says `enqueue()` may allocate (`third_party/concurrentqueue/concurrentqueue.h:997-1035`).
-- The return value from both `enqueue_ack()` and the control-thread event queue writes is ignored (`src/audio/source/lowl_audio_mixer.cpp:138`, `src/audio/source/lowl_audio_mixer.cpp:384`, `src/audio/source/lowl_audio_mixer.cpp:414`). That turns allocation failure or queue growth failure into silent state loss.
 - WASAPI debug logging is on the audio thread (`src/audio/backend/wasapi/lowl_audio_wasapi_device.cpp:426-547`). In debug builds the logger takes a recursive mutex and allocates/format strings (`src/lowl_logger.cpp:44-61`, `src/lowl_logger.cpp:86-100`, `src/lowl_logger.h:81-101`).
 
 ### Locking/synchronization summary
 
 - `state_mutex` in `AudioSpace` and `control_state_mutex` in `AudioVoice` are kept off the render path. That part is good.
-- The callback path is mostly atomic/queue based, but the queue choice is only safe if it is used in a non-allocating mode. Right now it is not.
-- The mixer uses raw `AudioSource*` pointers in the render thread. That is only safe because lifetime is supposed to be protected by the ack protocol. If an ack is dropped, that lifetime contract weakens immediately.
+- The callback path is now atomic/queue based without callback-thread allocation.
+- The mixer still uses raw `AudioSource*` pointers in the render thread. That lifetime contract is now simpler than before because acknowledgements flow through one queue topology instead of mixed queue/side-channel paths.
 
 ## 3. Issues And Bugs
-
-### High: render-thread ack enqueue can allocate and can silently fail
-
-Files:
-
-- `src/audio/source/lowl_audio_mixer.cpp:124-139`
-- `src/audio/source/lowl_audio_mixer.cpp:157-161`
-- `src/audio/source/lowl_audio_mixer.cpp:172-176`
-- `src/audio/source/lowl_audio_mixer.cpp:216-223`
-- `third_party/concurrentqueue/concurrentqueue.h:997-1035`
-
-Why it matters:
-
-- `enqueue_ack()` runs on the render thread.
-- `ConcurrentQueue::enqueue()` may allocate.
-- The code ignores the `bool` return value.
-
-Impact:
-
-- Best case: intermittent heap traffic on the audio thread causes stutter.
-- Worse case: terminal acks (`Removed`, `Finished`, `Rejected`) are silently lost, which can leave playback retirement stuck and undermine the raw-pointer lifetime protocol between `AudioSpace` and `AudioMixer`.
-
-Recommendation:
-
-- Replace this with a fixed-capacity, preallocated queue or ring buffer used in a non-allocating mode.
-- If `ConcurrentQueue` stays, use explicit producer tokens created off the audio thread and a bounded `try_enqueue` path with explicit overflow handling.
 
 ### Medium: zero-frame render removes a voice
 
@@ -206,7 +182,7 @@ Recommendation:
 The main CPU path is:
 
 1. `AudioDevice::render_to_device_buffer()` (`src/audio/backend/lowl_audio_device.cpp:91-156`)
-2. `AudioMixer::render()` / `render_mixed_block()` (`src/audio/source/lowl_audio_mixer.cpp:184-245`, `src/audio/source/lowl_audio_mixer.cpp:282-307`)
+2. `AudioMixer::render()` / `render_mixed_block()` (`src/audio/source/lowl_audio_mixer.cpp:202-320`)
 3. Per-source gain/pan in `AudioSource::process_volume()` and `process_panning()` (`src/audio/source/lowl_audio_source.cpp:60-95`)
 4. Per-sample format conversion in `SampleConverter::write_sample()` (`src/audio/convert/lowl_audio_sample_converter.h:86-146`)
 
@@ -214,8 +190,8 @@ The main CPU path is:
 
 - Redundant clearing:
   - device scratch buffer is cleared every callback (`src/audio/backend/lowl_audio_device.cpp:131-133`)
-  - mixer output block is cleared again (`src/audio/source/lowl_audio_mixer.cpp:299-302`)
-  - mixer scratch buffer is cleared once per active source (`src/audio/source/lowl_audio_mixer.cpp:199`)
+  - mixer output block is cleared again (`src/audio/source/lowl_audio_mixer.cpp:317-320`)
+  - mixer scratch buffer is cleared once per active source (`src/audio/source/lowl_audio_mixer.cpp:217`)
 - Multiple full-buffer passes:
   - voice/stream render
   - per-source gain
@@ -236,20 +212,19 @@ This code is more memory-bandwidth and buffer-pass limited than lock limited:
 - many read/modify/write passes
 - scalar sample conversion in the backend handoff
 
-The synchronization risk is concentrated in the ack queue, not in mutex contention.
+Synchronization is not the main bottleneck here; the hot path is dominated by buffer clearing, repeated passes, and scalar conversion.
 
 ### Performance recommendations
 
-1. Make callback-to-control acknowledgements fixed-capacity and non-allocating.
-2. Add format-specialized backend write paths:
+1. Add format-specialized backend write paths:
    - direct memcpy/interleave fast path for `FLOAT_32`
    - specialized loops for `INT_16`
    - avoid per-sample switch dispatch
-3. Tighten the source render contract so produced frames are fully written, then remove redundant pre-clears where possible.
-4. Cache panning gains when panning changes instead of recomputing `sqrt()` every render (`src/audio/source/lowl_audio_source.cpp:80-93`).
-5. Consider fusing gain/pan into mix accumulation for voices/streams so each sample is touched fewer times.
-6. If `AudioSpace` master gain/pan must remain, apply them as a final post-mix stage instead of store-forwarding into `AudioMixer` every callback.
+2. Tighten the source render contract so produced frames are fully written, then remove redundant pre-clears where possible.
+3. Cache panning gains when panning changes instead of recomputing `sqrt()` every render (`src/audio/source/lowl_audio_source.cpp:80-93`).
+4. Consider fusing gain/pan into mix accumulation for voices/streams so each sample is touched fewer times.
+5. If `AudioSpace` master gain/pan must remain, apply them as a final post-mix stage instead of store-forwarding into `AudioMixer` every callback.
 
 ## 5. Overall Assessment
 
-The overall structure is sensible: decode/convert work is off the callback thread, sources are composable, and the render path mostly avoids coarse locks. The main weakness is that the render-thread/control-thread handoff is not fully real-time safe because the ack path can allocate and its failure is ignored. After that, the next biggest issue is hot-path efficiency: the current design performs more buffer clears and full-buffer passes than necessary, so CPU cost will climb quickly with active voice count.
+The overall structure is sensible: decode/convert work is off the callback thread, sources are composable, and the render path mostly avoids coarse locks. The mixer handoff is now materially stronger and simpler because both events and acknowledgements use bounded non-allocating queue paths with matching producer/consumer topology. The remaining weaknesses are hot-path efficiency and a few correctness bugs around voice/device edge cases.
