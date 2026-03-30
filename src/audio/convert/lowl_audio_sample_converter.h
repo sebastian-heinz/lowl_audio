@@ -49,7 +49,8 @@ namespace Lowl::Audio {
         }
 
         static _INLINE_ int32_t sample_to_int24(Lowl::Sample p_sample) {
-            return static_cast<int32_t>(std::lround(p_sample * 0x7FFFFF)) & 0xFFFFFF;
+            const double clamped = std::clamp(static_cast<double>(p_sample), -1.0, 1.0);
+            return static_cast<int32_t>(std::lround(clamped * 0x7FFFFF));
         }
 
         static _INLINE_ int32_t sample_to_int32(Lowl::Sample p_sample) {
@@ -67,6 +68,10 @@ namespace Lowl::Audio {
             return static_cast<float>(p_sample);
         }
 
+        static _INLINE_ double sample_to_float64(Lowl::Sample p_sample) {
+            return static_cast<double>(p_sample);
+        }
+
         static _INLINE_ uint8_t sample_to_uint8(Lowl::Sample p_sample) {
             float clamped = std::clamp(static_cast<float>(p_sample), -1.0f, 1.0f);
             return static_cast<uint8_t>(static_cast<int>(clamped * 127.0f) + 128);
@@ -78,7 +83,7 @@ namespace Lowl::Audio {
             return int8_value;
         }
 
-        static _INLINE_ void
+        static _INLINE_ bool
         write_sample(Lowl::Audio::SampleFormat p_sample_format, Lowl::Sample p_sample, void **p_dst) {
             {
                 switch (p_sample_format) {
@@ -87,7 +92,7 @@ namespace Lowl::Audio {
                         int16_t *dst = static_cast<int16_t *>(*p_dst);
                         *dst++ = sample;
                         *p_dst = dst;
-                        break;
+                        return true;
                     }
                     case SampleFormat::INT_24: {
                         const int32_t sample = sample_to_int24(p_sample);
@@ -96,42 +101,48 @@ namespace Lowl::Audio {
                         *dst++ = static_cast<uint8_t>(sample >> 8);   // bits 8-15
                         *dst++ = static_cast<uint8_t>(sample >> 16);  // bits 16-23
                         *p_dst = dst;
-                        break;
+                        return true;
                     }
                     case SampleFormat::INT_32: {
                         const int32_t sample = sample_to_int32(p_sample);
                         int32_t *dst = static_cast<int32_t *>(*p_dst);
                         *dst++ = sample;
                         *p_dst = dst;
-                        break;
+                        return true;
                     }
                     case SampleFormat::FLOAT_32: {
                         const float sample = sample_to_float(p_sample);
                         float *dst = static_cast<float *>(*p_dst);
                         *dst++ = sample;
                         *p_dst = dst;
-                        break;
+                        return true;
+                    }
+                    case SampleFormat::FLOAT_64: {
+                        const double sample = sample_to_float64(p_sample);
+                        double *dst = static_cast<double *>(*p_dst);
+                        *dst++ = sample;
+                        *p_dst = dst;
+                        return true;
                     }
                     case SampleFormat::U_INT_8: {
                         const uint8_t sample = sample_to_uint8(p_sample);
                         uint8_t *dst = static_cast<uint8_t *>(*p_dst);
                         *dst++ = sample;
                         *p_dst = dst;
-                        break;
+                        return true;
                     }
                     case SampleFormat::Unknown:
-                        break;
-                    case SampleFormat::FLOAT_64:
-                        break;
+                        return false;
                     case SampleFormat::INT_8: {
                         const int8_t sample = sample_to_int8(p_sample);
                         int8_t *dst = static_cast<int8_t *>(*p_dst);
                         *dst++ = sample;
                         *p_dst = dst;
-                        break;
+                        return true;
                     }
                 }
             }
+            return false;
         }
     };
 } // namespace Lowl::Audio

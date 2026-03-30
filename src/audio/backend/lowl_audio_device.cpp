@@ -82,8 +82,14 @@ void Lowl::Audio::AudioDevice::render_to_device_buffer(void *p_dst,
         return;
     }
 
+    const size_t total_bytes = static_cast<size_t>(p_frames_per_buffer) * p_bytes_per_frame;
+    if (get_sample_size_bytes(audio_device_properties.sample_format) == 0) {
+        std::memset(p_dst, 0, total_bytes);
+        return;
+    }
+
     if (!audio_source || !render_buffer) {
-        std::memset(p_dst, 0, static_cast<size_t>(p_frames_per_buffer) * p_bytes_per_frame);
+        std::memset(p_dst, 0, total_bytes);
         return;
     }
 
@@ -97,7 +103,10 @@ void Lowl::Audio::AudioDevice::render_to_device_buffer(void *p_dst,
         for (uint8_t channel_index = 0; channel_index < output_block.channel_count; channel_index++) {
             const Sample sample = std::clamp(
                 output_block.channel(channel_index)[frame_index], static_cast<Sample>(-1.0), static_cast<Sample>(1.0));
-            SampleConverter::write_sample(audio_device_properties.sample_format, sample, &write_ptr);
+            if (!SampleConverter::write_sample(audio_device_properties.sample_format, sample, &write_ptr)) {
+                std::memset(p_dst, 0, total_bytes);
+                return;
+            }
         }
     }
 

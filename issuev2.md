@@ -39,8 +39,8 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 | 26 | FIXED | High | Bug | Reader | MP3 reader: VBR frame count may underestimate, silently losing frames |
 | 27 | FIXED | High | Bug | Reader | Opus reader: potential buffer overrun if `op_pcm_total` underestimates |
 | 28 | FIXED | High | Bug | Reader | Ogg reader: `assert(element_size == 1)` is no-op in release builds |
-| 29 | DEFERRED | High | Bug | Converter | `sample_to_int24` returns unsigned-masked value in signed return type |
-| 30 | DEFERRED | High | Bug | Converter | `write_sample` silently does nothing for `FLOAT_64` and `Unknown` formats |
+| 29 | FIXED | High | Bug | Converter | `sample_to_int24` returns unsigned-masked value in signed return type |
+| 30 | FIXED | High | Bug | Converter | `write_sample` silently does nothing for `FLOAT_64` and `Unknown` formats |
 | 31 | DEFERRED | High | Bug | Converter | ReSampler: `expected_frames` estimate may be too small; `int` overflow on large files |
 | 32 | FIXED | High | Bug | Backend | WASAPI: `wc_to_utf8` leaks heap-allocated char array |
 | 33 | FIXED | High | Bug | Backend | WASAPI: `device_id` allocated with `new` but never freed |
@@ -127,8 +127,8 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 - **Issue 26 -- FIXED.** Options considered: decode into a growable buffer, keep trimming and log truncation, or trust `drmp3_get_pcm_frame_count`. Decision: decode into a growable buffer was the correct fix. The MP3 reader already loads the whole asset into memory, so using the frame-count result only as a reserve hint removes silent truncation without changing the external reader API.
 - **Issue 27 -- FIXED.** Options considered: clamp each decoded chunk to the remaining capacity, switch Opus decoding to a growable buffer, or trust `op_pcm_total`. Decision: chunk clamping removes the overflow risk without changing the current fixed-allocation approach.
 - **Issue 28 -- FIXED.** Options considered: keep the assert, compute byte counts and return item counts correctly, or refuse non-1-byte reads outright. Decision: implementing correct item-sized reads made the callback valid in both debug and release builds.
-- **Issue 29 -- DEFERRED.** Options considered: keep the packed `int32_t` contract, change the return type to `uint32_t`, or add a separate sign-extended helper. Decision: the existing write path may rely on packed low-24-bit behavior, so this needs a contract decision.
-- **Issue 30 -- DEFERRED.** Options considered: implement `FLOAT_64`, assert/fail on unsupported formats, or add an error-returning write API. Decision: the current helper has no error channel, so fixing `Unknown` cleanly needs an API decision rather than a partial patch.
+- **Issue 29 -- FIXED.** Options considered: keep the packed `int32_t` contract, change the return type to `uint32_t`, or add a separate sign-extended helper. Decision: keep the current API and make it actually return a sign-preserving signed 24-bit `int32_t`.
+- **Issue 30 -- FIXED.** Options considered: implement `FLOAT_64`, assert/fail on unsupported formats, or add an error-returning write API. Decision: implement `FLOAT_64`, make `write_sample` report success/failure, and make the device render path fall back to silence for unsupported formats.
 - **Issue 31 -- DEFERRED.** Options considered: over-allocate output with margin, chunk the resampling work, or add hard guards around `int` conversion. Decision: this depends on the exact r8b output contract and deserves a focused resampler pass.
 - **Issue 32 -- FIXED.** Options considered: manually `delete[]` the UTF-8 buffer, wrap it in smart ownership, or return `std::string`. Decision: returning `std::string` matched the rest of the code and removed ownership ambiguity entirely.
 - **Issue 33 -- FIXED.** Options considered: free the copied device id, store it in an owning C++ type, or remove it because it was unused. Decision: removing the unused copy was the cleanest result.
@@ -168,6 +168,8 @@ Covers bugs, thread safety, undefined behavior, resource leaks, API design, arch
 ## Validation Pass -- 2026-03-28
 
 - Revalidated every remaining `OPEN` and `DEFERRED` issue against the current tree.
+- **Issue 29 -- FIXED.** `SampleConverter::sample_to_int24` now clamps and returns a sign-preserving signed value instead of zero-extending negatives with `& 0xFFFFFF`.
+- **Issue 30 -- FIXED.** `SampleConverter::write_sample` now writes `FLOAT_64`, returns failure for `Unknown`, and `AudioDevice::render_to_device_buffer` falls back to silence if an unsupported format slips through.
 - **Issue 47 -- VERIFIED ALREADY FIXED.** `AudioSource` now stores `sample_rate` and `channel_layout` as constructor-initialized `const` members.
 - **Issue 48 -- FIXED.** `AudioStream` now keeps the requested logical capacity separate from a power-of-two backing store and uses masked ring indices, so 32-bit `size_t` wrap no longer breaks ring indexing.
 - **Issue 52 -- FIXED.** dr_lib implementation macros now live in `src/audio/reader/lowl_audio_reader_dr_lib.cpp`, and the MP3/WAV/FLAC readers consume internal wrapper classes instead of instantiating vendor implementations in multiple reader translation units.
@@ -623,7 +625,7 @@ Compute `size_t total = element_size * element_count` and use that as the read l
 
 ---
 
-## Issue 29 -- `sample_to_int24` Returns Unsigned-Masked Value in Signed Return Type -- OPEN
+## Issue 29 -- `sample_to_int24` Returns Unsigned-Masked Value in Signed Return Type -- FIXED
 
 **Severity:** High
 **Category:** Bug
@@ -631,27 +633,27 @@ Compute `size_t total = element_size * element_count` and use that as the read l
 
 ### Problem
 
-`& 0xFFFFFF` masks the result to 24 bits, zeroing the upper 8 bits. For negative values, this produces a value in range `[0, 16777215]` (always non-negative) even though the return type is `int32_t` and the function name suggests a signed 24-bit value. The `write_sample` path works correctly because it only reads the low 3 bytes, but any caller expecting a sign-extended int32 will get wrong values.
+`& 0xFFFFFF` masked the result to 24 bits and zeroed the upper 8 bits. For negative values, that produced a non-negative `int32_t` even though the function name and return type imply a signed 24-bit value. The `write_sample` path still emitted the correct low three bytes, but any direct caller of `sample_to_int24` received the wrong signed result.
 
 ### Fix
 
-Document that the return is an unsigned 24-bit value packed in `int32_t`, or change return type to `uint32_t`.
+`sample_to_int24` now clamps the sample and returns a sign-preserving signed `int32_t`, removing the zero-extension bug without changing the existing API.
 
 ---
 
-## Issue 30 -- `write_sample` Silently Does Nothing for FLOAT_64 and Unknown -- OPEN
+## Issue 30 -- `write_sample` Silently Does Nothing for FLOAT_64 and Unknown -- FIXED
 
 **Severity:** High
 **Category:** Bug
-**Files:** `src/audio/convert/lowl_audio_sample_converter.h:119-122`
+**Files:** `src/audio/convert/lowl_audio_sample_converter.h`, `src/audio/backend/lowl_audio_device.cpp`
 
 ### Problem
 
-The `SampleFormat::Unknown` and `SampleFormat::FLOAT_64` cases have empty bodies -- they don't advance the destination pointer or report an error. A caller writing FLOAT_64 samples gets no output, and the pointer never advances, potentially causing an infinite loop.
+The `SampleFormat::FLOAT_64` and `SampleFormat::Unknown` branches used to behave like successful writes even though one emitted no bytes and the other represented an unsupported format. That meant `FLOAT_64` output was silently dropped, and `Unknown` could leave the destination pointer unchanged with no signal to the caller.
 
 ### Fix
 
-Implement FLOAT_64 write support, or assert/error for unsupported formats.
+`write_sample` now writes `FLOAT_64` samples correctly and returns a boolean success value. `Unknown` now reports failure instead of pretending to write, and `AudioDevice::render_to_device_buffer` converts that failure into a full-buffer silence fallback so unsupported output formats degrade safely instead of emitting partial or misleading output.
 
 ---
 

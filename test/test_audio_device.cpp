@@ -196,4 +196,35 @@ TEST_CASE("AudioDevice") {
             REQUIRE_EQ(buffer[current_byte], static_cast<uint8_t>(0x7F));
         }
     }
+
+    SUBCASE("AudioDevice - unsupported output format falls back to silence") {
+        constexpr unsigned long frames_per_buffer = 2;
+        constexpr unsigned long channels = 2;
+        constexpr unsigned long bytes_per_frame = sizeof(float) * channels;
+        constexpr size_t audio_bytes = frames_per_buffer * bytes_per_frame;
+        constexpr size_t guard_bytes = 16;
+
+        alignas(float) std::array<uint8_t, audio_bytes + guard_bytes> buffer{};
+        buffer.fill(0x7F);
+
+        auto source = std::make_shared<ShortReadAudioSource>(
+            std::vector<StereoSample>{StereoSample{0.25f, -0.25f}, StereoSample{0.5f, -0.5f}}
+        );
+
+        Lowl::Audio::AudioDeviceProperties properties{};
+        properties.sample_format = Lowl::Audio::SampleFormat::Unknown;
+        properties.channel_layout = Lowl::Audio::ChannelLayout::Stereo;
+
+        TestAudioDevice device;
+        device.configure(properties, source);
+        device.write(buffer.data(), frames_per_buffer, bytes_per_frame);
+
+        for (size_t current_byte = 0; current_byte < audio_bytes; current_byte++) {
+            REQUIRE_EQ(buffer[current_byte], static_cast<uint8_t>(0x00));
+        }
+
+        for (size_t current_byte = audio_bytes; current_byte < buffer.size(); current_byte++) {
+            REQUIRE_EQ(buffer[current_byte], static_cast<uint8_t>(0x7F));
+        }
+    }
 }
