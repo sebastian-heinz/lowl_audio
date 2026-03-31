@@ -30,6 +30,10 @@ set(LOWL_SOURCES
         src/audio/lowl_audio_setting.cpp
         src/audio/lowl_audio_buffer.cpp
         src/audio/lowl_audio_utilities.cpp
+        src/audio/simd/lowl_audio_simd.cpp
+        src/audio/simd/lowl_audio_simd_scalar.cpp
+        src/audio/simd/lowl_audio_simd_neon.cpp
+        src/audio/simd/lowl_audio_simd_avx2.cpp
 
         src/audio/backend/lowl_audio_device.cpp
         src/audio/backend/lowl_audio_driver.cpp
@@ -133,7 +137,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message("[LOWL] Compile flags follow the active CMake configuration")
     target_compile_options(${LOWL_LIB_MAIN} PRIVATE
             $<$<CONFIG:Debug>:-O0>
-            $<$<NOT:$<CONFIG:Debug>>:-O2>
+            $<$<NOT:$<CONFIG:Debug>>:-O3>
             -Werror
             -Walloca
             -Wcast-qual
@@ -180,6 +184,8 @@ endif ()
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     message("[LOWL] GCC")
     target_compile_options(${LOWL_LIB_MAIN} PRIVATE
+            $<$<CONFIG:Debug>:-O0>
+            $<$<NOT:$<CONFIG:Debug>>:-O3>
             -Wall
             -Wextra
             -Wpedantic
@@ -189,9 +195,26 @@ endif ()
 
 if (MSVC)
     target_compile_options(${LOWL_LIB_MAIN} PRIVATE
+            $<$<CONFIG:Debug>:/Od>
+            $<$<NOT:$<CONFIG:Debug>>:/O2>
             /W4
             /WX
     )
+endif ()
+
+set(LOWL_SIMD_SOURCES
+        src/audio/simd/lowl_audio_simd.cpp
+        src/audio/simd/lowl_audio_simd_scalar.cpp
+        src/audio/simd/lowl_audio_simd_neon.cpp
+        src/audio/simd/lowl_audio_simd_avx2.cpp
+)
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    set_source_files_properties(${LOWL_SIMD_SOURCES} PROPERTIES COMPILE_OPTIONS "-ffp-contract=fast")
+endif ()
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
+    set_source_files_properties(src/audio/simd/lowl_audio_simd_avx2.cpp PROPERTIES COMPILE_OPTIONS "-mavx2;-mfma;-ffp-contract=fast")
 endif ()
 
 # Third Party

@@ -7,6 +7,7 @@
 #include <tuple>
 
 #include "audio/convert/lowl_audio_sample_converter.h"
+#include "audio/simd/lowl_audio_simd.h"
 
 namespace {
     auto make_property_score(const Lowl::Audio::AudioDeviceProperties &p_requested,
@@ -26,6 +27,61 @@ namespace {
                                format_mismatch,
                                p_candidate.exclusive_mode != p_requested.exclusive_mode,
                                sample_rate_distance);
+    }
+
+    void write_interleaved_float32(const Lowl::Audio::AudioBlockView &p_block, void *p_dst, const uint32_t p_frames) {
+        auto *dst = static_cast<float *>(p_dst);
+        if (p_block.channel_count == 1) {
+            std::memcpy(dst, p_block.channel(0), static_cast<size_t>(p_frames) * sizeof(float));
+            return;
+        }
+        if (p_block.channel_count == 2) {
+            const float *src_l = p_block.channel(0);
+            const float *src_r = p_block.channel(1);
+            Lowl::Audio::Simd::dispatch().interleave_stereo_float32(src_l, src_r, dst, p_frames);
+            return;
+        }
+
+        const uint8_t channel_count = p_block.channel_count;
+        for (uint32_t frame_index = 0; frame_index < p_frames; frame_index++) {
+            for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
+                dst[static_cast<size_t>(frame_index) * channel_count + channel_index] =
+                    p_block.channel(channel_index)[frame_index];
+            }
+        }
+    }
+
+    void write_interleaved_int16(const Lowl::Audio::AudioBlockView &p_block, void *p_dst, const uint32_t p_frames) {
+        auto *dst = static_cast<int16_t *>(p_dst);
+        if (p_block.channel_count == 2) {
+            const float *src_l = p_block.channel(0);
+            const float *src_r = p_block.channel(1);
+            Lowl::Audio::Simd::dispatch().interleave_stereo_int16(src_l, src_r, dst, p_frames);
+            return;
+        }
+        const uint8_t channel_count = p_block.channel_count;
+        for (uint32_t frame_index = 0; frame_index < p_frames; frame_index++) {
+            for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
+                dst[static_cast<size_t>(frame_index) * channel_count + channel_index] =
+                    Lowl::Audio::SampleConverter::sample_to_int16(p_block.channel(channel_index)[frame_index]);
+            }
+        }
+    }
+
+    bool write_interleaved_generic(const Lowl::Audio::SampleFormat p_format,
+                                   const Lowl::Audio::AudioBlockView &p_block,
+                                   void *p_dst,
+                                   const uint32_t p_frames) {
+        void *write_ptr = p_dst;
+        for (uint32_t frame_index = 0; frame_index < p_frames; frame_index++) {
+            for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
+                if (!Lowl::Audio::SampleConverter::write_sample(
+                        p_format, p_block.channel(channel_index)[frame_index], &write_ptr)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 } // namespace
 
@@ -77,6 +133,7 @@ void Lowl::Audio::AudioDevice::allocate_render_buffer(const unsigned long p_fram
     published_state->audio_source = audio_source;
     const uint8_t channel_count = audio_device_properties.channel_layout.channel_count;
     published_state->render_buffer = AudioBuffer(static_cast<uint32_t>(p_frame_capacity), channel_count);
+    published_state->scratch_buffer = AudioBuffer(static_cast<uint32_t>(p_frame_capacity), channel_count);
     std::atomic_store_explicit(&render_state, std::move(published_state), std::memory_order_release);
 }
 
@@ -129,29 +186,37 @@ void Lowl::Audio::AudioDevice::render_to_device_buffer(const std::shared_ptr<Ren
     }
 
     AudioBlockView output_block = p_render_state->render_buffer.view(static_cast<uint32_t>(p_frames_per_buffer));
+    AudioBlockView scratch_block = p_render_state->scratch_buffer.view(static_cast<uint32_t>(p_frames_per_buffer));
     p_render_state->render_buffer.clear(output_block.frame_count);
-    AudioSource::RenderResult render_result = p_render_state->audio_source->render(output_block);
+    AudioSource::MixGainVector unity_gain;
+    const AudioSource::RenderResult render_result =
+        p_render_state->audio_source->mix_into(output_block, unity_gain, scratch_block);
     const uint32_t produced_frames = std::min(render_result.frames_produced, output_block.frame_count);
 
-    void *write_ptr = p_dst;
-    size_t bytes_written = 0;
-    for (uint32_t frame_index = 0; frame_index < produced_frames; frame_index++) {
-        for (uint8_t channel_index = 0; channel_index < output_block.channel_count; channel_index++) {
-            if (bytes_written + sample_size_bytes > total_bytes) {
+    switch (published_properties.sample_format) {
+        case SampleFormat::FLOAT_32:
+            write_interleaved_float32(output_block, p_dst, produced_frames);
+            break;
+        case SampleFormat::FLOAT_64:
+        case SampleFormat::INT_32:
+        case SampleFormat::INT_24:
+        case SampleFormat::INT_16:
+        case SampleFormat::INT_8:
+        case SampleFormat::U_INT_8:
+        case SampleFormat::Unknown:
+            if (published_properties.sample_format == SampleFormat::INT_16) {
+                write_interleaved_int16(output_block, p_dst, produced_frames);
+                break;
+            }
+            if (!write_interleaved_generic(published_properties.sample_format, output_block, p_dst, produced_frames)) {
                 std::memset(p_dst, 0, total_bytes);
                 return;
             }
-            const Sample sample = std::clamp(
-                output_block.channel(channel_index)[frame_index], static_cast<Sample>(-1.0), static_cast<Sample>(1.0));
-            if (!SampleConverter::write_sample(published_properties.sample_format, sample, &write_ptr)) {
-                std::memset(p_dst, 0, total_bytes);
-                return;
-            }
-            bytes_written += sample_size_bytes;
-        }
+            break;
     }
 
+    const size_t bytes_written = static_cast<size_t>(produced_frames) * expected_bytes_per_frame;
     if (bytes_written < total_bytes) {
-        std::memset(write_ptr, 0, total_bytes - bytes_written);
+        std::memset(static_cast<uint8_t *>(p_dst) + bytes_written, 0, total_bytes - bytes_written);
     }
 }

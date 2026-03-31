@@ -1,6 +1,8 @@
 #include "lowl_audio_voice.h"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <utility>
 
 void Lowl::Audio::AudioVoice::begin_control_state_transition() {
@@ -21,6 +23,13 @@ Lowl::Audio::AudioVoice::AudioVoice(std::shared_ptr<const AudioData> p_audio_dat
 }
 
 Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::render(AudioBlockView p_block) {
+    clear_block(p_block);
+    return mix_into(p_block, make_unity_gain_vector(), {});
+}
+
+Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::mix_into(AudioBlockView p_block,
+                                                                         const MixGainVector &p_upstream_gain,
+                                                                         AudioBlockView) {
     if (!audio_data) {
         published_state.update([](PublishedStateSnapshot &p_state) {
             p_state.position = 0;
@@ -72,18 +81,19 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::render(AudioBloc
     const size_t available = frame_count - current_position;
     const uint32_t frames_to_copy = static_cast<uint32_t>(std::min<size_t>(available, p_block.frame_count));
     const uint8_t channel_count = expected_channel_count;
+    const MixGainVector effective_gain = compose_gain_vector(p_upstream_gain);
 
     for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
+        const Sample gain = effective_gain[channel_index];
+        if (std::abs(gain) <= std::numeric_limits<Sample>::epsilon()) {
+            continue;
+        }
+
         const Sample *src_channel = audio_data->get_channel_data(channel_index);
         if (src_channel != nullptr) {
-            std::copy_n(src_channel + current_position, frames_to_copy, p_block.channel(channel_index));
+            mix_scaled_channel(src_channel + current_position, p_block.channel(channel_index), gain, frames_to_copy);
         }
     }
-
-    AudioBlockView produced_block = p_block;
-    produced_block.frame_count = frames_to_copy;
-    process_volume(produced_block);
-    process_panning(produced_block);
 
     current_position += frames_to_copy;
     if (current_position >= frame_count) {

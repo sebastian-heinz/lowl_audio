@@ -84,8 +84,8 @@ namespace {
 
     class MixerDetachProbe final : public Lowl::Audio::AudioSource {
     public:
-        explicit MixerDetachProbe(Lowl::Audio::ChannelLayout p_channel_layout)
-            : AudioSource(44100.0, p_channel_layout) {
+        explicit MixerDetachProbe(Lowl::Audio::ChannelLayout p_channel_layout, const Lowl::SampleRate p_sample_rate = 44100.0)
+            : AudioSource(p_sample_rate, p_channel_layout) {
         }
 
         RenderResult render(Lowl::Audio::AudioBlockView) override {
@@ -419,6 +419,19 @@ TEST_CASE("AudioStream") {
         REQUIRE_FALSE(mono_probe.detached);
         expect_mixer_ack(mixer, owner_id, mono_handle, Lowl::Audio::AudioMixerAck::Type::Rejected);
         mixer.release_handle(mono_handle);
+    }
+
+    SUBCASE("AudioMixer - mix rejects mismatched sample-rate source") {
+        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        MixerDetachProbe probe(Lowl::Audio::ChannelLayout::Stereo, 48000.0);
+        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
+        const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer, owner_id);
+
+        mixer.mix(handle, &probe);
+
+        REQUIRE_FALSE(probe.detached);
+        expect_mixer_ack(mixer, owner_id, handle, Lowl::Audio::AudioMixerAck::Type::Rejected);
+        mixer.release_handle(handle);
     }
 
     SUBCASE("AudioMixer - remove reuses a freed slot") {

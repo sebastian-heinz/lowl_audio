@@ -20,6 +20,7 @@ namespace Lowl::Audio {
             AudioDeviceProperties audio_device_properties{};
             std::shared_ptr<AudioSource> audio_source;
             AudioBuffer render_buffer{};
+            AudioBuffer scratch_buffer{};
         };
 
         virtual ~AudioDevice() = 0;

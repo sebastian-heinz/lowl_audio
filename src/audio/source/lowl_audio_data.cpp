@@ -10,7 +10,7 @@ void Lowl::Audio::AudioData::rebuild_channel_ptrs() {
         return;
     }
     for (size_t channel_index = 0; channel_index < channel_ptrs.size(); channel_index++) {
-        channel_ptrs[channel_index] = storage.get() + channel_index * frame_count;
+        channel_ptrs[channel_index] = storage.get() + channel_index * frame_stride;
     }
 }
 
@@ -18,10 +18,21 @@ Lowl::Audio::AudioData::AudioData(std::unique_ptr<Sample[]> p_storage,
                                   const size_t p_frame_count,
                                   SampleRate p_sample_rate,
                                   ChannelLayout p_channel_layout)
-    : storage(std::move(p_storage)),
-      sample_rate(p_sample_rate),
+    : sample_rate(p_sample_rate),
       channel_layout(p_channel_layout),
       frame_count(p_frame_count) {
+    const uint8_t channel_count = get_channel_count();
+    frame_stride = aligned_frame_stride(frame_count);
+    if (frame_stride > 0 && channel_count > 0) {
+        storage = allocate_aligned_samples(frame_stride * channel_count);
+        if (p_storage) {
+            for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
+                Sample *dst_channel = storage.get() + static_cast<size_t>(channel_index) * frame_stride;
+                const Sample *src_channel = p_storage.get() + static_cast<size_t>(channel_index) * frame_count;
+                std::copy_n(src_channel, frame_count, dst_channel);
+            }
+        }
+    }
     rebuild_channel_ptrs();
     name = std::string();
 }

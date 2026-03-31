@@ -16,6 +16,16 @@
 #endif
 #endif
 
+#ifndef LOWL_RESTRICT
+#if defined(__GNUC__) || defined(__clang__)
+#define LOWL_RESTRICT __restrict__
+#elif defined(_MSC_VER)
+#define LOWL_RESTRICT __restrict
+#else
+#define LOWL_RESTRICT
+#endif
+#endif
+
 namespace Lowl {
     typedef std::uint16_t uint16_l;
     typedef std::uint32_t uint32_l;
@@ -34,6 +44,7 @@ namespace Lowl {
 
     typedef uint16_l AudioAssetId;
     typedef uint16_l AudioPlaybackId;
+    typedef uint16_l AudioBusId;
     typedef double_l TimeSeconds;
     typedef uint32_l SampleCount;
 

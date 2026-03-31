@@ -17,6 +17,7 @@ It includes file readers, a mixer, streaming primitives, and `AudioSpace`, a hig
 - Float32 internal audio pipeline
 - `AudioData`, `AudioVoice`, `AudioStream`, `AudioMixer`, and `AudioSpace`
 - Per-playback controls for play, pause, resume, stop, seek, volume, and panning
+- Bus routing in `AudioSpace` with `master_bus()`, `create_bus()`, and per-bus gain/panning
 
 ## Status
 
@@ -146,7 +147,14 @@ int main() {
         return 1;
     }
 
-    const auto playback = space->create_playback(asset);
+    const auto music_bus = space->create_bus(space->master_bus());
+    if (!music_bus.is_valid()) {
+        return 1;
+    }
+
+    space->set_volume(music_bus, 0.75f);
+
+    const auto playback = space->create_playback(asset, music_bus);
     if (!playback.is_valid()) {
         return 1;
     }
@@ -172,8 +180,10 @@ For a fuller interactive example, see `demo/main.cpp`.
 
 ## Notes
 
-- `AudioSpace` keeps assets and playbacks separate. `create_playback()` gives you a playback handle for one asset instance.
+- `AudioSpace` keeps assets and playbacks separate. `create_playback()` gives you one playback instance for one asset handle.
+- `AudioSpace` exposes a master bus plus dynamically created child buses for grouping and independent control.
 - `destroy_playback()` releases a playback slot when you are done with it.
+- `destroy_bus()` retires an empty child bus; the master bus is permanent.
 - `remove_audio()` retires an asset handle; existing playbacks keep their own shared reference to decoded audio data.
 - Library initialization is one-shot. `terminate()` is process-shutdown only.
 

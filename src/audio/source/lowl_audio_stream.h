@@ -4,7 +4,6 @@
 #include <atomic>
 #include <vector>
 
-#include "audio/lowl_audio_channel.h"
 #include "audio/source/lowl_audio_source.h"
 
 namespace Lowl::Audio {
@@ -26,7 +25,7 @@ namespace Lowl::Audio {
             size_t cached_write_position = 0;
         };
 
-        std::vector<std::vector<Sample>> channels;
+        AudioBuffer ring_buffer;
         size_t frame_capacity = 0;
         size_t storage_capacity = 0;
         size_t capacity_mask = 0;
@@ -50,6 +49,9 @@ namespace Lowl::Audio {
         size_l get_frame_count() const override;
 
         RenderResult render(AudioBlockView p_block) override;
+        RenderResult mix_into(AudioBlockView p_block,
+                              const MixGainVector &p_upstream_gain,
+                              AudioBlockView p_scratch) override;
 
         size_l write_interleaved(const Sample *p_interleaved, size_t p_frame_count);
 

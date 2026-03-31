@@ -3,8 +3,8 @@
 
 #include <cassert>
 #include <array>
-#include <memory>
 
+#include "audio/lowl_audio_aligned_storage.h"
 #include "lowl_typedef.h"
 
 namespace Lowl::Audio {
@@ -28,9 +28,10 @@ namespace Lowl::Audio {
 
     class AudioBuffer {
     private:
-        std::unique_ptr<Sample[]> storage;
+        SampleStoragePtr storage;
         std::array<Sample *, AudioBlockView::MAX_CHANNELS> channel_ptrs{};
         uint32_t frame_capacity = 0;
+        uint32_t frame_stride = 0;
         uint8_t channel_count = 0;
 
         void rebuild_channel_ptrs();
@@ -44,6 +45,7 @@ namespace Lowl::Audio {
         AudioBuffer &operator=(const AudioBuffer &) = delete;
 
         uint32_t get_frame_capacity() const;
+        uint32_t get_frame_stride() const;
         uint8_t get_channel_count() const;
 
         AudioBlockView view(uint32_t p_frame_count);

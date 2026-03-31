@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "audio/lowl_audio_aligned_storage.h"
 #include "audio/lowl_audio_channel.h"
 #include "lowl_typedef.h"
 
@@ -15,11 +16,12 @@ namespace Lowl::Audio {
      */
     class AudioData {
     private:
-        std::unique_ptr<Sample[]> storage;
+        SampleStoragePtr storage;
         std::vector<Sample *> channel_ptrs;
         SampleRate sample_rate;
         ChannelLayout channel_layout;
         size_t frame_count = 0;
+        size_t frame_stride = 0;
         mutable std::mutex name_mutex;
         std::string name;
 

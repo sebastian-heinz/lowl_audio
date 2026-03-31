@@ -255,6 +255,35 @@ TEST_CASE("AudioDevice") {
         }
     }
 
+    SUBCASE("AudioDevice - INT16 stereo output converts and interleaves the mixed block") {
+        constexpr unsigned long frames_per_buffer = 2;
+        constexpr unsigned long channels = 2;
+        constexpr unsigned long bytes_per_frame = sizeof(int16_t) * channels;
+
+        std::array<int16_t, frames_per_buffer * channels> buffer{};
+        buffer.fill(static_cast<int16_t>(0x1234));
+
+        auto source = std::make_shared<ShortReadAudioSource>(
+            std::vector<StereoSample>{
+                StereoSample{0.25f, -0.25f},
+                StereoSample{-1.0f, 1.0f},
+            }
+        );
+
+        Lowl::Audio::AudioDeviceProperties properties{};
+        properties.sample_format = Lowl::Audio::SampleFormat::INT_16;
+        properties.channel_layout = Lowl::Audio::ChannelLayout::Stereo;
+
+        TestAudioDevice device;
+        device.configure(properties, source);
+        device.write(buffer.data(), frames_per_buffer, bytes_per_frame);
+
+        REQUIRE_EQ(buffer[0], static_cast<int16_t>(8191));
+        REQUIRE_EQ(buffer[1], static_cast<int16_t>(-8191));
+        REQUIRE_EQ(buffer[2], static_cast<int16_t>(-32767));
+        REQUIRE_EQ(buffer[3], static_cast<int16_t>(32767));
+    }
+
     SUBCASE("AudioDevice - published render state is independent from live configuration") {
         constexpr unsigned long frames_per_buffer = 2;
         constexpr unsigned long channels = 2;

@@ -11,25 +11,27 @@ void Lowl::Audio::AudioBuffer::rebuild_channel_ptrs() {
     }
     for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
         channel_ptrs[static_cast<size_t>(channel_index)] =
-            storage.get() + static_cast<size_t>(channel_index) * frame_capacity;
+            storage.get() + static_cast<size_t>(channel_index) * frame_stride;
     }
 }
 
 Lowl::Audio::AudioBuffer::AudioBuffer(const uint32_t p_frame_capacity, const uint8_t p_channel_count) {
     frame_capacity = p_frame_capacity;
+    frame_stride = static_cast<uint32_t>(aligned_frame_stride(p_frame_capacity));
     channel_count = std::min<uint8_t>(p_channel_count, AudioBlockView::MAX_CHANNELS);
     if (frame_capacity > 0 && channel_count > 0) {
-        storage = std::make_unique<Sample[]>(static_cast<size_t>(frame_capacity) * channel_count);
+        storage = allocate_aligned_samples(static_cast<size_t>(frame_stride) * channel_count);
         rebuild_channel_ptrs();
     }
 }
 
 Lowl::Audio::AudioBuffer::AudioBuffer(AudioBuffer &&p_other) noexcept
-    : storage(std::move(p_other.storage)), frame_capacity(p_other.frame_capacity),
+    : storage(std::move(p_other.storage)), frame_capacity(p_other.frame_capacity), frame_stride(p_other.frame_stride),
       channel_count(p_other.channel_count) {
     rebuild_channel_ptrs();
     p_other.channel_ptrs = {};
     p_other.frame_capacity = 0;
+    p_other.frame_stride = 0;
     p_other.channel_count = 0;
 }
 
@@ -39,16 +41,22 @@ Lowl::Audio::AudioBuffer &Lowl::Audio::AudioBuffer::operator=(AudioBuffer &&p_ot
     }
     storage = std::move(p_other.storage);
     frame_capacity = p_other.frame_capacity;
+    frame_stride = p_other.frame_stride;
     channel_count = p_other.channel_count;
     rebuild_channel_ptrs();
     p_other.channel_ptrs = {};
     p_other.frame_capacity = 0;
+    p_other.frame_stride = 0;
     p_other.channel_count = 0;
     return *this;
 }
 
 Lowl::uint32_l Lowl::Audio::AudioBuffer::get_frame_capacity() const {
     return frame_capacity;
+}
+
+Lowl::uint32_l Lowl::Audio::AudioBuffer::get_frame_stride() const {
+    return frame_stride;
 }
 
 uint8_t Lowl::Audio::AudioBuffer::get_channel_count() const {

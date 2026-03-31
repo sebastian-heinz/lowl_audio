@@ -415,6 +415,82 @@ TEST_CASE("AudioSpace") {
         REQUIRE_EQ(frame.right, doctest::Approx(0.5f * std::sqrt(2.0f)));
     }
 
+    SUBCASE("AudioSpace - nested buses compose gain for routed playbacks") {
+        const Lowl::AudioAssetHandle asset_handle = audio_space.add_audio(
+            make_stereo_audio_data({StereoSample{1.0f, 1.0f}}),
+            error
+        );
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE(asset_handle.is_valid());
+
+        const Lowl::AudioBusHandle parent_bus = audio_space.create_bus(audio_space.master_bus());
+        const Lowl::AudioBusHandle child_bus = audio_space.create_bus(parent_bus);
+
+        REQUIRE(parent_bus.is_valid());
+        REQUIRE(child_bus.is_valid());
+
+        const Lowl::AudioPlaybackHandle playback_handle = audio_space.create_playback(asset_handle, child_bus);
+        REQUIRE(playback_handle.is_valid());
+
+        audio_space.set_volume(parent_bus, 0.5f);
+        audio_space.set_volume(child_bus, 0.25f);
+        audio_space.play(playback_handle);
+
+        auto [result, frame] = render_one_frame(audio_space);
+        REQUIRE_EQ(result.frames_produced, 1U);
+        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Ok);
+        REQUIRE_EQ(frame.left, doctest::Approx(0.125f));
+        REQUIRE_EQ(frame.right, doctest::Approx(0.125f));
+    }
+
+    SUBCASE("AudioSpace - empty bus slots are reused with a new generation after destroy") {
+        const Lowl::AudioBusHandle first_bus = audio_space.create_bus(audio_space.master_bus());
+        REQUIRE(first_bus.is_valid());
+
+        audio_space.destroy_bus(first_bus);
+
+        auto [destroy_result, destroy_frame] = render_one_frame(audio_space);
+        REQUIRE_EQ(destroy_result.frames_produced, 0U);
+        REQUIRE_EQ(destroy_result.state, Lowl::Audio::AudioSource::RenderState::Finished);
+        REQUIRE_EQ(destroy_frame.left, doctest::Approx(0.0f));
+        REQUIRE_EQ(destroy_frame.right, doctest::Approx(0.0f));
+
+        const Lowl::AudioBusHandle second_bus = audio_space.create_bus(audio_space.master_bus());
+        REQUIRE(second_bus.is_valid());
+        REQUIRE_EQ(second_bus.id, first_bus.id);
+        REQUIRE_NE(second_bus.generation, first_bus.generation);
+    }
+
+    SUBCASE("AudioSpace - foreign bus handles are rejected across spaces") {
+        Lowl::Error other_error;
+        Lowl::Audio::AudioSpace other_audio_space(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+
+        const Lowl::AudioAssetHandle asset_handle = audio_space.add_audio(
+            make_stereo_audio_data({StereoSample{0.25f, -0.5f}}),
+            error
+        );
+
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE_FALSE(other_error.has_error());
+        REQUIRE(asset_handle.is_valid());
+
+        const Lowl::AudioBusHandle own_bus = audio_space.create_bus(audio_space.master_bus());
+        const Lowl::AudioBusHandle foreign_bus = other_audio_space.create_bus(other_audio_space.master_bus());
+
+        REQUIRE(own_bus.is_valid());
+        REQUIRE(foreign_bus.is_valid());
+        REQUIRE_EQ(own_bus.id, foreign_bus.id);
+        REQUIRE_EQ(own_bus.generation, foreign_bus.generation);
+        REQUIRE_NE(own_bus.owner_id, foreign_bus.owner_id);
+
+        REQUIRE_EQ(audio_space.create_bus(foreign_bus), Lowl::Audio::AudioSpace::InvalidAudioBusHandle);
+        REQUIRE_EQ(audio_space.create_playback(asset_handle, foreign_bus),
+                   Lowl::Audio::AudioSpace::InvalidAudioPlaybackHandle);
+        REQUIRE_EQ(audio_space.play_clip(asset_handle, foreign_bus),
+                   Lowl::Audio::AudioSpace::InvalidAudioPlaybackHandle);
+    }
+
     SUBCASE("AudioSpace - clear_all_audio retires active playbacks safely") {
         auto audio_data = make_stereo_audio_data({StereoSample{0.5f, -0.5f}});
         audio_data->set_name("one-shot");

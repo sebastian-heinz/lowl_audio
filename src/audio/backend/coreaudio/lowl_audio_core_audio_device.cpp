@@ -3,6 +3,7 @@
 #include "lowl_audio_core_audio_device.h"
 
 #include <algorithm>
+#include <cstring>
 
 #include "audio/backend/coreaudio/lowl_audio_core_audio_layout.h"
 #include "audio/backend/coreaudio/lowl_audio_core_audio_utilities.h"
@@ -12,6 +13,7 @@
 
 namespace {
     using Lowl::Audio::AudioDeviceProperties;
+    using Lowl::Audio::AudioBlockView;
     using Lowl::Audio::ChannelLayout;
 
     bool is_layout_required(const AudioDeviceProperties &p_properties) {
@@ -103,6 +105,31 @@ OSStatus Lowl::Audio::CoreAudioDevice::audio_callback(AudioUnitRenderActionFlags
     const uint32_l sample_size_bytes =
         static_cast<uint32_l>(get_sample_size_bytes(published_properties.sample_format));
     const uint32_l channels = static_cast<uint32_l>(published_properties.channel_layout.channel_count);
+    const bool can_render_non_interleaved_float32 =
+        published_properties.sample_format == Lowl::Audio::SampleFormat::FLOAT_32 && ioData->mNumberBuffers == channels;
+
+    if (can_render_non_interleaved_float32) {
+        AudioBlockView output_block{};
+        output_block.frame_count = static_cast<uint32_t>(inNumberFrames);
+        output_block.channel_count = static_cast<uint8_t>(channels);
+
+        const uint32_l bytes_per_channel = inNumberFrames * sample_size_bytes;
+        for (uint32_l channel_index = 0; channel_index < channels; channel_index++) {
+            if (ioData->mBuffers[channel_index].mData == nullptr ||
+                ioData->mBuffers[channel_index].mDataByteSize < bytes_per_channel) {
+                return kAudio_ParamError;
+            }
+            std::memset(ioData->mBuffers[channel_index].mData, 0, bytes_per_channel);
+            output_block.channels[static_cast<size_t>(channel_index)] =
+                static_cast<Lowl::Sample *>(ioData->mBuffers[channel_index].mData);
+        }
+
+        const AudioBlockView scratch_block = published_state->scratch_buffer.view(static_cast<uint32_t>(inNumberFrames));
+        Lowl::Audio::AudioSource::MixGainVector unity_gain;
+        published_state->audio_source->mix_into(output_block, unity_gain, scratch_block);
+        return noErr;
+    }
+
     const uint32_l bytes_per_frame = sample_size_bytes * channels;
 
     const uint32_l actual_bytes_needed = inNumberFrames * bytes_per_frame;
@@ -568,37 +595,49 @@ bool Lowl::Audio::CoreAudioDevice::create_description(const Lowl::Audio::AudioDe
     description.mSampleRate = p_device_properties.sample_rate;
     description.mFramesPerPacket = 1;
     description.mBitsPerChannel = static_cast<UInt32>(get_sample_size_bits(p_device_properties.sample_format));
-    description.mBytesPerPacket =
-        static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
-                            p_device_properties.channel_layout.channel_count);
-    description.mBytesPerFrame =
-        static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
-                            p_device_properties.channel_layout.channel_count);
     description.mChannelsPerFrame = static_cast<UInt32>(p_device_properties.channel_layout.channel_count);
 
     switch (p_device_properties.sample_format) {
         case Lowl::Audio::SampleFormat::FLOAT_32: {
-            description.mFormatFlags = kAudioFormatFlagsNativeFloatPacked;
+            description.mFormatFlags = kAudioFormatFlagsNativeFloatPacked | kAudioFormatFlagIsNonInterleaved;
+            description.mBytesPerPacket = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format));
+            description.mBytesPerFrame = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format));
             break;
         }
         case Lowl::Audio::SampleFormat::INT_32: {
             description.mFormatFlags =
                 kAudioFormatFlagIsSignedInteger | kAudioFormatFlagsNativeEndian | kAudioFormatFlagIsPacked;
+            description.mBytesPerPacket = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
+                                                              p_device_properties.channel_layout.channel_count);
+            description.mBytesPerFrame = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
+                                                             p_device_properties.channel_layout.channel_count);
             break;
         }
         case Lowl::Audio::SampleFormat::INT_24: {
             description.mFormatFlags =
                 kAudioFormatFlagIsSignedInteger | kAudioFormatFlagsNativeEndian | kAudioFormatFlagIsPacked;
+            description.mBytesPerPacket = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
+                                                              p_device_properties.channel_layout.channel_count);
+            description.mBytesPerFrame = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
+                                                             p_device_properties.channel_layout.channel_count);
             break;
         }
         case Lowl::Audio::SampleFormat::INT_16: {
             description.mFormatFlags =
                 kAudioFormatFlagIsSignedInteger | kAudioFormatFlagsNativeEndian | kAudioFormatFlagIsPacked;
+            description.mBytesPerPacket = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
+                                                              p_device_properties.channel_layout.channel_count);
+            description.mBytesPerFrame = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
+                                                             p_device_properties.channel_layout.channel_count);
             break;
         }
         case Lowl::Audio::SampleFormat::INT_8: {
             description.mFormatFlags =
                 kAudioFormatFlagIsSignedInteger | kAudioFormatFlagsNativeEndian | kAudioFormatFlagIsPacked;
+            description.mBytesPerPacket = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
+                                                              p_device_properties.channel_layout.channel_count);
+            description.mBytesPerFrame = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
+                                                             p_device_properties.channel_layout.channel_count);
             break;
         }
         case Lowl::Audio::SampleFormat::U_INT_8: {
@@ -606,7 +645,9 @@ bool Lowl::Audio::CoreAudioDevice::create_description(const Lowl::Audio::AudioDe
             return false;
         }
         case Lowl::Audio::SampleFormat::FLOAT_64: {
-            description.mFormatFlags = kAudioFormatFlagsNativeFloatPacked;
+            description.mFormatFlags = kAudioFormatFlagsNativeFloatPacked | kAudioFormatFlagIsNonInterleaved;
+            description.mBytesPerPacket = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format));
+            description.mBytesPerFrame = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format));
             break;
         }
         case Lowl::Audio::SampleFormat::Unknown: {

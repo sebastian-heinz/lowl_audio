@@ -187,7 +187,8 @@ void Lowl::Audio::AudioMixer::process_events() {
     }
 }
 
-Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render_mixed_block(AudioBlockView p_block) {
+Lowl::Audio::AudioSource::RenderResult
+Lowl::Audio::AudioMixer::render_mixed_block(AudioBlockView p_block, const MixGainVector &p_upstream_gain) {
     AudioBlockView scratch_view = scratch_buffer.view(p_block.frame_count);
     uint32_t produced_frames = 0;
     bool has_output = false;
@@ -202,17 +203,9 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render_mixed_blo
         }
         remaining_active_sources--;
         has_sources = true;
-        RenderResult render_result = source->render(scratch_view);
+        const RenderResult render_result = source->mix_into(p_block, p_upstream_gain, scratch_view);
         if (render_result.frames_produced > 0) {
-            const uint32_t frames_to_mix = std::min(render_result.frames_produced, p_block.frame_count);
-            for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
-                Sample *dst = p_block.channel(channel_index);
-                Sample *src = scratch_view.channel(channel_index);
-                for (uint32_t frame_index = 0; frame_index < frames_to_mix; frame_index++) {
-                    dst[frame_index] += src[frame_index];
-                }
-            }
-            produced_frames = std::max(produced_frames, frames_to_mix);
+            produced_frames = std::max(produced_frames, std::min(render_result.frames_produced, p_block.frame_count));
             has_output = true;
         } else if (render_result.state == RenderState::Finished || render_result.state == RenderState::Starved) {
             continue;
@@ -241,16 +234,12 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render_mixed_blo
         }
         return {0, has_sources ? RenderState::Starved : RenderState::Finished};
     }
-
-    AudioBlockView produced_block = p_block;
-    produced_block.frame_count = produced_frames;
-    process_volume(produced_block);
-    process_panning(produced_block);
     return {produced_frames, has_error ? RenderState::Error : RenderState::Ok};
 }
 
 Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render_chunked_block(AudioBlockView p_block,
-                                                                                     const uint32_t p_chunk_frame_count) {
+                                                                                     const uint32_t p_chunk_frame_count,
+                                                                                     const MixGainVector &p_upstream_gain) {
     bool has_output = false;
     bool has_sources = false;
     bool has_error = false;
@@ -259,7 +248,7 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render_chunked_b
     for (uint32_t frame_offset = 0; frame_offset < p_block.frame_count; frame_offset += p_chunk_frame_count) {
         const uint32_t chunk_frames = std::min<uint32_t>(p_block.frame_count - frame_offset, p_chunk_frame_count);
         const AudioBlockView output_chunk = make_sub_block_view(p_block, frame_offset, chunk_frames);
-        const RenderResult chunk_result = render_mixed_block(output_chunk);
+        const RenderResult chunk_result = render_mixed_block(output_chunk, p_upstream_gain);
         if (chunk_result.state == RenderState::Finished) {
             continue;
         }
@@ -285,6 +274,13 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render_chunked_b
 }
 
 Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render(AudioBlockView p_block) {
+    clear_block(p_block);
+    return mix_into(p_block, make_unity_gain_vector(), {});
+}
+
+Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::mix_into(AudioBlockView p_block,
+                                                                         const MixGainVector &p_upstream_gain,
+                                                                         AudioBlockView) {
     process_events();
 
     if (!playback_enabled.load(std::memory_order_relaxed)) {
@@ -300,11 +296,12 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioMixer::render(AudioBloc
     }
 
     const uint32_t scratch_frames = scratch_buffer.get_frame_capacity();
+    const MixGainVector combined_gain = compose_gain_vector(p_upstream_gain);
 
     if (p_block.frame_count <= scratch_frames) {
-        return render_mixed_block(p_block);
+        return render_mixed_block(p_block, combined_gain);
     }
-    return render_chunked_block(p_block, scratch_frames);
+    return render_chunked_block(p_block, scratch_frames, combined_gain);
 }
 
 void Lowl::Audio::AudioMixer::mix(const AudioMixerHandle p_handle, AudioSource *p_audio_source) {
@@ -339,8 +336,11 @@ void Lowl::Audio::AudioMixer::mix(const AudioMixerHandle p_handle, AudioSource *
     }
 
     if (!Lowl::Audio::sample_rates_equal(p_audio_source->get_sample_rate(), sample_rate)) {
-        LOWL_LOG_WARN("Lowl::AudioMixer::mix: p_audio_source(" + std::to_string(p_audio_source->get_sample_rate()) +
-                      ") does not match mixer(" + std::to_string(sample_rate) + ") sample rate.");
+        LOWL_LOG_ERROR("Lowl::AudioMixer::mix: source sample rate(" +
+                       std::to_string(p_audio_source->get_sample_rate()) + ") does not match mixer(" +
+                       std::to_string(sample_rate) + ").");
+        enqueue_ack({AudioMixerAck::Type::Rejected, p_handle});
+        return;
     }
 
     {
