@@ -18,15 +18,15 @@ Lowl::Audio::AudioVoice::AudioVoice(std::shared_ptr<const AudioData> p_audio_dat
       audio_data(std::move(p_audio_data)) {
     render_position.store(0, std::memory_order_relaxed);
     pause();
-    published_state.store(PublishedStateSnapshot{0, PlaybackState::Stopped, false});
+    published_state.store(PlaybackSnapshot{0, PlaybackState::Stopped, false});
 }
 
 Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::mix_into(AudioBlockView p_block,
                                                                          const MixGainVector &p_upstream_gain) {
     if (!audio_data) {
-        published_state.update([](PublishedStateSnapshot &p_state) {
-            p_state.position = 0;
-            p_state.playback_state = PlaybackState::Stopped;
+        published_state.update([](PlaybackSnapshot &p_snapshot) {
+            p_snapshot.frame_position = 0;
+            p_snapshot.playback_state = PlaybackState::Stopped;
         });
         return {0, RenderState::Remove};
     }
@@ -63,9 +63,9 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::mix_into(AudioBl
         render_position.store(0, std::memory_order_relaxed);
         if ((observed_control_state_serial & 0x1U) == 0U &&
             control_state_serial.load(std::memory_order_acquire) == observed_control_state_serial) {
-            published_state.update([](PublishedStateSnapshot &p_state) {
-                p_state.position = 0;
-                p_state.playback_state = PlaybackState::Stopped;
+            published_state.update([](PlaybackSnapshot &p_snapshot) {
+                p_snapshot.frame_position = 0;
+                p_snapshot.playback_state = PlaybackState::Stopped;
             });
         }
         return {0, RenderState::Remove};
@@ -93,9 +93,9 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::mix_into(AudioBl
         render_position.store(0, std::memory_order_relaxed);
         if ((observed_control_state_serial & 0x1U) == 0U &&
             control_state_serial.load(std::memory_order_acquire) == observed_control_state_serial) {
-            published_state.update([](PublishedStateSnapshot &p_state) {
-                p_state.position = 0;
-                p_state.playback_state = PlaybackState::Stopped;
+            published_state.update([](PlaybackSnapshot &p_snapshot) {
+                p_snapshot.frame_position = 0;
+                p_snapshot.playback_state = PlaybackState::Stopped;
             });
         }
         return {frames_to_copy, RenderState::Remove};
@@ -103,8 +103,8 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::mix_into(AudioBl
     render_position.store(current_position, std::memory_order_relaxed);
     if ((observed_control_state_serial & 0x1U) == 0U &&
         control_state_serial.load(std::memory_order_acquire) == observed_control_state_serial) {
-        published_state.update([current_position](PublishedStateSnapshot &p_state) {
-            p_state.position = static_cast<uint32_t>(current_position);
+        published_state.update([current_position](PlaybackSnapshot &p_snapshot) {
+            p_snapshot.frame_position = current_position;
         });
     }
     return {frames_to_copy, RenderState::Ok};
@@ -123,7 +123,7 @@ Lowl::size_l Lowl::Audio::AudioVoice::get_frames_remaining() const {
 }
 
 Lowl::size_l Lowl::Audio::AudioVoice::get_frame_position() const {
-    return published_state.load().position;
+    return get_playback_snapshot().frame_position;
 }
 
 Lowl::size_l Lowl::Audio::AudioVoice::get_frame_count() const {
@@ -137,8 +137,8 @@ void Lowl::Audio::AudioVoice::reset() {
     std::lock_guard<std::mutex> lock(control_state_mutex);
     begin_control_state_transition();
     pending_seek_position.store(0, std::memory_order_release);
-    published_state.update([](PublishedStateSnapshot &p_state) {
-        p_state.position = 0;
+    published_state.update([](PlaybackSnapshot &p_snapshot) {
+        p_snapshot.frame_position = 0;
     });
     end_control_state_transition();
 }
@@ -155,35 +155,39 @@ void Lowl::Audio::AudioVoice::seek_frame(size_t p_frame) {
     begin_control_state_transition();
     if (!audio_data || audio_data->get_frame_count() == 0) {
         pending_seek_position.store(0, std::memory_order_release);
-        published_state.update([](PublishedStateSnapshot &p_state) {
-            p_state.position = 0;
+        published_state.update([](PlaybackSnapshot &p_snapshot) {
+            p_snapshot.frame_position = 0;
         });
         end_control_state_transition();
         return;
     }
     target_position = std::min<size_t>(p_frame, audio_data->get_frame_count() - 1);
     pending_seek_position.store(target_position, std::memory_order_release);
-    published_state.update([target_position](PublishedStateSnapshot &p_state) {
-        p_state.position = static_cast<uint32_t>(target_position);
+    published_state.update([target_position](PlaybackSnapshot &p_snapshot) {
+        p_snapshot.frame_position = target_position;
     });
     end_control_state_transition();
 }
 
+Lowl::Audio::AudioVoice::PlaybackSnapshot Lowl::Audio::AudioVoice::get_playback_snapshot() const {
+    return published_state.load();
+}
+
 bool Lowl::Audio::AudioVoice::is_detached() const {
-    return published_state.load().detached;
+    return get_playback_snapshot().detached;
 }
 
 Lowl::Audio::AudioVoice::PlaybackState Lowl::Audio::AudioVoice::get_playback_state() const {
-    return published_state.load().playback_state;
+    return get_playback_snapshot().playback_state;
 }
 
 void Lowl::Audio::AudioVoice::restart_playback() {
     std::lock_guard<std::mutex> lock(control_state_mutex);
     begin_control_state_transition();
     pending_seek_position.store(0, std::memory_order_release);
-    published_state.update([](PublishedStateSnapshot &p_state) {
-        p_state.position = 0;
-        p_state.playback_state = PlaybackState::Playing;
+    published_state.update([](PlaybackSnapshot &p_snapshot) {
+        p_snapshot.frame_position = 0;
+        p_snapshot.playback_state = PlaybackState::Playing;
     });
     play();
     end_control_state_transition();
@@ -193,9 +197,9 @@ void Lowl::Audio::AudioVoice::pause_playback() {
     std::lock_guard<std::mutex> lock(control_state_mutex);
     begin_control_state_transition();
     pause();
-    published_state.update([](PublishedStateSnapshot &p_state) {
-        if (p_state.playback_state != PlaybackState::Stopped) {
-            p_state.playback_state = PlaybackState::Paused;
+    published_state.update([](PlaybackSnapshot &p_snapshot) {
+        if (p_snapshot.playback_state != PlaybackState::Stopped) {
+            p_snapshot.playback_state = PlaybackState::Paused;
         }
     });
     end_control_state_transition();
@@ -204,8 +208,8 @@ void Lowl::Audio::AudioVoice::pause_playback() {
 void Lowl::Audio::AudioVoice::resume_playback() {
     std::lock_guard<std::mutex> lock(control_state_mutex);
     begin_control_state_transition();
-    published_state.update([](PublishedStateSnapshot &p_state) {
-        p_state.playback_state = PlaybackState::Playing;
+    published_state.update([](PlaybackSnapshot &p_snapshot) {
+        p_snapshot.playback_state = PlaybackState::Playing;
     });
     play();
     end_control_state_transition();
@@ -216,21 +220,21 @@ void Lowl::Audio::AudioVoice::stop_playback() {
     begin_control_state_transition();
     pause();
     pending_seek_position.store(0, std::memory_order_release);
-    published_state.update([](PublishedStateSnapshot &p_state) {
-        p_state.position = 0;
-        p_state.playback_state = PlaybackState::Stopped;
+    published_state.update([](PlaybackSnapshot &p_snapshot) {
+        p_snapshot.frame_position = 0;
+        p_snapshot.playback_state = PlaybackState::Stopped;
     });
     end_control_state_transition();
 }
 
 void Lowl::Audio::AudioVoice::on_added_to_mixer() {
-    published_state.update([](PublishedStateSnapshot &p_state) {
-        p_state.detached = false;
+    published_state.update([](PlaybackSnapshot &p_snapshot) {
+        p_snapshot.detached = false;
     });
 }
 
 void Lowl::Audio::AudioVoice::on_removed_from_mixer() {
-    published_state.update([](PublishedStateSnapshot &p_state) {
-        p_state.detached = true;
+    published_state.update([](PlaybackSnapshot &p_snapshot) {
+        p_snapshot.detached = true;
     });
 }

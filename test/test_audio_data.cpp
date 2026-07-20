@@ -289,6 +289,7 @@ TEST_CASE("AudioData") {
             StereoSample{0.70f, 0.80f},
         }));
         Lowl::Audio::AudioVoice voice(long_audio);
+        voice.restart_playback();
 
         std::atomic<bool> start{false};
         std::atomic<bool> invalid_state_seen{false};
@@ -309,9 +310,9 @@ TEST_CASE("AudioData") {
             const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
             while (std::chrono::steady_clock::now() < deadline &&
                    !invalid_state_seen.load(std::memory_order_relaxed)) {
-                const Lowl::Audio::AudioVoice::PlaybackState playback_state = voice.get_playback_state();
-                const Lowl::size_l position = voice.get_frame_position();
-                if (playback_state == Lowl::Audio::AudioVoice::PlaybackState::Stopped && position != 0U) {
+                const Lowl::Audio::AudioVoice::PlaybackSnapshot snapshot = voice.get_playback_snapshot();
+                if (snapshot.playback_state == Lowl::Audio::AudioVoice::PlaybackState::Stopped &&
+                    snapshot.frame_position != 0U) {
                     invalid_state_seen.store(true, std::memory_order_relaxed);
                     return;
                 }

@@ -171,10 +171,12 @@ void Lowl::Audio::AudioSpace::retire_playback_locked(const AudioPlaybackId p_slo
         return;
     }
 
+    const AudioVoice::PlaybackSnapshot playback_snapshot =
+        p_slot.voice->get_playback_snapshot();
     const bool can_recycle_immediately =
         !p_slot.mixer_handle.is_valid() || !p_slot.mixer_submission_started ||
-        (p_slot.voice->is_detached() &&
-         p_slot.voice->get_playback_state() != AudioVoice::PlaybackState::Playing);
+        (playback_snapshot.detached &&
+         playback_snapshot.playback_state != AudioVoice::PlaybackState::Playing);
     if (can_recycle_immediately) {
         recycle_playback_locked(p_slot_id, p_slot);
         return;

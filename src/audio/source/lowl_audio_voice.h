@@ -21,14 +21,17 @@ namespace Lowl::Audio {
             Paused = 2,
         };
 
-    private:
-        static constexpr size_t NoPendingSeek = std::numeric_limits<size_t>::max();
-
-        struct PublishedStateSnapshot {
-            uint32_t position = 0;
+        /**
+         * Coherent view of the published playback state. All fields originate from one atomic load.
+         */
+        struct PlaybackSnapshot {
+            size_l frame_position = 0;
             PlaybackState playback_state = PlaybackState::Stopped;
             bool detached = false;
         };
+
+    private:
+        static constexpr size_t NoPendingSeek = std::numeric_limits<size_t>::max();
 
         class PublishedState final {
         private:
@@ -42,18 +45,18 @@ namespace Lowl::Audio {
 
             std::atomic<Storage> storage{};
 
-            static Storage pack(PublishedStateSnapshot p_state) {
-                const Storage packed_position = static_cast<Storage>(p_state.position) & PositionMask;
+            static Storage pack(const PlaybackSnapshot &p_snapshot) {
+                const Storage packed_position = static_cast<Storage>(p_snapshot.frame_position) & PositionMask;
                 const Storage packed_playback_state =
-                    (static_cast<Storage>(p_state.playback_state) & PlaybackStateMask) << PlaybackStateShift;
+                    (static_cast<Storage>(p_snapshot.playback_state) & PlaybackStateMask) << PlaybackStateShift;
                 const Storage packed_detached =
-                    (static_cast<Storage>(p_state.detached) & DetachedMask) << DetachedShift;
+                    (static_cast<Storage>(p_snapshot.detached) & DetachedMask) << DetachedShift;
                 return packed_position | packed_playback_state | packed_detached;
             }
 
-            static PublishedStateSnapshot unpack(Storage p_storage) {
-                PublishedStateSnapshot snapshot{};
-                snapshot.position = static_cast<uint32_t>(p_storage & PositionMask);
+            static PlaybackSnapshot unpack(Storage p_storage) {
+                PlaybackSnapshot snapshot{};
+                snapshot.frame_position = static_cast<size_l>(p_storage & PositionMask);
                 snapshot.playback_state =
                     static_cast<PlaybackState>((p_storage >> PlaybackStateShift) & PlaybackStateMask);
                 snapshot.detached = ((p_storage >> DetachedShift) & DetachedMask) != 0;
@@ -63,19 +66,19 @@ namespace Lowl::Audio {
         public:
             PublishedState() = default;
 
-            PublishedStateSnapshot load() const {
+            PlaybackSnapshot load() const {
                 return unpack(storage.load(std::memory_order_acquire));
             }
 
-            void store(PublishedStateSnapshot p_state) {
-                storage.store(pack(p_state), std::memory_order_release);
+            void store(const PlaybackSnapshot &p_snapshot) {
+                storage.store(pack(p_snapshot), std::memory_order_release);
             }
 
             template <typename UpdateFn>
             void update(UpdateFn &&p_update) {
                 Storage current = storage.load(std::memory_order_acquire);
                 while (true) {
-                    PublishedStateSnapshot snapshot = unpack(current);
+                    PlaybackSnapshot snapshot = unpack(current);
                     p_update(snapshot);
                     const Storage updated = pack(snapshot);
                     if (storage.compare_exchange_weak(
@@ -111,6 +114,8 @@ namespace Lowl::Audio {
         void reset();
         void seek_time(TimeSeconds p_seconds);
         void seek_frame(size_t p_frame);
+        /** Use this snapshot when a decision depends on more than one published playback field. */
+        PlaybackSnapshot get_playback_snapshot() const;
         bool is_detached() const;
         PlaybackState get_playback_state() const;
         void restart_playback();
