@@ -1,0 +1,19 @@
+# Store text files with normalized LF endings and check them out as LF.
+* text=auto eol=lf
+
+# Keep known binary assets out of text normalization.
+*.gif binary
+*.ico binary
+*.jpeg binary
+*.jpg binary
+*.pdf binary
+*.png binary
+*.flac binary
+*.mp3 binary
+*.ogg binary
+*.opus binary
+*.wav binary
+
+# Windows command scripts require CRLF for compatibility with cmd.exe.
+*.bat text eol=crlf
+*.cmd text eol=crlf

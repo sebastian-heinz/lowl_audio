@@ -88,7 +88,8 @@ namespace {
             : AudioSource(p_sample_rate, p_channel_layout) {
         }
 
-        RenderResult render(Lowl::Audio::AudioBlockView) override {
+        RenderResult mix_into(Lowl::Audio::AudioBlockView,
+                              const MixGainVector &) override {
             return {0, RenderState::Starved};
         }
 
@@ -118,12 +119,13 @@ namespace {
               sample(p_sample) {
         }
 
-        RenderResult render(Lowl::Audio::AudioBlockView p_block) override {
+        RenderResult mix_into(Lowl::Audio::AudioBlockView p_block,
+                              const MixGainVector &) override {
             if (p_block.channel_count != 2 || p_block.frame_count == 0) {
                 return {0, RenderState::Starved};
             }
-            p_block.channel(0)[0] = sample.left;
-            p_block.channel(1)[0] = sample.right;
+            p_block.channel(0)[0] += sample.left;
+            p_block.channel(1)[0] += sample.right;
             return {1, RenderState::Ok};
         }
 
@@ -586,7 +588,7 @@ TEST_CASE("AudioStream") {
         REQUIRE_EQ(rejected_count, 1);
     }
 
-    SUBCASE("AudioMixer - render chunks blocks larger than scratch capacity") {
+    SUBCASE("AudioMixer - renders frames directly without chunking") {
         Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo, 2);
         Lowl::Audio::AudioStream stereo_stream(44100.0, Lowl::Audio::ChannelLayout::Stereo, 8);
         const Lowl::uint16_l owner_id = register_mixer_owner(mixer);

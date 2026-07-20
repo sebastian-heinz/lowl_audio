@@ -133,7 +133,6 @@ void Lowl::Audio::AudioDevice::allocate_render_buffer(const unsigned long p_fram
     published_state->audio_source = audio_source;
     const uint8_t channel_count = audio_device_properties.channel_layout.channel_count;
     published_state->render_buffer = AudioBuffer(static_cast<uint32_t>(p_frame_capacity), channel_count);
-    published_state->scratch_buffer = AudioBuffer(static_cast<uint32_t>(p_frame_capacity), channel_count);
     std::atomic_store_explicit(&render_state, std::move(published_state), std::memory_order_release);
 }
 
@@ -186,11 +185,10 @@ void Lowl::Audio::AudioDevice::render_to_device_buffer(const std::shared_ptr<Ren
     }
 
     AudioBlockView output_block = p_render_state->render_buffer.view(static_cast<uint32_t>(p_frames_per_buffer));
-    AudioBlockView scratch_block = p_render_state->scratch_buffer.view(static_cast<uint32_t>(p_frames_per_buffer));
     p_render_state->render_buffer.clear(output_block.frame_count);
     AudioSource::MixGainVector unity_gain;
     const AudioSource::RenderResult render_result =
-        p_render_state->audio_source->mix_into(output_block, unity_gain, scratch_block);
+        p_render_state->audio_source->mix_into(output_block, unity_gain);
     const uint32_t produced_frames = std::min(render_result.frames_produced, output_block.frame_count);
 
     switch (published_properties.sample_format) {

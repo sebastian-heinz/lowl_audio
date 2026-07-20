@@ -102,10 +102,8 @@ namespace Lowl::Audio {
     public:
         explicit AudioVoice(std::shared_ptr<const AudioData> p_audio_data);
 
-        RenderResult render(AudioBlockView p_block) override;
         RenderResult mix_into(AudioBlockView p_block,
-                              const MixGainVector &p_upstream_gain,
-                              AudioBlockView p_scratch) override;
+                              const MixGainVector &p_upstream_gain) override;
         size_l get_frames_remaining() const override;
         size_l get_frame_position() const override;
         size_l get_frame_count() const override;

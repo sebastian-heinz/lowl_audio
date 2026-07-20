@@ -56,7 +56,6 @@ namespace Lowl::Audio {
         std::unique_ptr<AckOwnerSlot[]> ack_owners;
         BoundedMpscQueue<AudioMixerEvent, EVENT_QUEUE_CAPACITY> events{};
         std::mutex ack_owner_mutex;
-        AudioBuffer scratch_buffer;
         size_t active_source_count = 0;
 
         size_t find_source_index(AudioMixerHandle p_handle) const;
@@ -66,9 +65,6 @@ namespace Lowl::Audio {
         void remove_source(size_t p_source_index);
         void process_events();
         RenderResult render_mixed_block(AudioBlockView p_block, const MixGainVector &p_upstream_gain);
-        RenderResult render_chunked_block(AudioBlockView p_block,
-                                          uint32_t p_chunk_frame_count,
-                                          const MixGainVector &p_upstream_gain);
         void enqueue_ack(const AudioMixerAck &p_ack);
         void clear_pending_acks_locked(AckOwnerSlot &p_owner_slot);
         void reset_owner_handles_locked(AckOwnerSlot &p_owner_slot);
@@ -85,10 +81,8 @@ namespace Lowl::Audio {
         /**
          * mixes a block from all sources
          */
-        RenderResult render(AudioBlockView p_block) override;
         RenderResult mix_into(AudioBlockView p_block,
-                              const MixGainVector &p_upstream_gain,
-                              AudioBlockView p_scratch) override;
+                              const MixGainVector &p_upstream_gain) override;
 
         /**
          * adds a audio source to mix

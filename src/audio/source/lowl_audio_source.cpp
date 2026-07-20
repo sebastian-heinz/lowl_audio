@@ -64,43 +64,6 @@ Lowl::Panning Lowl::Audio::AudioSource::get_panning() const {
     return panning.load(std::memory_order_seq_cst);
 }
 
-void Lowl::Audio::AudioSource::process_volume(AudioBlockView p_block) const {
-    const Volume vol = volume.load(std::memory_order_relaxed);
-    for (uint8_t current_channel = 0; current_channel < p_block.channel_count; current_channel++) {
-        Sample *channel_data = p_block.channel(current_channel);
-        for (uint32_t frame_index = 0; frame_index < p_block.frame_count; frame_index++) {
-            channel_data[frame_index] *= vol;
-        }
-    }
-}
-
-void Lowl::Audio::AudioSource::process_panning(AudioBlockView p_block) const {
-    const Panning pan = panning.load(std::memory_order_relaxed);
-    if (std::abs(pan - DEFAULT_PANNING) <= std::numeric_limits<Volume>::epsilon() || p_block.channel_count == 0) {
-        return;
-    }
-
-    const Volume clamped = std::clamp(pan, static_cast<Volume>(-1), static_cast<Volume>(1));
-    const int left_index = channel_layout.index_of(Speaker::FrontLeft);
-    const int right_index = channel_layout.index_of(Speaker::FrontRight);
-
-    if (left_index >= 0) {
-        const Volume left_gain = static_cast<Volume>(std::sqrt(static_cast<Sample>(1) - clamped));
-        Sample *left = p_block.channel(static_cast<uint8_t>(left_index));
-        for (uint32_t frame_index = 0; frame_index < p_block.frame_count; frame_index++) {
-            left[frame_index] *= left_gain;
-        }
-    }
-
-    if (right_index >= 0) {
-        const Volume right_gain = static_cast<Volume>(std::sqrt(static_cast<Sample>(1) + clamped));
-        Sample *right = p_block.channel(static_cast<uint8_t>(right_index));
-        for (uint32_t frame_index = 0; frame_index < p_block.frame_count; frame_index++) {
-            right[frame_index] *= right_gain;
-        }
-    }
-}
-
 void Lowl::Audio::AudioSource::clear_block(AudioBlockView p_block) {
     for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
         std::fill_n(p_block.channel(channel_index), p_block.frame_count, static_cast<Sample>(0));
@@ -151,29 +114,9 @@ Lowl::Audio::AudioSource::MixGainVector Lowl::Audio::AudioSource::make_unity_gai
     return MixGainVector{};
 }
 
-Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioSource::mix_into(AudioBlockView p_block,
-                                                                          const MixGainVector &p_upstream_gain,
-                                                                          AudioBlockView p_scratch) {
-    if (p_scratch.channel_count != p_block.channel_count || p_scratch.frame_count < p_block.frame_count) {
-        return {0, RenderState::Error};
-    }
-
-    const RenderResult render_result = render(p_scratch);
-    const uint32_t frames_to_mix = std::min(render_result.frames_produced, p_block.frame_count);
-    if (frames_to_mix == 0) {
-        return {0, render_result.state};
-    }
-
-    const MixGainVector effective_gain = compose_gain_vector(p_upstream_gain);
-    for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
-        const Sample gain = effective_gain[channel_index];
-        if (std::abs(gain) <= std::numeric_limits<Sample>::epsilon()) {
-            continue;
-        }
-        mix_scaled_channel(p_scratch.channel(channel_index), p_block.channel(channel_index), gain, frames_to_mix);
-    }
-
-    return {frames_to_mix, render_result.state};
+Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioSource::render(AudioBlockView p_block) {
+    clear_block(p_block);
+    return mix_into(p_block, make_unity_gain_vector());
 }
 
 void Lowl::Audio::AudioSource::pause() {

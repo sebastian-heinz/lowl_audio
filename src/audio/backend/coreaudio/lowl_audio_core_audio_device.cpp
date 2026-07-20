@@ -124,9 +124,8 @@ OSStatus Lowl::Audio::CoreAudioDevice::audio_callback(AudioUnitRenderActionFlags
                 static_cast<Lowl::Sample *>(ioData->mBuffers[channel_index].mData);
         }
 
-        const AudioBlockView scratch_block = published_state->scratch_buffer.view(static_cast<uint32_t>(inNumberFrames));
         Lowl::Audio::AudioSource::MixGainVector unity_gain;
-        published_state->audio_source->mix_into(output_block, unity_gain, scratch_block);
+        published_state->audio_source->mix_into(output_block, unity_gain);
         return noErr;
     }
 
@@ -311,26 +310,6 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
         return;
     }
 
-    // if (p_audio_device_properties.exclusive_mode) {
-    //     pid_t output_hog_pid = CoreAudioUtilities::get_output_hog_pid(device_id, error);
-    //     if (error.has_error()) {
-    //         LOWL_LOG_ERROR_F("Device:%u - failed to check hog status", device_id);
-    //     } else if (output_hog_pid == -1) {
-    //         hog_pid = getpid();
-    //         CoreAudioUtilities::set_output_hog_device_pid(device_id, hog_pid, error);
-    //         if (error.has_error()) {
-    //             LOWL_LOG_ERROR_F("Device:%u - failed to hog", device_id);
-    //             hog_pid = CoreAudioUtilities::freeHogDevice;
-    //         } else {
-    //             LOWL_LOG_DEBUG_F("Device:%u - hogged (hog_pid:%u)", device_id, hog_pid);
-    //         }
-    //     } else {
-    //         LOWL_LOG_ERROR_F("Device:%u - failed to hog (output_hog_pid:%u, getpid():%u)",
-    //                          device_id, output_hog_pid, getpid()
-    //         );
-    //     }
-    // }
-
     CoreAudioUtilities::set_maximum_frames_per_slice(
         audio_unit, kAudioUnitScope_Input, CoreAudioUtilities::kOutputBus, frames_per_buffer, error);
     if (error.has_error()) {
@@ -348,8 +327,6 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
     }
 
     allocate_render_buffer(static_cast<unsigned long>(max_frames_per_buffer));
-
-    // todo compare set with get, to verify
 
     AURenderCallbackStruct render_callback;
     render_callback.inputProc = &osx_audio_callback;

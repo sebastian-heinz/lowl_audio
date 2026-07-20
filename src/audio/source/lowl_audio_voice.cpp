@@ -22,14 +22,8 @@ Lowl::Audio::AudioVoice::AudioVoice(std::shared_ptr<const AudioData> p_audio_dat
     published_state.store(PublishedStateSnapshot{0, PlaybackState::Stopped, false});
 }
 
-Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::render(AudioBlockView p_block) {
-    clear_block(p_block);
-    return mix_into(p_block, make_unity_gain_vector(), {});
-}
-
 Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::mix_into(AudioBlockView p_block,
-                                                                         const MixGainVector &p_upstream_gain,
-                                                                         AudioBlockView) {
+                                                                         const MixGainVector &p_upstream_gain) {
     if (!audio_data) {
         published_state.update([](PublishedStateSnapshot &p_state) {
             p_state.position = 0;

@@ -156,14 +156,8 @@ void Lowl::Audio::AudioStream::copy_planar_to_ring(const std::vector<const Sampl
     }
 }
 
-Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioStream::render(AudioBlockView p_block) {
-    clear_block(p_block);
-    return mix_into(p_block, make_unity_gain_vector(), {});
-}
-
 Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioStream::mix_into(AudioBlockView p_block,
-                                                                          const MixGainVector &p_upstream_gain,
-                                                                          AudioBlockView) {
+                                                                          const MixGainVector &p_upstream_gain) {
     if (!playback_enabled.load(std::memory_order_relaxed)) {
         return {0, RenderState::Starved};
     }

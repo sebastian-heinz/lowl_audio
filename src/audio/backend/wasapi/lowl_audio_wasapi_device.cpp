@@ -709,7 +709,6 @@ WAVEFORMATEXTENSIBLE Lowl::Audio::WasapiDevice::to_wave_format_extensible(
     wfe.Format.nSamplesPerSec = (DWORD)audio_device_properties.sample_rate;
 
     if (audio_device_properties.wasapi.valid_bits_per_sample > 0) {
-        //  wfe.Format.wBitsPerSample = audio_device_properties.wasapi.valid_bits_per_sample;
         wfe.Format.wBitsPerSample = (WORD)Lowl::Audio::get_sample_bits(audio_device_properties.sample_format);
         wfe.Samples.wValidBitsPerSample = audio_device_properties.wasapi.valid_bits_per_sample;
     } else {
@@ -800,7 +799,6 @@ Lowl::Audio::WasapiDevice::validate(IMMDevice *p_wasapi_device, const AudioDevic
         } else if (result == S_FALSE && closest_match != nullptr) {
             // properties did not work, but we have the closest match.
             ret = to_audio_device_properties(closest_match);
-            // TODO assert ret.exclusive == false
             wfe = to_wave_format_extensible(ret);
         } else {
             switch (result) {

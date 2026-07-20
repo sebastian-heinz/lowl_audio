@@ -41,13 +41,6 @@ void Lowl::Audio::WasapiDriver::create_devices(Lowl::Error &error) {
         return;
     }
 
-    // IMMDevice *device = nullptr;
-    // result = enumerator->GetDefaultAudioEndpoint(
-    //        _EDataFlow::eRender,
-    //        _ERole::eMultimedia,
-    //        &device
-    //);
-
     IMMDeviceCollection *end_points = nullptr;
     result = enumerator->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &end_points);
     if (FAILED(result)) {

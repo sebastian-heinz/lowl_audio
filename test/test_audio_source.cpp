@@ -14,7 +14,8 @@ namespace {
             : AudioSource(44100.0, Lowl::Audio::ChannelLayout::Stereo) {
         }
 
-        RenderResult render(Lowl::Audio::AudioBlockView) override {
+        RenderResult mix_into(Lowl::Audio::AudioBlockView,
+                              const MixGainVector &) override {
             return {0, RenderState::Starved};
         }
 

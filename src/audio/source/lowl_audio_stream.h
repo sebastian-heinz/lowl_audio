@@ -11,8 +11,10 @@ namespace Lowl::Audio {
      * Ring-buffer backed source for streaming sample blocks into the audio pipeline.
      */
     class AudioStream : public AudioSource {
-    private:
+    public:
         static constexpr size_t DEFAULT_STREAM_SIZE = 375000; // ~ 7 Seconds(3 MB) of stereo 32-bit float audio
+
+    private:
         static constexpr size_t CacheLineSize = 64;
 
         struct alignas(CacheLineSize) ProducerState {
@@ -48,10 +50,8 @@ namespace Lowl::Audio {
 
         size_l get_frame_count() const override;
 
-        RenderResult render(AudioBlockView p_block) override;
         RenderResult mix_into(AudioBlockView p_block,
-                              const MixGainVector &p_upstream_gain,
-                              AudioBlockView p_scratch) override;
+                              const MixGainVector &p_upstream_gain) override;
 
         size_l write_interleaved(const Sample *p_interleaved, size_t p_frame_count);
 

@@ -20,7 +20,8 @@ namespace {
             : AudioSource(44100.0, Lowl::Audio::ChannelLayout::Stereo), frames(std::move(p_frames)) {
         }
 
-        RenderResult render(Lowl::Audio::AudioBlockView p_block) override {
+        RenderResult mix_into(Lowl::Audio::AudioBlockView p_block,
+                              const MixGainVector &) override {
             if (next_frame >= frames.size() || p_block.frame_count == 0) {
                 return {0, RenderState::Finished};
             }
@@ -28,8 +29,8 @@ namespace {
             const uint32_t frames_to_copy = static_cast<uint32_t>(std::min<size_t>(frames.size() - next_frame, p_block.frame_count));
             for (uint32_t frame_index = 0; frame_index < frames_to_copy; frame_index++) {
                 const StereoSample &frame = frames[next_frame + frame_index];
-                p_block.channel(0)[frame_index] = frame.left;
-                p_block.channel(1)[frame_index] = frame.right;
+                p_block.channel(0)[frame_index] += frame.left;
+                p_block.channel(1)[frame_index] += frame.right;
             }
             next_frame += frames_to_copy;
             if (next_frame >= frames.size()) {

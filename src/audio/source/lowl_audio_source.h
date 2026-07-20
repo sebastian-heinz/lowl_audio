@@ -67,10 +67,6 @@ namespace Lowl::Audio {
         const ChannelLayout channel_layout;
         std::atomic<bool> playback_enabled{true};
 
-        void process_volume(AudioBlockView p_block) const;
-
-        void process_panning(AudioBlockView p_block) const;
-
         static void clear_block(AudioBlockView p_block);
 
         static void mix_scaled_channel(const Sample *LOWL_RESTRICT p_src,
@@ -87,11 +83,10 @@ namespace Lowl::Audio {
 
         virtual ~AudioSource() = default;
 
-        virtual RenderResult render(AudioBlockView p_block) = 0;
+        virtual RenderResult render(AudioBlockView p_block);
 
         virtual RenderResult mix_into(AudioBlockView p_block,
-                                      const MixGainVector &p_upstream_gain,
-                                      AudioBlockView p_scratch);
+                                      const MixGainVector &p_upstream_gain) = 0;
 
         virtual void on_added_to_mixer();
 

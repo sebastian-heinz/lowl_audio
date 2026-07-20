@@ -92,10 +92,11 @@ namespace {
         ConstantStereoSource() : AudioSource(kSampleRate, Lowl::Audio::ChannelLayout::Stereo) {
         }
 
-        RenderResult render(Lowl::Audio::AudioBlockView p_block) override {
+        RenderResult mix_into(Lowl::Audio::AudioBlockView p_block,
+                              const MixGainVector &) override {
             for (uint32_t frame_index = 0; frame_index < p_block.frame_count; frame_index++) {
-                p_block.channel(0)[frame_index] = 0.25f;
-                p_block.channel(1)[frame_index] = -0.25f;
+                p_block.channel(0)[frame_index] += 0.25f;
+                p_block.channel(1)[frame_index] += -0.25f;
             }
             rendered_frames += p_block.frame_count;
             return {p_block.frame_count, RenderState::Ok};
@@ -122,9 +123,10 @@ namespace {
         ConstantMonoSource() : AudioSource(kSampleRate, Lowl::Audio::ChannelLayout::Mono) {
         }
 
-        RenderResult render(Lowl::Audio::AudioBlockView p_block) override {
+        RenderResult mix_into(Lowl::Audio::AudioBlockView p_block,
+                              const MixGainVector &) override {
             for (uint32_t frame_index = 0; frame_index < p_block.frame_count; frame_index++) {
-                p_block.channel(0)[frame_index] = 0.25f;
+                p_block.channel(0)[frame_index] += 0.25f;
             }
             rendered_frames += p_block.frame_count;
             return {p_block.frame_count, RenderState::Ok};
