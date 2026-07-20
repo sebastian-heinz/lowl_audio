@@ -26,8 +26,7 @@ namespace {
     Lowl::Audio::AudioDeviceProperties make_device_properties(const Lowl::Audio::SampleFormat p_format) {
         Lowl::Audio::AudioDeviceProperties properties{};
         properties.is_supported = true;
-        properties.sample_rate = kSampleRate;
-        properties.channel_layout = Lowl::Audio::ChannelLayout::Stereo;
+        properties.audio_format = {kSampleRate, Lowl::Audio::ChannelLayout::Stereo};
         properties.sample_format = p_format;
         return properties;
     }
@@ -36,8 +35,7 @@ namespace {
                                                                const Lowl::Audio::ChannelLayout p_layout) {
         Lowl::Audio::AudioDeviceProperties properties{};
         properties.is_supported = true;
-        properties.sample_rate = kSampleRate;
-        properties.channel_layout = p_layout;
+        properties.audio_format = {kSampleRate, p_layout};
         properties.sample_format = p_format;
         return properties;
     }
@@ -55,8 +53,7 @@ namespace {
         return std::make_unique<Lowl::Audio::AudioData>(
             std::move(storage),
             p_frame_count,
-            kSampleRate,
-            Lowl::Audio::ChannelLayout::Stereo
+            Lowl::Audio::AudioFormat{kSampleRate, Lowl::Audio::ChannelLayout::Stereo}
         );
     }
 
@@ -72,8 +69,7 @@ namespace {
         return std::make_unique<Lowl::Audio::AudioData>(
             std::move(storage),
             p_frame_count,
-            kSampleRate,
-            Lowl::Audio::ChannelLayout::Mono
+            Lowl::Audio::AudioFormat{kSampleRate, Lowl::Audio::ChannelLayout::Mono}
         );
     }
 
@@ -89,7 +85,8 @@ namespace {
 
     class ConstantStereoSource final : public Lowl::Audio::AudioSource {
     public:
-        ConstantStereoSource() : AudioSource(kSampleRate, Lowl::Audio::ChannelLayout::Stereo) {
+        ConstantStereoSource()
+            : AudioSource(Lowl::Audio::AudioFormat{kSampleRate, Lowl::Audio::ChannelLayout::Stereo}) {
         }
 
         RenderResult mix_into(Lowl::Audio::AudioBlockView p_block,
@@ -120,7 +117,8 @@ namespace {
 
     class ConstantMonoSource final : public Lowl::Audio::AudioSource {
     public:
-        ConstantMonoSource() : AudioSource(kSampleRate, Lowl::Audio::ChannelLayout::Mono) {
+        ConstantMonoSource()
+            : AudioSource(Lowl::Audio::AudioFormat{kSampleRate, Lowl::Audio::ChannelLayout::Mono}) {
         }
 
         RenderResult mix_into(Lowl::Audio::AudioBlockView p_block,
@@ -241,7 +239,8 @@ namespace {
         const unsigned long bytes_per_frame = sizeof(float) * kStereoChannelCount;
         const size_t clip_frames = std::max<size_t>(frames_per_buffer * kCallbacksPerIteration * 8, 32768);
 
-        auto audio_space = std::make_shared<Lowl::Audio::AudioSpace>(kSampleRate, Lowl::Audio::ChannelLayout::Stereo);
+        auto audio_space = std::make_shared<Lowl::Audio::AudioSpace>(
+            Lowl::Audio::AudioFormat{kSampleRate, Lowl::Audio::ChannelLayout::Stereo});
         audio_space->set_volume(0.9f);
         audio_space->set_panning(0.1f);
 
@@ -309,7 +308,8 @@ namespace {
         const unsigned long bytes_per_frame = sizeof(float) * kStereoChannelCount;
         const size_t stream_capacity = std::max<size_t>(frames_per_buffer * 8, 1024);
 
-        auto stream = std::make_shared<Lowl::Audio::AudioStream>(kSampleRate, Lowl::Audio::ChannelLayout::Stereo, stream_capacity);
+        auto stream = std::make_shared<Lowl::Audio::AudioStream>(
+            Lowl::Audio::AudioFormat{kSampleRate, Lowl::Audio::ChannelLayout::Stereo}, stream_capacity);
         stream->set_volume(0.95f);
         stream->set_panning(-0.2f);
         stream->play();
@@ -353,17 +353,16 @@ namespace {
         const size_t voice_count = static_cast<size_t>(state.range(0));
         const auto frames_per_buffer = static_cast<uint32_t>(state.range(1));
 
-        auto mixer = std::make_shared<Lowl::Audio::AudioMixer>(kSampleRate, Lowl::Audio::ChannelLayout::Stereo);
+        auto mixer = std::make_shared<Lowl::Audio::AudioMixer>(
+            Lowl::Audio::AudioFormat{kSampleRate, Lowl::Audio::ChannelLayout::Stereo});
         mixer->set_volume(0.9f);
         mixer->set_panning(0.1f);
-
-        const Lowl::uint16_l owner_id = mixer->register_ack_owner();
 
         std::vector<std::shared_ptr<ConstantStereoSource>> sources;
         sources.reserve(voice_count);
         for (size_t voice_index = 0; voice_index < voice_count; voice_index++) {
             auto source = std::make_shared<ConstantStereoSource>();
-            const Lowl::AudioMixerHandle handle = mixer->allocate_handle(owner_id);
+            const Lowl::AudioMixerHandle handle = mixer->allocate_handle();
             if (!handle.is_valid()) {
                 state.SkipWithError("failed to allocate mixer handle");
                 return;
@@ -396,7 +395,8 @@ namespace {
         const unsigned long bytes_per_frame = sizeof(float) * kMonoChannelCount;
         const size_t clip_frames = std::max<size_t>(frames_per_buffer * kCallbacksPerIteration * 8, 32768);
 
-        auto audio_space = std::make_shared<Lowl::Audio::AudioSpace>(kSampleRate, Lowl::Audio::ChannelLayout::Mono);
+        auto audio_space = std::make_shared<Lowl::Audio::AudioSpace>(
+            Lowl::Audio::AudioFormat{kSampleRate, Lowl::Audio::ChannelLayout::Mono});
         audio_space->set_volume(0.9f);
 
         Lowl::Error error;
@@ -460,7 +460,8 @@ namespace {
         const unsigned long bytes_per_frame = sizeof(float) * kStereoChannelCount;
         const size_t stream_capacity = std::max<size_t>(frames_per_buffer * 8, 1024);
 
-        auto stream = std::make_shared<Lowl::Audio::AudioStream>(kSampleRate, Lowl::Audio::ChannelLayout::Stereo, stream_capacity);
+        auto stream = std::make_shared<Lowl::Audio::AudioStream>(
+            Lowl::Audio::AudioFormat{kSampleRate, Lowl::Audio::ChannelLayout::Stereo}, stream_capacity);
         stream->set_volume(0.95f);
         stream->set_panning(-0.2f);
         stream->play();
@@ -513,7 +514,8 @@ namespace {
         const unsigned long bytes_per_frame = sizeof(float) * kStereoChannelCount;
         const size_t stream_capacity = std::max<size_t>(frames_per_buffer * 8, 1024);
 
-        auto stream = std::make_shared<Lowl::Audio::AudioStream>(kSampleRate, Lowl::Audio::ChannelLayout::Stereo, stream_capacity);
+        auto stream = std::make_shared<Lowl::Audio::AudioStream>(
+            Lowl::Audio::AudioFormat{kSampleRate, Lowl::Audio::ChannelLayout::Stereo}, stream_capacity);
         stream->set_volume(0.95f);
         stream->set_panning(-0.2f);
         stream->play();

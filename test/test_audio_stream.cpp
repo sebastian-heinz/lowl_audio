@@ -66,24 +66,17 @@ namespace {
         return p_audio_space.create_playback(asset_handle);
     }
 
-    Lowl::uint16_l register_mixer_owner(Lowl::Audio::AudioMixer &p_mixer) {
-        const Lowl::uint16_l owner_id = p_mixer.register_ack_owner();
-        REQUIRE_NE(owner_id, 0);
-        return owner_id;
-    }
-
-    Lowl::AudioMixerHandle allocate_mixer_handle(Lowl::Audio::AudioMixer &p_mixer, const Lowl::uint16_l p_owner_id) {
-        const Lowl::AudioMixerHandle handle = p_mixer.allocate_handle(p_owner_id);
+    Lowl::AudioMixerHandle allocate_mixer_handle(Lowl::Audio::AudioMixer &p_mixer) {
+        const Lowl::AudioMixerHandle handle = p_mixer.allocate_handle();
         REQUIRE(handle.is_valid());
         return handle;
     }
 
     void expect_mixer_ack(Lowl::Audio::AudioMixer &p_mixer,
-                          const Lowl::uint16_l p_owner_id,
                           const Lowl::AudioMixerHandle p_handle,
                           const Lowl::Audio::AudioMixerAck::Type p_type) {
         Lowl::Audio::AudioMixerAck ack{};
-        REQUIRE(p_mixer.try_dequeue_ack(p_owner_id, ack));
+        REQUIRE(p_mixer.try_dequeue_ack(ack));
         REQUIRE(ack.handle == p_handle);
         REQUIRE_EQ(ack.type, p_type);
     }
@@ -419,26 +412,24 @@ TEST_CASE("AudioStream") {
     SUBCASE("AudioMixer - mix rejects mismatched channel source") {
         Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
         MixerDetachProbe mono_probe(Lowl::Audio::ChannelLayout::Mono);
-        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
-        const Lowl::AudioMixerHandle mono_handle = allocate_mixer_handle(mixer, owner_id);
+        const Lowl::AudioMixerHandle mono_handle = allocate_mixer_handle(mixer);
 
         mixer.mix(mono_handle, &mono_probe);
 
         REQUIRE_FALSE(mono_probe.detached);
-        expect_mixer_ack(mixer, owner_id, mono_handle, Lowl::Audio::AudioMixerAck::Type::Rejected);
+        expect_mixer_ack(mixer, mono_handle, Lowl::Audio::AudioMixerAck::Type::Rejected);
         mixer.release_handle(mono_handle);
     }
 
     SUBCASE("AudioMixer - mix rejects mismatched sample-rate source") {
         Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
         MixerDetachProbe probe(Lowl::Audio::ChannelLayout::Stereo, 48000.0);
-        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
-        const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer, owner_id);
+        const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer);
 
         mixer.mix(handle, &probe);
 
         REQUIRE_FALSE(probe.detached);
-        expect_mixer_ack(mixer, owner_id, handle, Lowl::Audio::AudioMixerAck::Type::Rejected);
+        expect_mixer_ack(mixer, handle, Lowl::Audio::AudioMixerAck::Type::Rejected);
         mixer.release_handle(handle);
     }
 
@@ -447,10 +438,9 @@ TEST_CASE("AudioStream") {
         ConstantMixerSource source_a({0.25f, 0.25f});
         ConstantMixerSource source_b({0.50f, 0.50f});
         ConstantMixerSource source_c({0.75f, 0.75f});
-        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
-        const Lowl::AudioMixerHandle handle_a = allocate_mixer_handle(mixer, owner_id);
-        const Lowl::AudioMixerHandle handle_b = allocate_mixer_handle(mixer, owner_id);
-        const Lowl::AudioMixerHandle handle_c = allocate_mixer_handle(mixer, owner_id);
+        const Lowl::AudioMixerHandle handle_a = allocate_mixer_handle(mixer);
+        const Lowl::AudioMixerHandle handle_b = allocate_mixer_handle(mixer);
+        const Lowl::AudioMixerHandle handle_c = allocate_mixer_handle(mixer);
 
         Lowl::Audio::AudioBuffer buffer(1, 2);
         Lowl::Audio::AudioBlockView block = buffer.view(1);
@@ -474,9 +464,9 @@ TEST_CASE("AudioStream") {
         REQUIRE_EQ(second_result.state, Lowl::Audio::AudioSource::RenderState::Ok);
         REQUIRE_EQ(block.channel(0)[0], doctest::Approx(1.0f));
         REQUIRE_EQ(block.channel(1)[0], doctest::Approx(1.0f));
-        expect_mixer_ack(mixer, owner_id, handle_b, Lowl::Audio::AudioMixerAck::Type::Removed);
+        expect_mixer_ack(mixer, handle_b, Lowl::Audio::AudioMixerAck::Type::Removed);
         mixer.release_handle(handle_b);
-        const Lowl::AudioMixerHandle recycled_handle = allocate_mixer_handle(mixer, owner_id);
+        const Lowl::AudioMixerHandle recycled_handle = allocate_mixer_handle(mixer);
         REQUIRE_EQ(recycled_handle.playback_id, handle_b.playback_id);
         REQUIRE_NE(recycled_handle.generation, handle_b.generation);
         mixer.release_handle(recycled_handle);
@@ -486,8 +476,7 @@ TEST_CASE("AudioStream") {
         Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
         ConstantMixerSource source_a({0.25f, 0.25f});
         ConstantMixerSource source_b({0.50f, 0.50f});
-        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
-        const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer, owner_id);
+        const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer);
 
         Lowl::Audio::AudioBuffer buffer(1, 2);
         Lowl::Audio::AudioBlockView block = buffer.view(1);
@@ -500,7 +489,7 @@ TEST_CASE("AudioStream") {
         REQUIRE_EQ(block.channel(1)[0], doctest::Approx(0.25f));
 
         mixer.mix(handle, &source_b);
-        expect_mixer_ack(mixer, owner_id, handle, Lowl::Audio::AudioMixerAck::Type::Rejected);
+        expect_mixer_ack(mixer, handle, Lowl::Audio::AudioMixerAck::Type::Rejected);
 
         buffer.clear(1);
         Lowl::Audio::AudioSource::RenderResult second_result = mixer.render(block);
@@ -512,8 +501,7 @@ TEST_CASE("AudioStream") {
     SUBCASE("AudioMixer - duplicate mix events for the same handle and source are idempotent") {
         Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
         ConstantMixerSource source({0.25f, 0.25f});
-        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
-        const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer, owner_id);
+        const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer);
 
         mixer.mix(handle, &source);
         mixer.mix(handle, &source);
@@ -528,40 +516,58 @@ TEST_CASE("AudioStream") {
         REQUIRE_EQ(block.channel(1)[0], doctest::Approx(0.25f));
 
         Lowl::Audio::AudioMixerAck ack{};
-        REQUIRE_FALSE(mixer.try_dequeue_ack(owner_id, ack));
+        REQUIRE_FALSE(mixer.try_dequeue_ack(ack));
     }
 
     SUBCASE("AudioMixer - released handles are rejected") {
         Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
         ConstantMixerSource source({0.25f, 0.25f});
-        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
-        const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer, owner_id);
+        const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer);
 
         mixer.release_handle(handle);
         mixer.mix(handle, &source);
 
-        expect_mixer_ack(mixer, owner_id, handle, Lowl::Audio::AudioMixerAck::Type::Rejected);
+        expect_mixer_ack(mixer, handle, Lowl::Audio::AudioMixerAck::Type::Rejected);
     }
 
-    SUBCASE("AudioMixer - ack owner lifecycle invalidates old handles and allows reuse") {
+    SUBCASE("AudioMixer - handles are scoped to one mixer") {
+        Lowl::Audio::AudioMixer first_mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
+        Lowl::Audio::AudioMixer second_mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
+        ConstantMixerSource source({0.25f, 0.25f});
+        const Lowl::AudioMixerHandle first_handle = allocate_mixer_handle(first_mixer);
+        const Lowl::AudioMixerHandle second_handle = allocate_mixer_handle(second_mixer);
+
+        REQUIRE_EQ(first_handle.playback_id, second_handle.playback_id);
+        REQUIRE_EQ(first_handle.generation, second_handle.generation);
+        REQUIRE_NE(first_handle.mixer_id, second_handle.mixer_id);
+
+        second_mixer.mix(first_handle, &source);
+        expect_mixer_ack(second_mixer, first_handle, Lowl::Audio::AudioMixerAck::Type::Rejected);
+
+        second_mixer.release_handle(first_handle);
+        second_mixer.mix(second_handle, &source);
+
+        Lowl::Audio::AudioBuffer buffer(1, 2);
+        Lowl::Audio::AudioBlockView block = buffer.view(1);
+        buffer.clear(1);
+        const Lowl::Audio::AudioSource::RenderResult result = second_mixer.render(block);
+        REQUIRE_EQ(result.frames_produced, 1U);
+        REQUIRE_EQ(block.channel(0)[0], doctest::Approx(0.25f));
+        REQUIRE_EQ(block.channel(1)[0], doctest::Approx(0.25f));
+    }
+
+    SUBCASE("AudioMixer - released handle slots are reused with a new generation") {
         Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
-        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
-        const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer, owner_id);
+        const Lowl::AudioMixerHandle first_handle = allocate_mixer_handle(mixer);
+        mixer.release_handle(first_handle);
 
-        mixer.unregister_ack_owner(owner_id);
-
-        Lowl::Audio::AudioMixerAck ack{};
-        REQUIRE_FALSE(mixer.try_dequeue_ack(owner_id, ack));
-        REQUIRE_FALSE(mixer.allocate_handle(owner_id).is_valid());
-
-        const Lowl::uint16_l reused_owner_id = register_mixer_owner(mixer);
-        REQUIRE_NE(reused_owner_id, 0);
-        REQUIRE(allocate_mixer_handle(mixer, reused_owner_id).is_valid());
+        const Lowl::AudioMixerHandle second_handle = allocate_mixer_handle(mixer);
+        REQUIRE_EQ(second_handle.playback_id, first_handle.playback_id);
+        REQUIRE_NE(second_handle.generation, first_handle.generation);
     }
 
     SUBCASE("AudioMixer - rejects sources beyond the active source limit") {
         Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
-        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
 
         std::vector<Lowl::AudioMixerHandle> handles;
         std::vector<std::unique_ptr<ConstantMixerSource>> sources;
@@ -569,7 +575,7 @@ TEST_CASE("AudioStream") {
         sources.reserve(1025);
 
         for (size_t index = 0; index < 1025; index++) {
-            handles.push_back(allocate_mixer_handle(mixer, owner_id));
+            handles.push_back(allocate_mixer_handle(mixer));
             sources.push_back(std::make_unique<ConstantMixerSource>(StereoSample{1.0f, 1.0f}));
             mixer.mix(handles.back(), sources.back().get());
         }
@@ -586,7 +592,7 @@ TEST_CASE("AudioStream") {
 
         int rejected_count = 0;
         Lowl::Audio::AudioMixerAck ack{};
-        while (mixer.try_dequeue_ack(owner_id, ack)) {
+        while (mixer.try_dequeue_ack(ack)) {
             if (ack.type == Lowl::Audio::AudioMixerAck::Type::Rejected) {
                 rejected_count++;
             }
@@ -597,8 +603,7 @@ TEST_CASE("AudioStream") {
     SUBCASE("AudioMixer - renders frames directly without chunking") {
         Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo), 2);
         Lowl::Audio::AudioStream stereo_stream(make_audio_format(Lowl::Audio::ChannelLayout::Stereo), 8);
-        const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
-        const Lowl::AudioMixerHandle stream_handle = allocate_mixer_handle(mixer, owner_id);
+        const Lowl::AudioMixerHandle stream_handle = allocate_mixer_handle(mixer);
         const Lowl::Sample samples[] = {
             0.1f, -0.1f,
             0.2f, -0.2f,
@@ -654,15 +659,12 @@ TEST_CASE("AudioStream") {
         Lowl::Audio::AudioStream stream_a(make_audio_format(channel), 16);
         Lowl::Audio::AudioStream stream_b0(make_audio_format(channel), 16);
         Lowl::Audio::AudioStream stream_b1(make_audio_format(channel), 16);
-        const Lowl::uint16_l owner_a = register_mixer_owner(mixer_a);
-        const Lowl::uint16_l owner_b = register_mixer_owner(mixer_b);
-        const Lowl::uint16_l owner_c = register_mixer_owner(mixer_c);
-        const Lowl::AudioMixerHandle audio_space_handle = allocate_mixer_handle(mixer_a, owner_a);
-        const Lowl::AudioMixerHandle stream_a_handle = allocate_mixer_handle(mixer_a, owner_a);
-        const Lowl::AudioMixerHandle stream_b0_handle = allocate_mixer_handle(mixer_b, owner_b);
-        const Lowl::AudioMixerHandle stream_b1_handle = allocate_mixer_handle(mixer_b, owner_b);
-        const Lowl::AudioMixerHandle mixer_a_handle = allocate_mixer_handle(mixer_c, owner_c);
-        const Lowl::AudioMixerHandle mixer_b_handle = allocate_mixer_handle(mixer_c, owner_c);
+        const Lowl::AudioMixerHandle audio_space_handle = allocate_mixer_handle(mixer_a);
+        const Lowl::AudioMixerHandle stream_a_handle = allocate_mixer_handle(mixer_a);
+        const Lowl::AudioMixerHandle stream_b0_handle = allocate_mixer_handle(mixer_b);
+        const Lowl::AudioMixerHandle stream_b1_handle = allocate_mixer_handle(mixer_b);
+        const Lowl::AudioMixerHandle mixer_a_handle = allocate_mixer_handle(mixer_c);
+        const Lowl::AudioMixerHandle mixer_b_handle = allocate_mixer_handle(mixer_c);
 
         const std::vector<Lowl::Sample> space_frames = make_interleaved_frames(100, 10, 1);
         const std::vector<Lowl::Sample> stream_a_frames = make_interleaved_frames(20, 4, 2);

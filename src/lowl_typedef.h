@@ -44,8 +44,6 @@ namespace Lowl {
 
     typedef uint16_l AudioAssetId;
     typedef uint16_l AudioPlaybackId;
-    typedef uint16_l AudioBusId;
-    typedef uint16_l AudioStreamId;
     typedef double_l TimeSeconds;
     typedef uint32_l SampleCount;
 

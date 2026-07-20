@@ -3,7 +3,6 @@
 
 #include <array>
 #include <atomic>
-#include <memory>
 #include <mutex>
 #include <vector>
 
@@ -17,6 +16,9 @@ namespace Lowl::Audio {
     /**
      * Mixes multiple active sources into a single renderable output stream.
      *
+     * One controller owns each Mixer instance. Connections use Mixer-scoped, generation-safe
+     * handles and share one acknowledgement path; there is no controller/owner registry.
+     *
      * This is a live aggregate source with no finite total frame count. Its frame-count queries
      * therefore use a one-frame sentinel so callers can treat it as renderable without observing
      * `frames_remaining > frame_count`.
@@ -24,9 +26,8 @@ namespace Lowl::Audio {
     class AudioMixer : public AudioSource {
     private:
         static constexpr size_t MAX_ACTIVE_SOURCES = 1024;
-        static constexpr size_t MAX_ACK_OWNERS = 64;
-        static constexpr size_t EVENT_QUEUE_CAPACITY = MAX_ACTIVE_SOURCES * 4;
-        static constexpr size_t ACK_QUEUE_CAPACITY = EVENT_QUEUE_CAPACITY * 2;
+        static constexpr size_t EVENT_QUEUE_CAPACITY = MAX_ACTIVE_SOURCES * 2;
+        static constexpr size_t ACK_QUEUE_CAPACITY = MAX_ACTIVE_SOURCES * 2;
         static constexpr size_t InvalidSourceIndex = MAX_ACTIVE_SOURCES;
         static constexpr AudioPlaybackId InvalidHandleId = 0;
         static constexpr AudioPlaybackId FirstHandleId = 1;
@@ -43,19 +44,15 @@ namespace Lowl::Audio {
             bool allocated = false;
         };
 
-        struct AckOwnerSlot {
-            std::atomic<bool> registered{false};
-            BoundedMpscQueue<AudioMixerAck, ACK_QUEUE_CAPACITY> acknowledgements{};
-            std::atomic<bool> queued_ack_overflow{false};
-            std::vector<HandleSlot> handles;
-            std::vector<AudioPlaybackId> free_handle_ids;
-            AudioPlaybackId next_handle_id = FirstHandleId;
-        };
-
         std::array<ActiveSourceSlot, MAX_ACTIVE_SOURCES> sources{};
-        std::unique_ptr<AckOwnerSlot[]> ack_owners;
+        std::vector<HandleSlot> handles;
+        std::vector<AudioPlaybackId> free_handle_ids;
         BoundedMpscQueue<AudioMixerEvent, EVENT_QUEUE_CAPACITY> events{};
-        std::mutex ack_owner_mutex;
+        BoundedMpscQueue<AudioMixerAck, ACK_QUEUE_CAPACITY> acknowledgements{};
+        std::atomic<bool> queued_ack_overflow{false};
+        std::mutex control_mutex;
+        uint32_l mixer_id;
+        AudioPlaybackId next_handle_id = FirstHandleId;
         size_t active_source_count = 0;
 
         size_t find_source_index(AudioMixerHandle p_handle) const;
@@ -66,8 +63,6 @@ namespace Lowl::Audio {
         void process_events();
         RenderResult render_mixed_block(AudioBlockView p_block, const MixGainVector &p_upstream_gain);
         void enqueue_ack(const AudioMixerAck &p_ack);
-        void clear_pending_acks_locked(AckOwnerSlot &p_owner_slot);
-        void reset_owner_handles_locked(AckOwnerSlot &p_owner_slot);
 
     public:
         static constexpr uint32_t DefaultScratchBufferCapacity = 16384;
@@ -101,19 +96,13 @@ namespace Lowl::Audio {
         virtual void remove(AudioMixerHandle p_handle);
         virtual void remove(AudioMixerHandle p_handle, bool p_acknowledge_removal);
 
-        uint16_l register_ack_owner();
-        /**
-         * Owners must unregister only after all of their handles have received a
-         * terminal acknowledgement and been released.
-         */
-        void unregister_ack_owner(uint16_l p_owner_id);
-        AudioMixerHandle allocate_handle(uint16_l p_owner_id);
+        AudioMixerHandle allocate_handle();
         /**
          * Releases a caller-owned handle after the matching source has been retired
          * and its terminal acknowledgement has been observed.
          */
         void release_handle(AudioMixerHandle p_handle);
-        bool try_dequeue_ack(uint16_l p_owner_id, AudioMixerAck &p_ack);
+        bool try_dequeue_ack(AudioMixerAck &p_ack);
 
         explicit AudioMixer(AudioFormat p_audio_format,
                             uint32_t p_scratch_buffer_capacity = DefaultScratchBufferCapacity);

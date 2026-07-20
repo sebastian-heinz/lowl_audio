@@ -60,7 +60,6 @@ set(LOWL_SOURCES
         src/audio/reader/lowl_audio_reader_opus.cpp
         src/audio/reader/lowl_audio_reader_wav.cpp
 
-        src/audio/source/lowl_audio_bus.cpp
         src/audio/source/lowl_audio_data.cpp
         src/audio/source/lowl_audio_mixer.cpp
         src/audio/source/lowl_audio_source.cpp

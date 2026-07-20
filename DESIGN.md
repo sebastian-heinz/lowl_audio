@@ -2,7 +2,7 @@
 
 **Directive date:** 2026-07-20
 
-> **Implementation directive:** Use one `Mixer` node implementation and instantiate it as many times as the graph requires. `AudioBus` must not remain as a separate render or control implementation. A “bus” may exist as a user-facing name, handle, or convenience facade for a `Mixer` instance, but it must not duplicate mixing, connection, queue, handle, or acknowledgement machinery. New architecture work must converge on this model and must not extend the existing Bus/Mixer split.
+> **Implementation directive:** Use one `Mixer` node implementation and instantiate it as many times as the graph requires. Do not add an `AudioBus` class, `AudioBusHandle`, `create_bus()` facade, or a second render/control implementation. Callers that need a submix create another Mixer and connect it explicitly. Each `AudioSpace` owns exactly one private Mixer for its voices and owns no external graph topology.
 
 ## Core Concept
 
@@ -29,7 +29,7 @@ Adding a new node type = implementing one interface.
 
 **Stream** — SPSC lock-free ring buffer. External producer writes interleaved or planar samples from any thread. Render thread consumes. Has volume, panning.
 
-**Space** — Game audio manager. Preload assets into memory. Spawn playback instances, get handles back. Per-handle control: play, pause, stop, seek, reset, loop, volume, panning, query position/remaining. The Space itself is a source node with its own volume/panning that scales all its children.
+**Space** — Game-oriented, managed polyphonic source. Registering an asset decodes it and converts its sample rate and channel layout to the Space AudioFormat before publishing an asset handle. Playback creates a Voice managed through a generation-safe playback handle. Per-handle control: play, pause, stop, seek, reset, loop, volume, panning, query position/remaining. Each Space owns exactly one private Mixer for these Voices. The Space itself is a source node with volume/panning that scales all of its Voices. It does not own Streams, submixers, or external graph topology.
 
 ### Processing Nodes (1 input → 1 output)
 
@@ -52,11 +52,11 @@ Adding a new node type = implementing one interface.
 
 There is one Mixer implementation and any number of Mixer instances. This does not mean one global mixer. Logical volume groups are ordinary Mixer instances: an “SFX” mixer and a “Music” mixer can both feed a “Master” mixer. A Mixer can therefore consume another Mixer exactly as it consumes any other compatible source node.
 
-“Bus” describes the role of a Mixer instance; it is not a separate node type. If compatibility or ergonomics require APIs such as `create_bus()` or `AudioBusHandle`, they must be thin facades over Mixer nodes and the generic graph connection model. They must not introduce an `AudioBus` render class or a second control plane.
+“Bus” may describe the role of a Mixer instance in application terminology, but it is not a library node or handle type. The caller creates and connects that Mixer directly.
 
 For gain-only hierarchy, Mixers propagate composed gain down to their inputs and those inputs accumulate directly into the downstream output block. A Mixer does not allocate, clear, or copy through an intermediate audio buffer merely because it is nested. Intermediate buffers are introduced only by processing that requires them, such as effects, resampling, channel mapping, or deliberate render caching.
 
-Graph or controller code owns connection lifetime, mutation ordering, and user-facing handles. Ownership differences between callers must not produce different Mixer implementations. The render-side Mixer owns only the fixed-capacity input state needed to sum its active inputs safely.
+Graph or controller code owns connection lifetime, mutation ordering, and user-facing handles. Each Mixer has one controller, one generation-safe input-handle table, and one acknowledgement queue; it does not register multiple acknowledgement owners. Ownership differences between callers must not produce different Mixer implementations. The render-side Mixer owns only the fixed-capacity input state needed to sum its active inputs safely.
 
 ### Sink Nodes (1 input → 0 outputs)
 
@@ -124,7 +124,7 @@ Implementation only. No tests, benchmarks, or test harnesses until the core libr
 - Panning is gain scaling within the node's own channel layout. No implicit upmixing. Channel conversion is always explicit via a ChannelMap node.
 - AudioFormat (sample_rate + channel_layout) must match on both ends of every connection. Format-converting nodes (Resampler, ChannelMap) are the bridges — they have different AudioFormats on input vs output.
 - Format names have one responsibility: FileFormat identifies encoded input, SampleFormat identifies a boundary scalar representation, and AudioFormat identifies graph compatibility. Encoded file or decoder tags never enter the graph.
-- One Mixer implementation, instantiated as many times as needed; not one global Mixer and not separate Bus + Mixer classes. The current split exists only because Space is single-owner while Mixer is multi-owner. That control-plane distinction does not justify duplicated render or connection machinery. The existing `AudioBus` implementation is transitional and must be removed rather than extended.
-- Space is a source node in the graph, not a god object that owns the graph. It manages assets and playback handles. Graph topology is the caller's responsibility.
+- One Mixer implementation, instantiated as many times as needed; not one global Mixer, not separate Bus + Mixer classes, and no bus facade. Each Mixer has a single controller and a single acknowledgement path.
+- Space is a source node in the graph, not a god object that owns the graph. It preprocesses registered assets into one AudioFormat, manages Voices through asset/playback IDs, and owns one private Mixer. It does not manage Streams or submixers. Graph topology is the caller's responsibility.
 - Spatializer is a processing node, not part of Space. Listener and emitter are just parameters on the node, not shared state. The library has no concept of scenes or listeners.
 - Clean rewrite over incremental refactor. The structural problems (Bus/Mixer duplication, AudioSpace as god object, double handle indirection) are load-bearing and not fixable incrementally. The proven lock-free primitives (ring buffer, event queues, gain caching) are portable to the new design.

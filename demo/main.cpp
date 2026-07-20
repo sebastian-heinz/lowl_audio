@@ -49,9 +49,10 @@ namespace {
 } // namespace
 
 void print_audio_properties(const Lowl::Audio::AudioDeviceProperties &p_device_properties) {
-    std::cout << "-- SampleRate:" << std::to_string(p_device_properties.sample_rate) << "\n";
-    std::cout << "-- Channel:" << std::to_string(p_device_properties.channel_layout.channel_count) << "\n";
-    std::cout << "-- ChannelLayout:" << p_device_properties.channel_layout.to_string() << "\n";
+    std::cout << "-- SampleRate:" << std::to_string(p_device_properties.audio_format.sample_rate) << "\n";
+    std::cout << "-- Channel:"
+              << std::to_string(p_device_properties.audio_format.channel_layout.channel_count) << "\n";
+    std::cout << "-- ChannelLayout:" << p_device_properties.audio_format.channel_layout.to_string() << "\n";
     std::cout << "-- SampleFormat:" << Lowl::Audio::sample_format_to_string(p_device_properties.sample_format) << "\n";
     std::cout << "-- Exclusive:" << (p_device_properties.exclusive_mode ? "TRUE" : "FALSE") << "\n";
 }
@@ -63,7 +64,7 @@ void space(std::shared_ptr<Lowl::Audio::AudioDevice> device,
            Lowl::Audio::AudioDeviceProperties p_device_properties,
            const DemoConfig &p_config) {
     std::shared_ptr<Lowl::Audio::AudioSpace> audio_space =
-        std::make_shared<Lowl::Audio::AudioSpace>(p_device_properties.sample_rate, p_device_properties.channel_layout);
+        std::make_shared<Lowl::Audio::AudioSpace>(p_device_properties.audio_format);
     Lowl::Error error;
     struct PlaybackEntry {
         Lowl::AudioAssetHandle asset_handle = Lowl::Audio::AudioSpace::InvalidAudioAssetHandle;

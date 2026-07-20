@@ -415,83 +415,6 @@ TEST_CASE("AudioSpace") {
         REQUIRE_EQ(frame.right, doctest::Approx(0.5f * std::sqrt(2.0f)));
     }
 
-    SUBCASE("AudioSpace - nested buses compose gain for routed playbacks") {
-        const Lowl::AudioAssetHandle asset_handle = audio_space.add_audio(
-            make_stereo_audio_data({StereoSample{1.0f, 1.0f}}),
-            error
-        );
-
-        REQUIRE_FALSE(error.has_error());
-        REQUIRE(asset_handle.is_valid());
-
-        const Lowl::AudioBusHandle parent_bus = audio_space.create_bus(audio_space.master_bus());
-        const Lowl::AudioBusHandle child_bus = audio_space.create_bus(parent_bus);
-
-        REQUIRE(parent_bus.is_valid());
-        REQUIRE(child_bus.is_valid());
-
-        const Lowl::AudioPlaybackHandle playback_handle = audio_space.create_playback(asset_handle, child_bus);
-        REQUIRE(playback_handle.is_valid());
-
-        audio_space.set_volume(parent_bus, 0.5f);
-        audio_space.set_volume(child_bus, 0.25f);
-        audio_space.play(playback_handle);
-
-        auto [result, frame] = render_one_frame(audio_space);
-        REQUIRE_EQ(result.frames_produced, 1U);
-        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Ok);
-        REQUIRE_EQ(frame.left, doctest::Approx(0.125f));
-        REQUIRE_EQ(frame.right, doctest::Approx(0.125f));
-    }
-
-    SUBCASE("AudioSpace - empty bus slots are reused with a new generation after destroy") {
-        const Lowl::AudioBusHandle first_bus = audio_space.create_bus(audio_space.master_bus());
-        REQUIRE(first_bus.is_valid());
-
-        audio_space.destroy_bus(first_bus);
-
-        auto [destroy_result, destroy_frame] = render_one_frame(audio_space);
-        REQUIRE_EQ(destroy_result.frames_produced, 0U);
-        REQUIRE_EQ(destroy_result.state, Lowl::Audio::AudioSource::RenderState::Finished);
-        REQUIRE_EQ(destroy_frame.left, doctest::Approx(0.0f));
-        REQUIRE_EQ(destroy_frame.right, doctest::Approx(0.0f));
-
-        const Lowl::AudioBusHandle second_bus = audio_space.create_bus(audio_space.master_bus());
-        REQUIRE(second_bus.is_valid());
-        REQUIRE_EQ(second_bus.id, first_bus.id);
-        REQUIRE_NE(second_bus.generation, first_bus.generation);
-    }
-
-    SUBCASE("AudioSpace - foreign bus handles are rejected across spaces") {
-        Lowl::Error other_error;
-        Lowl::Audio::AudioSpace other_audio_space(
-            Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo});
-
-        const Lowl::AudioAssetHandle asset_handle = audio_space.add_audio(
-            make_stereo_audio_data({StereoSample{0.25f, -0.5f}}),
-            error
-        );
-
-        REQUIRE_FALSE(error.has_error());
-        REQUIRE_FALSE(other_error.has_error());
-        REQUIRE(asset_handle.is_valid());
-
-        const Lowl::AudioBusHandle own_bus = audio_space.create_bus(audio_space.master_bus());
-        const Lowl::AudioBusHandle foreign_bus = other_audio_space.create_bus(other_audio_space.master_bus());
-
-        REQUIRE(own_bus.is_valid());
-        REQUIRE(foreign_bus.is_valid());
-        REQUIRE_EQ(own_bus.id, foreign_bus.id);
-        REQUIRE_EQ(own_bus.generation, foreign_bus.generation);
-        REQUIRE_NE(own_bus.owner_id, foreign_bus.owner_id);
-
-        REQUIRE_EQ(audio_space.create_bus(foreign_bus), Lowl::Audio::AudioSpace::InvalidAudioBusHandle);
-        REQUIRE_EQ(audio_space.create_playback(asset_handle, foreign_bus),
-                   Lowl::Audio::AudioSpace::InvalidAudioPlaybackHandle);
-        REQUIRE_EQ(audio_space.play_clip(asset_handle, foreign_bus),
-                   Lowl::Audio::AudioSpace::InvalidAudioPlaybackHandle);
-    }
-
     SUBCASE("AudioSpace - clear_all_audio retires active playbacks safely") {
         auto audio_data = make_stereo_audio_data({StereoSample{0.5f, -0.5f}});
         audio_data->set_name("one-shot");
@@ -730,188 +653,33 @@ TEST_CASE("AudioSpace") {
         REQUIRE_GT(other_audio_space.get_frame_count(second_playback), 0U);
     }
 
-    SUBCASE("AudioSpace - stream writes interleaved data to the master bus") {
-        const Lowl::AudioStreamHandle stream_handle = audio_space.create_stream();
-        REQUIRE(stream_handle.is_valid());
-
-        const Lowl::Sample interleaved[] = {0.25f, 0.50f};
-        const Lowl::size_l written = audio_space.write_stream_interleaved(stream_handle, interleaved, 1);
-        REQUIRE_EQ(written, 1U);
-
-        auto [result, frame] = render_one_frame(audio_space);
-        REQUIRE_EQ(result.frames_produced, 1U);
-        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Ok);
-        REQUIRE_EQ(frame.left, doctest::Approx(0.25f));
-        REQUIRE_EQ(frame.right, doctest::Approx(0.50f));
-
-        auto [result2, frame2] = render_one_frame(audio_space);
-        REQUIRE_EQ(result2.frames_produced, 0U);
-    }
-
-    SUBCASE("AudioSpace - stream writes planar data to the master bus") {
-        const Lowl::AudioStreamHandle stream_handle = audio_space.create_stream();
-        REQUIRE(stream_handle.is_valid());
-
-        const Lowl::Sample left_channel[] = {0.125f};
-        const Lowl::Sample right_channel[] = {-0.375f};
-        const std::vector<const Lowl::Sample *> channels = {left_channel, right_channel};
-        const Lowl::size_l written = audio_space.write_stream_planar(stream_handle, channels, 1);
-        REQUIRE_EQ(written, 1U);
-
-        auto [result, frame] = render_one_frame(audio_space);
-        REQUIRE_EQ(result.frames_produced, 1U);
-        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Ok);
-        REQUIRE_EQ(frame.left, doctest::Approx(0.125f));
-        REQUIRE_EQ(frame.right, doctest::Approx(-0.375f));
-    }
-
-    SUBCASE("AudioSpace - stream routed to a child bus composes bus gain") {
-        const Lowl::AudioBusHandle child_bus = audio_space.create_bus(audio_space.master_bus());
-        REQUIRE(child_bus.is_valid());
-
-        audio_space.set_volume(child_bus, 0.5f);
-
-        const Lowl::AudioStreamHandle stream_handle = audio_space.create_stream(child_bus);
-        REQUIRE(stream_handle.is_valid());
-
-        const Lowl::Sample interleaved[] = {1.0f, 1.0f};
-        audio_space.write_stream_interleaved(stream_handle, interleaved, 1);
-
-        auto [result, frame] = render_one_frame(audio_space);
-        REQUIRE_EQ(result.frames_produced, 1U);
-        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Ok);
-        REQUIRE_EQ(frame.left, doctest::Approx(0.5f));
-        REQUIRE_EQ(frame.right, doctest::Approx(0.5f));
-    }
-
-    SUBCASE("AudioSpace - stream volume and panning are independent") {
-        const Lowl::AudioStreamHandle stream_handle = audio_space.create_stream();
-        REQUIRE(stream_handle.is_valid());
-
-        audio_space.set_volume(stream_handle, 0.5f);
-        audio_space.set_panning(stream_handle, 1.0f);
-
-        const Lowl::Sample interleaved[] = {1.0f, 1.0f};
-        audio_space.write_stream_interleaved(stream_handle, interleaved, 1);
-
-        auto [result, frame] = render_one_frame(audio_space);
-        REQUIRE_EQ(result.frames_produced, 1U);
-        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Ok);
-        REQUIRE_EQ(frame.left, doctest::Approx(0.0f));
-        REQUIRE_EQ(frame.right, doctest::Approx(0.5f * std::sqrt(2.0f)));
-    }
-
-    SUBCASE("AudioSpace - stream pause gates rendering") {
-        const Lowl::AudioStreamHandle stream_handle = audio_space.create_stream();
-        REQUIRE(stream_handle.is_valid());
-
-        const Lowl::Sample interleaved[] = {0.25f, 0.50f, 0.75f, -0.25f};
-        audio_space.write_stream_interleaved(stream_handle, interleaved, 2);
-
-        auto [result0, frame0] = render_one_frame(audio_space);
-        REQUIRE_EQ(result0.frames_produced, 1U);
-        REQUIRE_EQ(frame0.left, doctest::Approx(0.25f));
-        REQUIRE_EQ(frame0.right, doctest::Approx(0.50f));
-
-        audio_space.pause(stream_handle);
-
-        auto [paused_result, paused_frame] = render_one_frame(audio_space);
-        REQUIRE_EQ(paused_result.frames_produced, 0U);
-        REQUIRE_EQ(paused_frame.left, doctest::Approx(0.0f));
-        REQUIRE_EQ(paused_frame.right, doctest::Approx(0.0f));
-
-        audio_space.play(stream_handle);
-
-        auto [result1, frame1] = render_one_frame(audio_space);
-        REQUIRE_EQ(result1.frames_produced, 1U);
-        REQUIRE_EQ(frame1.left, doctest::Approx(0.75f));
-        REQUIRE_EQ(frame1.right, doctest::Approx(-0.25f));
-    }
-
-    SUBCASE("AudioSpace - destroy_stream recycles the slot for reuse") {
-        const Lowl::AudioStreamHandle first_stream = audio_space.create_stream();
-        REQUIRE(first_stream.is_valid());
-
-        audio_space.destroy_stream(first_stream);
-
-        auto [destroyed_result, destroyed_frame] = render_one_frame(audio_space);
-        REQUIRE_EQ(destroyed_result.frames_produced, 0U);
-
-        const Lowl::AudioStreamHandle second_stream = audio_space.create_stream();
-        REQUIRE(second_stream.is_valid());
-        REQUIRE_EQ(second_stream.id, first_stream.id);
-        REQUIRE_NE(second_stream.generation, first_stream.generation);
-
-        const Lowl::Sample interleaved[] = {0.5f, -0.5f};
-        audio_space.write_stream_interleaved(second_stream, interleaved, 1);
-
-        auto [result, frame] = render_one_frame(audio_space);
-        REQUIRE_EQ(result.frames_produced, 1U);
-        REQUIRE_EQ(frame.left, doctest::Approx(0.5f));
-        REQUIRE_EQ(frame.right, doctest::Approx(-0.5f));
-    }
-
-    SUBCASE("AudioSpace - stale stream handles are rejected after destroy") {
-        const Lowl::AudioStreamHandle stream_handle = audio_space.create_stream();
-        REQUIRE(stream_handle.is_valid());
-
-        audio_space.destroy_stream(stream_handle);
-
-        const Lowl::Sample interleaved[] = {1.0f, 1.0f};
-        const Lowl::size_l written = audio_space.write_stream_interleaved(stream_handle, interleaved, 1);
-        REQUIRE_EQ(written, 0U);
-    }
-
-    SUBCASE("AudioSpace - foreign stream bus handles are rejected across spaces") {
-        Lowl::Audio::AudioSpace other_audio_space(
-            Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo});
-
-        const Lowl::AudioBusHandle foreign_bus = other_audio_space.create_bus(other_audio_space.master_bus());
-        REQUIRE(foreign_bus.is_valid());
-
-        REQUIRE_EQ(audio_space.create_stream(foreign_bus), Lowl::Audio::AudioSpace::InvalidAudioStreamHandle);
-    }
-
-    SUBCASE("AudioSpace - clear_all_audio retires active streams") {
-        const Lowl::AudioStreamHandle stream_handle = audio_space.create_stream();
-        REQUIRE(stream_handle.is_valid());
-
-        const Lowl::Sample interleaved[] = {0.25f, 0.50f};
-        audio_space.write_stream_interleaved(stream_handle, interleaved, 1);
-
-        audio_space.clear_all_audio();
-
-        auto [result, frame] = render_one_frame(audio_space);
-        REQUIRE_EQ(result.frames_produced, 0U);
-        REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Finished);
-        REQUIRE_EQ(frame.left, doctest::Approx(0.0f));
-        REQUIRE_EQ(frame.right, doctest::Approx(0.0f));
-
-        const Lowl::size_l written = audio_space.write_stream_interleaved(stream_handle, interleaved, 1);
-        REQUIRE_EQ(written, 0U);
-    }
-
-    SUBCASE("AudioSpace - stream and playback render together on the same bus") {
+    SUBCASE("AudioSpace - routes as one source through a user-owned mixer") {
         const Lowl::AudioPlaybackHandle playback_handle = add_asset_and_create_playback(
             audio_space,
-            make_stereo_audio_data({StereoSample{0.25f, 0.125f}}),
+            make_stereo_audio_data({StereoSample{1.0f, -0.5f}}),
             error
         );
+
         REQUIRE_FALSE(error.has_error());
         REQUIRE(playback_handle.is_valid());
 
-        const Lowl::AudioStreamHandle stream_handle = audio_space.create_stream();
-        REQUIRE(stream_handle.is_valid());
+        Lowl::Audio::AudioMixer external_mixer(
+            Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo});
+        const Lowl::AudioMixerHandle space_handle = external_mixer.allocate_handle();
+        REQUIRE(space_handle.is_valid());
 
-        const Lowl::Sample interleaved[] = {0.125f, 0.25f};
-        audio_space.write_stream_interleaved(stream_handle, interleaved, 1);
-
+        external_mixer.set_volume(0.5f);
+        external_mixer.mix(space_handle, &audio_space);
         audio_space.play(playback_handle);
 
-        auto [result, frame] = render_one_frame(audio_space);
+        Lowl::Audio::AudioBuffer buffer(1, 2);
+        Lowl::Audio::AudioBlockView block = buffer.view(1);
+        buffer.clear(1);
+        const Lowl::Audio::AudioSource::RenderResult result = external_mixer.render(block);
+
         REQUIRE_EQ(result.frames_produced, 1U);
         REQUIRE_EQ(result.state, Lowl::Audio::AudioSource::RenderState::Ok);
-        REQUIRE_EQ(frame.left, doctest::Approx(0.375f));
-        REQUIRE_EQ(frame.right, doctest::Approx(0.375f));
+        REQUIRE_EQ(block.channel(0)[0], doctest::Approx(0.5f));
+        REQUIRE_EQ(block.channel(1)[0], doctest::Approx(-0.25f));
     }
 }
