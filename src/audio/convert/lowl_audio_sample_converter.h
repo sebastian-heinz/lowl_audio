@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 
 #include "audio/lowl_audio_sample_format.h"
 #include "lowl_typedef.h"
@@ -42,9 +43,11 @@ namespace Lowl::Audio {
 
         static LOWL_INLINE float int32_to_float(int32_t p_sample) {
             if (p_sample > 0) {
-                return static_cast<float>(p_sample) / 0x7FFFFFFF;
+                const float positive_limit = static_cast<float>(std::numeric_limits<int32_t>::max());
+                return static_cast<float>(p_sample) / positive_limit;
             } else {
-                return static_cast<float>(p_sample) / 0x80000000;
+                const float negative_magnitude = -static_cast<float>(std::numeric_limits<int32_t>::min());
+                return static_cast<float>(p_sample) / negative_magnitude;
             }
         }
 

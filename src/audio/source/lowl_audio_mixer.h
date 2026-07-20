@@ -65,8 +65,6 @@ namespace Lowl::Audio {
         void enqueue_ack(const AudioMixerAck &p_ack);
 
     public:
-        static constexpr uint32_t DefaultScratchBufferCapacity = 16384;
-
         size_l get_frames_remaining() const override;
 
         size_l get_frame_position() const override;
@@ -104,8 +102,7 @@ namespace Lowl::Audio {
         void release_handle(AudioMixerHandle p_handle);
         bool try_dequeue_ack(AudioMixerAck &p_ack);
 
-        explicit AudioMixer(AudioFormat p_audio_format,
-                            uint32_t p_scratch_buffer_capacity = DefaultScratchBufferCapacity);
+        explicit AudioMixer(AudioFormat p_audio_format);
 
         ~AudioMixer() override = default;
     };

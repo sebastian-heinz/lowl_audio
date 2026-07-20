@@ -600,8 +600,8 @@ TEST_CASE("AudioStream") {
         REQUIRE_EQ(rejected_count, 1);
     }
 
-    SUBCASE("AudioMixer - renders frames directly without chunking") {
-        Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo), 2);
+    SUBCASE("AudioMixer - renders the requested block directly") {
+        Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
         Lowl::Audio::AudioStream stereo_stream(make_audio_format(Lowl::Audio::ChannelLayout::Stereo), 8);
         const Lowl::AudioMixerHandle stream_handle = allocate_mixer_handle(mixer);
         const Lowl::Sample samples[] = {
@@ -653,7 +653,7 @@ TEST_CASE("AudioStream") {
 
         Lowl::Error error;
         Lowl::Audio::AudioSpace audio_space(make_audio_format(channel));
-        Lowl::Audio::AudioMixer mixer_a(make_audio_format(channel), 3);
+        Lowl::Audio::AudioMixer mixer_a(make_audio_format(channel));
         Lowl::Audio::AudioMixer mixer_b(make_audio_format(channel));
         Lowl::Audio::AudioMixer mixer_c(make_audio_format(channel));
         Lowl::Audio::AudioStream stream_a(make_audio_format(channel), 16);

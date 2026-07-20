@@ -40,7 +40,7 @@ Lowl::Audio::AudioMixer::HandleSlot *Lowl::Audio::AudioMixer::get_handle_slot_lo
     return &slot;
 }
 
-Lowl::Audio::AudioMixer::AudioMixer(const AudioFormat p_audio_format, const uint32_t)
+Lowl::Audio::AudioMixer::AudioMixer(const AudioFormat p_audio_format)
     : AudioSource(p_audio_format),
       mixer_id(allocate_audio_mixer_id()) {
     sources.fill(ActiveSourceSlot{});

@@ -8,6 +8,18 @@
 #include <limits>
 
 TEST_CASE("SampleConverter") {
+    SUBCASE("SampleConverter - int32 endpoints normalize exactly") {
+        REQUIRE_EQ(
+            Lowl::Audio::SampleConverter::int32_to_float(std::numeric_limits<int32_t>::max()),
+            doctest::Approx(1.0f)
+        );
+        REQUIRE_EQ(
+            Lowl::Audio::SampleConverter::int32_to_float(std::numeric_limits<int32_t>::min()),
+            doctest::Approx(-1.0f)
+        );
+        REQUIRE_EQ(Lowl::Audio::SampleConverter::int32_to_float(0), doctest::Approx(0.0f));
+    }
+
     SUBCASE("SampleConverter - integer conversions clamp out-of-range samples") {
         REQUIRE_EQ(Lowl::Audio::SampleConverter::sample_to_int16(2.0f), 32767);
         REQUIRE_EQ(Lowl::Audio::SampleConverter::sample_to_int16(-2.0f), -32767);
