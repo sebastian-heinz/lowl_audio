@@ -4,7 +4,6 @@
 #include <limits>
 #include <vector>
 
-#include "audio/lowl_audio_format.h"
 #include "audio/reader/lowl_audio_reader_dr_lib.h"
 
 #define ENCODED_BUFFER_DECODING_STEP (16384)

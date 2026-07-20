@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "audio/backend/coreaudio/lowl_audio_core_audio_device.h"
+#include "audio/source/lowl_audio_mixer.h"
 
 namespace {
     class RecordingCoreAudioDevice final : public Lowl::Audio::CoreAudioDevice {
@@ -65,8 +66,8 @@ TEST_CASE("CoreAudioDevice") {
         for (const Lowl::Audio::SampleFormat sample_format : unsupported_formats) {
             Lowl::Audio::AudioDeviceProperties properties{};
             properties.is_supported = true;
-            properties.sample_rate = 44100.0;
-            properties.channel_layout = Lowl::Audio::ChannelLayout::Stereo;
+            properties.audio_format =
+                Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
             properties.sample_format = sample_format;
 
             Lowl::Error error;
@@ -79,6 +80,23 @@ TEST_CASE("CoreAudioDevice") {
             device.stop(stop_error);
             REQUIRE_FALSE(stop_error.has_error());
         }
+    }
+
+    SUBCASE("CoreAudioDevice - start rejects a source with a different graph AudioFormat") {
+        RecordingCoreAudioDevice device;
+        Lowl::Audio::AudioDeviceProperties properties{};
+        properties.is_supported = true;
+        properties.audio_format =
+            Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
+        properties.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
+
+        auto source = std::make_shared<Lowl::Audio::AudioMixer>(
+            Lowl::Audio::AudioFormat{48000.0, Lowl::Audio::ChannelLayout::Stereo});
+        Lowl::Error error;
+        device.start(properties, source, error);
+
+        REQUIRE(error.has_error());
+        REQUIRE_EQ(error.get_error(), Lowl::ErrorCode::InvalidParameter);
     }
 }
 

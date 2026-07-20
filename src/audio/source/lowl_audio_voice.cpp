@@ -14,8 +14,7 @@ void Lowl::Audio::AudioVoice::end_control_state_transition() {
 }
 
 Lowl::Audio::AudioVoice::AudioVoice(std::shared_ptr<const AudioData> p_audio_data)
-    : AudioSource(p_audio_data ? p_audio_data->get_sample_rate() : NO_SAMPLE_RATE,
-                  p_audio_data ? p_audio_data->get_channel_layout() : ChannelLayout{}),
+    : AudioSource(p_audio_data ? p_audio_data->get_audio_format() : AudioFormat{}),
       audio_data(std::move(p_audio_data)) {
     render_position.store(0, std::memory_order_relaxed);
     pause();
@@ -146,7 +145,7 @@ void Lowl::Audio::AudioVoice::reset() {
 
 void Lowl::Audio::AudioVoice::seek_time(const TimeSeconds p_seconds) {
     const TimeSeconds clamped_seconds = std::max<TimeSeconds>(0.0, p_seconds);
-    const size_t frame = static_cast<size_t>(clamped_seconds * sample_rate);
+    const size_t frame = static_cast<size_t>(clamped_seconds * get_audio_format().sample_rate);
     seek_frame(frame);
 }
 

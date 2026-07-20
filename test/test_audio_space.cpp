@@ -29,8 +29,7 @@ namespace {
         return std::make_unique<Lowl::Audio::AudioData>(
             std::move(storage),
             frame_count,
-            44100.0,
-            Lowl::Audio::ChannelLayout::Stereo
+            Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo}
         );
     }
 
@@ -61,7 +60,8 @@ namespace {
 
 TEST_CASE("AudioSpace") {
     Lowl::Error error;
-    Lowl::Audio::AudioSpace audio_space(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+    Lowl::Audio::AudioSpace audio_space(
+        Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo});
 
     SUBCASE("AudioSpace - aggregate frame queries use a consistent live sentinel") {
         REQUIRE_EQ(audio_space.get_frames_remaining(), 1U);
@@ -464,7 +464,8 @@ TEST_CASE("AudioSpace") {
 
     SUBCASE("AudioSpace - foreign bus handles are rejected across spaces") {
         Lowl::Error other_error;
-        Lowl::Audio::AudioSpace other_audio_space(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        Lowl::Audio::AudioSpace other_audio_space(
+            Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo});
 
         const Lowl::AudioAssetHandle asset_handle = audio_space.add_audio(
             make_stereo_audio_data({StereoSample{0.25f, -0.5f}}),
@@ -695,7 +696,8 @@ TEST_CASE("AudioSpace") {
 
     SUBCASE("AudioSpace - handles are rejected across spaces even when ids and generations match") {
         Lowl::Error other_error;
-        Lowl::Audio::AudioSpace other_audio_space(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        Lowl::Audio::AudioSpace other_audio_space(
+            Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo});
 
         const Lowl::AudioAssetHandle first_asset_handle = audio_space.add_audio(
             make_stereo_audio_data({StereoSample{0.125f, 0.25f}}),
@@ -861,7 +863,8 @@ TEST_CASE("AudioSpace") {
     }
 
     SUBCASE("AudioSpace - foreign stream bus handles are rejected across spaces") {
-        Lowl::Audio::AudioSpace other_audio_space(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        Lowl::Audio::AudioSpace other_audio_space(
+            Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo});
 
         const Lowl::AudioBusHandle foreign_bus = other_audio_space.create_bus(other_audio_space.master_bus());
         REQUIRE(foreign_bus.is_valid());

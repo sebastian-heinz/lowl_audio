@@ -30,8 +30,7 @@ namespace {
         return std::make_unique<Lowl::Audio::AudioData>(
             std::move(storage),
             frame_count,
-            44100.0,
-            Lowl::Audio::ChannelLayout::Stereo
+            Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo}
         );
     }
 
@@ -49,7 +48,8 @@ namespace {
                 }
             }
         }
-        return std::make_unique<Lowl::Audio::AudioData>(std::move(storage), frame_count, 44100.0, p_layout);
+        return std::make_unique<Lowl::Audio::AudioData>(
+            std::move(storage), frame_count, Lowl::Audio::AudioFormat{44100.0, p_layout});
     }
 }
 
@@ -209,8 +209,7 @@ TEST_CASE("AudioData") {
         Lowl::Audio::AudioData sliced_source(
             std::move(storage),
             3,
-            10.0,
-            Lowl::Audio::ChannelLayout::Stereo
+            Lowl::Audio::AudioFormat{10.0, Lowl::Audio::ChannelLayout::Stereo}
         );
 
         std::unique_ptr<Lowl::Audio::AudioData> slice = sliced_source.create_slice(0.1, 0.3);
@@ -233,8 +232,7 @@ TEST_CASE("AudioData") {
         std::unique_ptr<Lowl::Audio::AudioData> sliced_source = std::make_unique<Lowl::Audio::AudioData>(
             std::move(storage),
             3,
-            10.0,
-            Lowl::Audio::ChannelLayout::Stereo
+            Lowl::Audio::AudioFormat{10.0, Lowl::Audio::ChannelLayout::Stereo}
         );
 
         std::unique_ptr<Lowl::Audio::AudioData> slice = sliced_source->create_slice(-1.0, 0.2);

@@ -17,6 +17,7 @@
 #include "audio/source/lowl_audio_stream.h"
 #include "audio/source/lowl_audio_stream_handle.h"
 #include "audio/source/lowl_audio_voice.h"
+#include "lowl_error.h"
 
 namespace Lowl::Audio {
     /**
@@ -253,8 +254,7 @@ namespace Lowl::Audio {
 
         void seek_frame(AudioPlaybackHandle p_audio_playback_handle, size_t p_frame);
 
-        AudioSpace(SampleRate p_sample_rate,
-                   ChannelLayout p_channel_layout);
+        explicit AudioSpace(AudioFormat p_audio_format);
 
         ~AudioSpace() override;
     };

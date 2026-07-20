@@ -173,7 +173,8 @@ Lowl::Audio::ChannelConverter::convert(ChannelLayout p_target_layout,
         return nullptr;
     }
 
-    const ChannelLayout source_layout = p_audio_data->get_channel_layout();
+    const AudioFormat &source_format = p_audio_data->get_audio_format();
+    const ChannelLayout source_layout = source_format.channel_layout;
     if (!source_layout.is_valid() || !p_target_layout.is_valid()) {
         error.set_error(ErrorCode::ConvertAudioChannelInvalid);
         return nullptr;
@@ -215,8 +216,10 @@ Lowl::Audio::ChannelConverter::convert(ChannelLayout p_target_layout,
         }
     }
 
-    std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(
-        std::move(storage), frame_count, p_audio_data->get_sample_rate(), p_target_layout);
+    AudioFormat output_format = source_format;
+    output_format.channel_layout = p_target_layout;
+    std::unique_ptr<AudioData> audio_data =
+        std::make_unique<AudioData>(std::move(storage), frame_count, output_format);
     audio_data->set_name(p_audio_data->get_name());
     return audio_data;
 }

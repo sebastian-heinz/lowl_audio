@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <limits>
 
-#include "audio/lowl_audio_format.h"
 #include "audio/reader/lowl_audio_reader_dr_lib.h"
 
 std::unique_ptr<Lowl::Audio::AudioData>
@@ -51,7 +50,6 @@ Lowl::Audio::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
     std::unique_ptr<uint8_t[]> pcm_frames = std::make_unique<uint8_t[]>(bytes_to_read);
     size_t bytes_read = wav.read_raw(bytes_to_read, pcm_frames.get());
 
-    size_t frames_read = bytes_read / bytes_per_frame;
     SampleRate sample_rate = wav_info.sample_rate;
     const ChannelLayout layout = wav_info.channel_mask != 0
                                      ? ChannelLayout::from_mask(wav_info.channel_mask)
@@ -62,11 +60,9 @@ Lowl::Audio::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
     }
     size_t bytes_per_sample = wav_info.channels > 0 ? bytes_per_frame / wav_info.channels : 0;
 
-    AudioFormat audio_format = AudioFormat::Unknown;
     SampleFormat sample_format = SampleFormat::Unknown;
     switch (wav_info.format_tag) {
         case DrLib::WavFormatTag::Pcm:
-            audio_format = AudioFormat::WAVE_FORMAT_PCM;
             switch (bytes_per_sample) {
                 case 4:
                     sample_format = SampleFormat::INT_32;
@@ -83,10 +79,9 @@ Lowl::Audio::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
             }
             break;
         case DrLib::WavFormatTag::Adpcm:
-            audio_format = AudioFormat::WAVE_FORMAT_ADPCM;
-            break;
+            error.set_error(ErrorCode::UnsupportedAudioFormat);
+            return nullptr;
         case DrLib::WavFormatTag::IeeeFloat:
-            audio_format = AudioFormat::WAVE_FORMAT_IEEE_FLOAT;
             switch (bytes_per_sample) {
                 case 4:
                     sample_format = SampleFormat::FLOAT_32;
@@ -97,20 +92,20 @@ Lowl::Audio::AudioReaderWav::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
             }
             break;
         case DrLib::WavFormatTag::Alaw:
-            audio_format = AudioFormat::WAVE_FORMAT_ALAW;
-            break;
         case DrLib::WavFormatTag::Mulaw:
-            audio_format = AudioFormat::WAVE_FORMAT_MULAW;
-            break;
         case DrLib::WavFormatTag::DviAdpcm:
-            audio_format = AudioFormat::WAVE_FORMAT_DVI_ADPCM;
-            break;
         case DrLib::WavFormatTag::Unknown:
-            break;
+            error.set_error(ErrorCode::UnsupportedAudioFormat);
+            return nullptr;
+    }
+
+    if (sample_format == SampleFormat::Unknown) {
+        error.set_error(ErrorCode::UnsupportedAudioFormat);
+        return nullptr;
     }
 
     std::unique_ptr<AudioData> audio_data =
-        create_audio_data(audio_format, sample_format, layout, sample_rate, pcm_frames, bytes_read, {}, error);
+        create_audio_data(sample_format, layout, sample_rate, pcm_frames, bytes_read, {}, error);
     return audio_data;
 }
 

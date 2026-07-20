@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "audio/lowl_audio_aligned_storage.h"
-#include "audio/lowl_audio_channel.h"
+#include "audio/lowl_audio_format.h"
 #include "lowl_typedef.h"
 
 namespace Lowl::Audio {
@@ -18,8 +18,7 @@ namespace Lowl::Audio {
     private:
         SampleStoragePtr storage;
         std::vector<Sample *> channel_ptrs;
-        SampleRate sample_rate;
-        ChannelLayout channel_layout;
+        AudioFormat audio_format;
         size_t frame_count = 0;
         size_t frame_stride = 0;
         mutable std::mutex name_mutex;
@@ -38,12 +37,10 @@ namespace Lowl::Audio {
 
         AudioData(std::unique_ptr<Sample[]> p_storage,
                   size_t p_frame_count,
-                  SampleRate p_sample_rate,
-                  ChannelLayout p_channel_layout);
+                  AudioFormat p_audio_format);
         ~AudioData();
 
-        SampleRate get_sample_rate() const;
-        ChannelLayout get_channel_layout() const;
+        const AudioFormat &get_audio_format() const;
         uint8_t get_channel_count() const;
         size_l get_frames_remaining() const;
         size_l get_frame_position() const;

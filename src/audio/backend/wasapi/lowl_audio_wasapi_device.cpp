@@ -112,9 +112,9 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
         error.set_error(Lowl::ErrorCode::Error);
         return;
     }
-    if (p_audio_source != nullptr && p_audio_source->get_channel_layout() != p_audio_device_properties.channel_layout) {
-        LOWL_LOG_ERROR("WasapiDevice::start: source layout(" + p_audio_source->get_channel_layout().to_string() +
-                       ") does not match device layout(" + p_audio_device_properties.channel_layout.to_string() + ").");
+    if (p_audio_source != nullptr &&
+        p_audio_source->get_audio_format() != p_audio_device_properties.get_audio_format()) {
+        LOWL_LOG_ERROR("WasapiDevice::start: source AudioFormat does not match the device AudioFormat.");
         error.set_error(Lowl::ErrorCode::InvalidParameter);
         return;
     }
@@ -491,7 +491,7 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
         const AudioDeviceProperties &published_properties = published_state->audio_device_properties;
         const uint32_t bytes_per_frame =
             static_cast<uint32_t>(get_sample_size_bytes(published_properties.sample_format) *
-                                  published_properties.channel_layout.channel_count);
+                                  published_properties.audio_format.channel_layout.channel_count);
         render_to_device_buffer(published_state,
                                 audio_buffer_byte_ptr,
                                 static_cast<size_t>(available_frames_in_buffer) * bytes_per_frame,
@@ -636,15 +636,16 @@ GUID Lowl::Audio::WasapiDevice::get_wave_sub_format(const Lowl::Audio::SampleFor
 Lowl::Audio::AudioDeviceProperties
 Lowl::Audio::WasapiDevice::to_audio_device_properties(const WAVEFORMATEX *p_wave_format_ex) {
     AudioDeviceProperties properties = AudioDeviceProperties();
-    properties.sample_rate = p_wave_format_ex->nSamplesPerSec;
-    properties.channel_layout = ChannelLayout::from_count(static_cast<uint8_t>(p_wave_format_ex->nChannels));
+    properties.audio_format =
+        AudioFormat{static_cast<SampleRate>(p_wave_format_ex->nSamplesPerSec),
+                    ChannelLayout::from_count(static_cast<uint8_t>(p_wave_format_ex->nChannels))};
     properties.sample_format = Lowl::Audio::SampleFormat::Unknown;
 
     if (p_wave_format_ex->wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
         const WAVEFORMATEXTENSIBLE *wave_format_extensible = (const WAVEFORMATEXTENSIBLE *)p_wave_format_ex;
 
         properties.wasapi.valid_bits_per_sample = wave_format_extensible->Samples.wValidBitsPerSample;
-        properties.channel_layout =
+        properties.audio_format.channel_layout =
             wave_format_extensible->dwChannelMask != 0
                 ? ChannelLayout::from_mask(wave_format_extensible->dwChannelMask)
                 : ChannelLayout::from_count(static_cast<uint8_t>(p_wave_format_ex->nChannels));
@@ -705,8 +706,8 @@ WAVEFORMATEXTENSIBLE Lowl::Audio::WasapiDevice::to_wave_format_extensible(
     WAVEFORMATEXTENSIBLE wfe = WAVEFORMATEXTENSIBLE();
     wfe.Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
     wfe.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
-    wfe.Format.nChannels = (WORD)audio_device_properties.channel_layout.channel_count;
-    wfe.Format.nSamplesPerSec = (DWORD)audio_device_properties.sample_rate;
+    wfe.Format.nChannels = (WORD)audio_device_properties.audio_format.channel_layout.channel_count;
+    wfe.Format.nSamplesPerSec = (DWORD)audio_device_properties.audio_format.sample_rate;
 
     if (audio_device_properties.wasapi.valid_bits_per_sample > 0) {
         wfe.Format.wBitsPerSample = (WORD)Lowl::Audio::get_sample_bits(audio_device_properties.sample_format);
@@ -719,7 +720,7 @@ WAVEFORMATEXTENSIBLE Lowl::Audio::WasapiDevice::to_wave_format_extensible(
     wfe.Format.nBlockAlign = (wfe.Format.nChannels * wfe.Format.wBitsPerSample) / 8;
     wfe.Format.nAvgBytesPerSec = wfe.Format.nBlockAlign * wfe.Format.nSamplesPerSec;
 
-    wfe.dwChannelMask = audio_device_properties.channel_layout.speaker_mask;
+    wfe.dwChannelMask = audio_device_properties.audio_format.channel_layout.speaker_mask;
     wfe.SubFormat = get_wave_sub_format(audio_device_properties.sample_format);
     return wfe;
 }
@@ -745,8 +746,7 @@ std::vector<Lowl::Audio::AudioDeviceProperties> Lowl::Audio::WasapiDevice::creat
             for (const ChannelLayout &probe_layout : test_channel_layouts) {
                 AudioDeviceProperties test_properties = AudioDeviceProperties();
                 test_properties.sample_format = test_sample_formats[sample_format_index];
-                test_properties.sample_rate = test_sample_rates[sample_rate_index];
-                test_properties.channel_layout = probe_layout;
+                test_properties.audio_format = AudioFormat{test_sample_rates[sample_rate_index], probe_layout};
 
                 std::vector<Lowl::Audio::AudioDeviceProperties> test_properties_list =
                     create_device_properties(p_wasapi_device, test_properties, device_name, error);

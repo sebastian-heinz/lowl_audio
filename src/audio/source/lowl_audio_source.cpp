@@ -6,24 +6,16 @@
 
 #include "audio/simd/lowl_audio_simd.h"
 
-Lowl::Audio::AudioSource::AudioSource(const SampleRate p_sample_rate, const ChannelLayout p_channel_layout)
-    : left_channel_index(p_channel_layout.index_of(Speaker::FrontLeft)),
-      right_channel_index(p_channel_layout.index_of(Speaker::FrontRight)),
-      sample_rate(p_sample_rate), channel_layout(p_channel_layout) {
+Lowl::Audio::AudioSource::AudioSource(const AudioFormat p_audio_format)
+    : left_channel_index(p_audio_format.channel_layout.index_of(Speaker::FrontLeft)),
+      right_channel_index(p_audio_format.channel_layout.index_of(Speaker::FrontRight)),
+      audio_format(p_audio_format) {
     name = std::string();
     gain_cache.local_gains.fill(static_cast<Sample>(1));
 }
 
-Lowl::SampleRate Lowl::Audio::AudioSource::get_sample_rate() const {
-    return sample_rate;
-}
-
-Lowl::Audio::ChannelLayout Lowl::Audio::AudioSource::get_channel_layout() const {
-    return channel_layout;
-}
-
-Lowl::Audio::SampleFormat Lowl::Audio::AudioSource::get_sample_format() const {
-    return SampleFormat::FLOAT_32;
+const Lowl::Audio::AudioFormat &Lowl::Audio::AudioSource::get_audio_format() const {
+    return audio_format;
 }
 
 void Lowl::Audio::AudioSource::on_added_to_mixer() {
@@ -32,17 +24,8 @@ void Lowl::Audio::AudioSource::on_added_to_mixer() {
 void Lowl::Audio::AudioSource::on_removed_from_mixer() {
 }
 
-Lowl::Audio::AudioDeviceProperties Lowl::Audio::AudioSource::get_properties() const {
-    AudioDeviceProperties properties{};
-    properties.exclusive_mode = false;
-    properties.channel_layout = get_channel_layout();
-    properties.sample_format = get_sample_format();
-    properties.sample_rate = get_sample_rate();
-    return properties;
-}
-
 uint8_t Lowl::Audio::AudioSource::get_channel_count() const {
-    return channel_layout.channel_count;
+    return audio_format.channel_layout.channel_count;
 }
 
 void Lowl::Audio::AudioSource::set_volume(Volume p_volume) {
@@ -103,7 +86,7 @@ Lowl::Audio::AudioSource::compose_gain_vector(const MixGainVector &p_upstream_ga
     }
 
     MixGainVector composed_gain = make_unity_gain_vector();
-    for (uint8_t channel_index = 0; channel_index < channel_layout.channel_count; channel_index++) {
+    for (uint8_t channel_index = 0; channel_index < audio_format.channel_layout.channel_count; channel_index++) {
         composed_gain[channel_index] =
             p_upstream_gain[channel_index] * gain_cache.local_gains[static_cast<size_t>(channel_index)];
     }

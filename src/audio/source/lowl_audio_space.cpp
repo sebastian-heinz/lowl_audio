@@ -30,10 +30,9 @@ namespace {
     }
 } // namespace
 
-Lowl::Audio::AudioSpace::AudioSpace(const SampleRate p_sample_rate,
-                                    const ChannelLayout p_channel_layout)
-    : AudioSource(p_sample_rate, p_channel_layout) {
-    master_bus_node = std::make_unique<AudioBus>(sample_rate, channel_layout);
+Lowl::Audio::AudioSpace::AudioSpace(const AudioFormat p_audio_format)
+    : AudioSource(p_audio_format) {
+    master_bus_node = std::make_unique<AudioBus>(get_audio_format());
     owner_id = allocate_audio_space_owner_id();
     current_audio_asset_id = FirstAudioAssetId;
     current_audio_bus_slot_id = FirstDynamicBusSlotId;
@@ -390,7 +389,7 @@ Lowl::AudioBusHandle Lowl::Audio::AudioSpace::insert_bus_locked(AudioBusHandle p
         return InvalidAudioBusHandle;
     }
 
-    auto bus = std::make_unique<AudioBus>(sample_rate, channel_layout);
+    auto bus = std::make_unique<AudioBus>(get_audio_format());
     if (reusing_slot) {
         free_bus_slots.pop_back();
     } else {
@@ -671,10 +670,11 @@ Lowl::AudioAssetHandle Lowl::Audio::AudioSpace::add_audio(std::unique_ptr<AudioD
     if (!audio) {
         return InvalidAudioAssetHandle;
     }
-    SampleRate rate = audio->get_sample_rate();
+    const AudioFormat &space_format = get_audio_format();
+    const SampleRate rate = audio->get_audio_format().sample_rate;
 
-    if (!Lowl::Audio::sample_rates_equal(rate, sample_rate)) {
-        std::unique_ptr<AudioData> resampled = ReSamplerR8b::resample(audio, sample_rate);
+    if (!Lowl::Audio::sample_rates_equal(rate, space_format.sample_rate)) {
+        std::unique_ptr<AudioData> resampled = ReSamplerR8b::resample(audio, space_format.sample_rate);
         if (!resampled) {
             error.set_error(ErrorCode::Error);
             LOWL_LOG_ERROR("Lowl::Space::load resample failed.");
@@ -683,15 +683,15 @@ Lowl::AudioAssetHandle Lowl::Audio::AudioSpace::add_audio(std::unique_ptr<AudioD
         audio = std::move(resampled);
     }
 
-    ChannelLayout layout = audio->get_channel_layout();
-    if (layout != channel_layout) {
+    const ChannelLayout layout = audio->get_audio_format().channel_layout;
+    if (layout != space_format.channel_layout) {
         ChannelConverter channel_converter;
-        std::unique_ptr<AudioData> converted = channel_converter.convert(channel_layout, audio, error);
+        std::unique_ptr<AudioData> converted = channel_converter.convert(space_format.channel_layout, audio, error);
         if (error.has_error()) {
             LOWL_LOG_ERROR("Lowl::Space::load channel_converter.convert() ErrCode:" +
                            std::to_string(error.get_error_code()) + " ErrText:" + error.get_error_text() +
                            ". Could not convert layout from " + layout.to_string() + " to " +
-                           channel_layout.to_string() + ".");
+                           space_format.channel_layout.to_string() + ".");
             return InvalidAudioAssetHandle;
         }
         audio = std::move(converted);
@@ -1316,7 +1316,7 @@ Lowl::AudioStreamHandle Lowl::Audio::AudioSpace::create_stream(const AudioBusHan
                                                                 const size_t p_ring_buffer_size) {
     std::lock_guard<std::mutex> lock(state_mutex);
     drain_all_bus_acks_locked();
-    auto stream = std::make_unique<AudioStream>(sample_rate, channel_layout, p_ring_buffer_size);
+    auto stream = std::make_unique<AudioStream>(get_audio_format(), p_ring_buffer_size);
     return insert_stream_locked(std::move(stream), p_audio_bus_handle);
 }
 

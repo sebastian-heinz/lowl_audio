@@ -50,9 +50,12 @@ std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::ReSamplerR8b::resample(std:
         return nullptr;
     }
 
+    const AudioFormat &source_format = p_audio_data->get_audio_format();
+    AudioFormat output_format = source_format;
+    output_format.sample_rate = p_sample_rate_dst;
     const size_t total_frames = p_audio_data->get_frame_count();
     const uint8_t num_channel = p_audio_data->get_channel_count();
-    const SampleRate sample_rate_src = p_audio_data->get_sample_rate();
+    const SampleRate sample_rate_src = source_format.sample_rate;
 
     if (sample_rate_src <= 0.0 || p_sample_rate_dst <= 0.0) {
         return nullptr;
@@ -60,7 +63,7 @@ std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::ReSamplerR8b::resample(std:
 
     if (total_frames == 0 || num_channel == 0) {
         std::unique_ptr<AudioData> audio_data =
-            std::make_unique<AudioData>(std::unique_ptr<Sample[]>(), 0, p_sample_rate_dst, p_audio_data->get_channel_layout());
+            std::make_unique<AudioData>(std::unique_ptr<Sample[]>(), 0, output_format);
         audio_data->set_name(p_audio_data->get_name());
         return audio_data;
     }
@@ -104,7 +107,7 @@ std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::ReSamplerR8b::resample(std:
     }
 
     std::unique_ptr<AudioData> audio_data = std::make_unique<AudioData>(
-        std::move(resample_storage), output_frames, p_sample_rate_dst, p_audio_data->get_channel_layout());
+        std::move(resample_storage), output_frames, output_format);
     audio_data->set_name(p_audio_data->get_name());
     return audio_data;
 }

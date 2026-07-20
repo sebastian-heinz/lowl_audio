@@ -76,7 +76,7 @@ namespace Lowl::Audio {
 
         bool try_dequeue_ack(AudioBusAck &p_ack);
 
-        AudioBus(SampleRate p_sample_rate, ChannelLayout p_channel_layout);
+        explicit AudioBus(AudioFormat p_audio_format);
 
         ~AudioBus() override = default;
     };

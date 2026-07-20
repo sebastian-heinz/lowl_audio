@@ -2,7 +2,6 @@
 
 #include <opusfile.h>
 
-#include "audio/lowl_audio_format.h"
 #include "audio/lowl_audio_utilities.h"
 
 #define OPUS_SAMPLE_RATE (48000)
@@ -160,7 +159,7 @@ Lowl::Audio::AudioReaderOpus::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p
         storage = std::move(trimmed_storage);
     }
 
-    return std::make_unique<AudioData>(std::move(storage), frames_read_total, sample_rate, layout);
+    return std::make_unique<AudioData>(std::move(storage), frames_read_total, AudioFormat{sample_rate, layout});
 }
 
 bool Lowl::Audio::AudioReaderOpus::support(Lowl::FileFormat p_file_format) const {

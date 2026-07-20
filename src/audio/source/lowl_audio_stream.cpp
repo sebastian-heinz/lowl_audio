@@ -35,8 +35,8 @@ namespace {
     }
 } // namespace
 
-Lowl::Audio::AudioStream::AudioStream(SampleRate p_sample_rate, ChannelLayout p_channel_layout, size_t size)
-    : AudioSource(p_sample_rate, p_channel_layout) {
+Lowl::Audio::AudioStream::AudioStream(const AudioFormat p_audio_format, const size_t size)
+    : AudioSource(p_audio_format) {
     frame_capacity = size;
     storage_capacity = round_up_to_power_of_two(size);
     if (frame_capacity > 0 && storage_capacity == 0) {

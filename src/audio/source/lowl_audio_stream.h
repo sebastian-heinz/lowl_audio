@@ -57,7 +57,7 @@ namespace Lowl::Audio {
 
         size_l write_planar(const std::vector<const Sample *> &p_channels, size_t p_frame_count);
 
-        AudioStream(SampleRate p_sample_rate, ChannelLayout p_channel_layout, size_t size = DEFAULT_STREAM_SIZE);
+        explicit AudioStream(AudioFormat p_audio_format, size_t size = DEFAULT_STREAM_SIZE);
 
         ~AudioStream() override = default;
     };

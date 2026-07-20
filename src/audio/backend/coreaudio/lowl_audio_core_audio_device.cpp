@@ -17,7 +17,8 @@ namespace {
     using Lowl::Audio::ChannelLayout;
 
     bool is_layout_required(const AudioDeviceProperties &p_properties) {
-        return p_properties.channel_layout.is_valid() && p_properties.channel_layout.channel_count > 2;
+        const ChannelLayout &layout = p_properties.audio_format.channel_layout;
+        return layout.is_valid() && layout.channel_count > 2;
     }
 
     bool set_audio_unit_channel_layout(AudioUnit p_audio_unit,
@@ -26,7 +27,7 @@ namespace {
                                        const AudioDeviceProperties &p_properties,
                                        Lowl::Error &error) {
         const std::vector<uint8_t> layout_data =
-            Lowl::Audio::CoreAudioLayout::create_channel_layout_data(p_properties.channel_layout);
+            Lowl::Audio::CoreAudioLayout::create_channel_layout_data(p_properties.audio_format.channel_layout);
         if (layout_data.empty()) {
             return true;
         }
@@ -104,7 +105,8 @@ OSStatus Lowl::Audio::CoreAudioDevice::audio_callback(AudioUnitRenderActionFlags
     const AudioDeviceProperties &published_properties = published_state->audio_device_properties;
     const uint32_l sample_size_bytes =
         static_cast<uint32_l>(get_sample_size_bytes(published_properties.sample_format));
-    const uint32_l channels = static_cast<uint32_l>(published_properties.channel_layout.channel_count);
+    const uint32_l channels =
+        static_cast<uint32_l>(published_properties.audio_format.channel_layout.channel_count);
     const bool can_render_non_interleaved_float32 =
         published_properties.sample_format == Lowl::Audio::SampleFormat::FLOAT_32 && ioData->mNumberBuffers == channels;
 
@@ -233,9 +235,8 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
         error.set_error(Lowl::ErrorCode::DevicePropertiesNotSupported);
         return;
     }
-    if (p_audio_source && p_audio_source->get_channel_layout() != p_audio_device_properties.channel_layout) {
-        LOWL_LOG_ERROR("CoreAudioDevice::start: source layout(" + p_audio_source->get_channel_layout().to_string() +
-                       ") does not match device layout(" + p_audio_device_properties.channel_layout.to_string() + ").");
+    if (p_audio_source && p_audio_source->get_audio_format() != p_audio_device_properties.get_audio_format()) {
+        LOWL_LOG_ERROR("CoreAudioDevice::start: source AudioFormat does not match the device AudioFormat.");
         error.set_error(Lowl::ErrorCode::InvalidParameter);
         return;
     }
@@ -418,8 +419,7 @@ Lowl::Audio::CoreAudioDevice::create_device_properties(AudioObjectID p_device_id
     }
 
     AudioDeviceProperties default_properties = AudioDeviceProperties();
-    default_properties.sample_rate = default_sample_rate;
-    default_properties.channel_layout = output_channel_layout;
+    default_properties.audio_format = AudioFormat{default_sample_rate, output_channel_layout};
     default_properties.sample_format = SampleFormat::FLOAT_32;
 
     if (test_device_properties(p_device_id, test_audio_unit, default_properties)) {
@@ -440,8 +440,7 @@ Lowl::Audio::CoreAudioDevice::create_device_properties(AudioObjectID p_device_id
             for (const ChannelLayout &probe_layout : test_channel_layouts) {
                 AudioDeviceProperties test_properties = AudioDeviceProperties();
                 test_properties.sample_format = test_sample_formats[sample_format_index];
-                test_properties.sample_rate = test_sample_rates[sample_rate_index];
-                test_properties.channel_layout = probe_layout;
+                test_properties.audio_format = AudioFormat{test_sample_rates[sample_rate_index], probe_layout};
                 test_properties.is_supported = true;
 
                 if (!test_device_properties(p_device_id, test_audio_unit, test_properties)) {
@@ -465,7 +464,7 @@ bool Lowl::Audio::CoreAudioDevice::test_device_properties(AudioObjectID p_device
                                                           AudioUnit p_audio_unit,
                                                           AudioDeviceProperties p_properties,
                                                           bool silent) {
-    if (!p_properties.channel_layout.is_valid()) {
+    if (!p_properties.audio_format.channel_layout.is_valid()) {
         return false;
     }
 
@@ -502,7 +501,7 @@ bool Lowl::Audio::CoreAudioDevice::test_device_properties(AudioObjectID p_device
     }
 
     Error error;
-    CoreAudioUtilities::set_input_sample_rate(p_audio_unit, p_properties.sample_rate, error);
+    CoreAudioUtilities::set_input_sample_rate(p_audio_unit, p_properties.audio_format.sample_rate, error);
     if (error.has_error() && !silent) {
         LOWL_LOG_ERROR_F("failed to set input sample rate (device:%u)", p_device_id);
         return false;
@@ -513,7 +512,7 @@ bool Lowl::Audio::CoreAudioDevice::test_device_properties(AudioObjectID p_device
         LOWL_LOG_ERROR_F("failed to get output sample rate (device:%u)", p_device_id);
         return false;
     }
-    if (!Lowl::Audio::sample_rates_equal(output_sample_rate, p_properties.sample_rate)) {
+    if (!Lowl::Audio::sample_rates_equal(output_sample_rate, p_properties.audio_format.sample_rate)) {
         return false;
     }
 
@@ -562,17 +561,18 @@ AudioUnit _Nullable Lowl::Audio::CoreAudioDevice::create_audio_unit(AudioObjectI
 bool Lowl::Audio::CoreAudioDevice::create_description(const Lowl::Audio::AudioDeviceProperties &p_device_properties,
                                                       AudioStreamBasicDescription &r_description,
                                                       Error &error) {
-    if (p_device_properties.sample_rate <= Lowl::NO_SAMPLE_RATE || !p_device_properties.channel_layout.is_valid()) {
+    const AudioFormat &audio_format = p_device_properties.audio_format;
+    if (!audio_format.is_valid()) {
         error.set_error(ErrorCode::InvalidParameter);
         return false;
     }
 
     AudioStreamBasicDescription description{};
     description.mFormatID = kAudioFormatLinearPCM;
-    description.mSampleRate = p_device_properties.sample_rate;
+    description.mSampleRate = audio_format.sample_rate;
     description.mFramesPerPacket = 1;
     description.mBitsPerChannel = static_cast<UInt32>(get_sample_size_bits(p_device_properties.sample_format));
-    description.mChannelsPerFrame = static_cast<UInt32>(p_device_properties.channel_layout.channel_count);
+    description.mChannelsPerFrame = static_cast<UInt32>(audio_format.channel_layout.channel_count);
 
     switch (p_device_properties.sample_format) {
         case Lowl::Audio::SampleFormat::FLOAT_32: {
@@ -585,36 +585,36 @@ bool Lowl::Audio::CoreAudioDevice::create_description(const Lowl::Audio::AudioDe
             description.mFormatFlags =
                 kAudioFormatFlagIsSignedInteger | kAudioFormatFlagsNativeEndian | kAudioFormatFlagIsPacked;
             description.mBytesPerPacket = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
-                                                              p_device_properties.channel_layout.channel_count);
+                                                              audio_format.channel_layout.channel_count);
             description.mBytesPerFrame = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
-                                                             p_device_properties.channel_layout.channel_count);
+                                                             audio_format.channel_layout.channel_count);
             break;
         }
         case Lowl::Audio::SampleFormat::INT_24: {
             description.mFormatFlags =
                 kAudioFormatFlagIsSignedInteger | kAudioFormatFlagsNativeEndian | kAudioFormatFlagIsPacked;
             description.mBytesPerPacket = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
-                                                              p_device_properties.channel_layout.channel_count);
+                                                              audio_format.channel_layout.channel_count);
             description.mBytesPerFrame = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
-                                                             p_device_properties.channel_layout.channel_count);
+                                                             audio_format.channel_layout.channel_count);
             break;
         }
         case Lowl::Audio::SampleFormat::INT_16: {
             description.mFormatFlags =
                 kAudioFormatFlagIsSignedInteger | kAudioFormatFlagsNativeEndian | kAudioFormatFlagIsPacked;
             description.mBytesPerPacket = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
-                                                              p_device_properties.channel_layout.channel_count);
+                                                              audio_format.channel_layout.channel_count);
             description.mBytesPerFrame = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
-                                                             p_device_properties.channel_layout.channel_count);
+                                                             audio_format.channel_layout.channel_count);
             break;
         }
         case Lowl::Audio::SampleFormat::INT_8: {
             description.mFormatFlags =
                 kAudioFormatFlagIsSignedInteger | kAudioFormatFlagsNativeEndian | kAudioFormatFlagIsPacked;
             description.mBytesPerPacket = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
-                                                              p_device_properties.channel_layout.channel_count);
+                                                              audio_format.channel_layout.channel_count);
             description.mBytesPerFrame = static_cast<UInt32>(get_sample_size_bytes(p_device_properties.sample_format) *
-                                                             p_device_properties.channel_layout.channel_count);
+                                                             audio_format.channel_layout.channel_count);
             break;
         }
         case Lowl::Audio::SampleFormat::U_INT_8: {

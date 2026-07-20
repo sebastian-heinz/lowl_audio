@@ -28,8 +28,7 @@ namespace {
         return std::make_shared<Lowl::Audio::AudioData>(
             std::move(storage),
             frame_count,
-            44100.0,
-            Lowl::Audio::ChannelLayout::Stereo
+            Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo}
         );
     }
 }
@@ -96,8 +95,7 @@ TEST_CASE("AudioUtilities") {
         std::shared_ptr<Lowl::Audio::AudioData> audio_data = std::make_shared<Lowl::Audio::AudioData>(
             std::move(storage),
             frame_count,
-            48000.0,
-            Lowl::Audio::ChannelLayout::Surround_5_1
+            Lowl::Audio::AudioFormat{48000.0, Lowl::Audio::ChannelLayout::Surround_5_1}
         );
 
         Lowl::Error error;

@@ -27,7 +27,7 @@ Lowl::Audio::Utilities::clone_audio_data(const std::shared_ptr<AudioData> &p_aud
     }
 
     std::unique_ptr<AudioData> clone = std::make_unique<AudioData>(
-        std::move(storage), frame_count, p_audio_data->get_sample_rate(), p_audio_data->get_channel_layout());
+        std::move(storage), frame_count, p_audio_data->get_audio_format());
     clone->set_name(p_audio_data->get_name());
     return clone;
 }
@@ -41,7 +41,7 @@ Lowl::Audio::Utilities::to_stream(const std::shared_ptr<AudioData> &p_audio_data
         channels.push_back(p_audio_data->get_channel_data(channel_index));
     }
     std::unique_ptr<AudioStream> stream = std::make_unique<AudioStream>(
-        p_audio_data->get_sample_rate(), p_audio_data->get_channel_layout(), frame_count);
+        p_audio_data->get_audio_format(), frame_count);
     size_l written = stream->write_planar(channels, frame_count);
     if (written != frame_count) {
         error.set_error(ErrorCode::StreamWriteFailed);

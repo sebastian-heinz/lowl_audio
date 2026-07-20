@@ -13,13 +13,15 @@ namespace {
     auto make_property_score(const Lowl::Audio::AudioDeviceProperties &p_requested,
                              const Lowl::Audio::AudioDeviceProperties &p_candidate) {
         const bool layout_mismatch =
-            p_requested.channel_layout.is_valid() && p_candidate.channel_layout != p_requested.channel_layout;
+            p_requested.audio_format.channel_layout.is_valid() &&
+            p_candidate.audio_format.channel_layout != p_requested.audio_format.channel_layout;
         const bool format_mismatch = p_requested.sample_format != Lowl::Audio::SampleFormat::Unknown &&
                                      p_candidate.sample_format != p_requested.sample_format;
         const double sample_rate_distance =
-            p_requested.sample_rate > Lowl::NO_SAMPLE_RATE &&
-                    !Lowl::Audio::sample_rates_equal(p_requested.sample_rate, p_candidate.sample_rate)
-                ? std::abs(p_candidate.sample_rate - p_requested.sample_rate)
+            p_requested.audio_format.sample_rate > Lowl::NO_SAMPLE_RATE &&
+                    !Lowl::Audio::sample_rates_equal(p_requested.audio_format.sample_rate,
+                                                     p_candidate.audio_format.sample_rate)
+                ? std::abs(p_candidate.audio_format.sample_rate - p_requested.audio_format.sample_rate)
                 : 0.0;
 
         return std::make_tuple(!p_candidate.is_supported,
@@ -131,7 +133,7 @@ void Lowl::Audio::AudioDevice::allocate_render_buffer(const unsigned long p_fram
     auto published_state = std::make_shared<RenderState>();
     published_state->audio_device_properties = audio_device_properties;
     published_state->audio_source = audio_source;
-    const uint8_t channel_count = audio_device_properties.channel_layout.channel_count;
+    const uint8_t channel_count = audio_device_properties.audio_format.channel_layout.channel_count;
     published_state->render_buffer = AudioBuffer(static_cast<uint32_t>(p_frame_capacity), channel_count);
     std::atomic_store_explicit(&render_state, std::move(published_state), std::memory_order_release);
 }
@@ -178,7 +180,7 @@ void Lowl::Audio::AudioDevice::render_to_device_buffer(const std::shared_ptr<Ren
     }
 
     const size_t expected_bytes_per_frame =
-        sample_size_bytes * static_cast<size_t>(published_properties.channel_layout.channel_count);
+        sample_size_bytes * static_cast<size_t>(published_properties.audio_format.channel_layout.channel_count);
     if (expected_bytes_per_frame == 0 || expected_bytes_per_frame != p_bytes_per_frame) {
         std::memset(p_dst, 0, total_bytes);
         return;

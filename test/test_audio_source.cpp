@@ -11,7 +11,7 @@ namespace {
     class NameProbeSource final : public Lowl::Audio::AudioSource {
     public:
         NameProbeSource()
-            : AudioSource(44100.0, Lowl::Audio::ChannelLayout::Stereo) {
+            : AudioSource(Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo}) {
         }
 
         RenderResult mix_into(Lowl::Audio::AudioBlockView,
@@ -34,6 +34,12 @@ namespace {
 } // namespace
 
 TEST_CASE("AudioSource") {
+    SUBCASE("AudioSource - exposes its graph AudioFormat") {
+        NameProbeSource source;
+        REQUIRE((source.get_audio_format() ==
+                 Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo}));
+    }
+
     SUBCASE("AudioSource - name stays consistent during concurrent reads and writes") {
         NameProbeSource source;
         const std::string short_name = "voice-a";

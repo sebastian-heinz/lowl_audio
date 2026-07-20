@@ -6,10 +6,8 @@
 #include <mutex>
 #include <string>
 
-#include "audio/backend/lowl_audio_device_properties.h"
 #include "audio/lowl_audio_buffer.h"
-#include "audio/lowl_audio_channel.h"
-#include "audio/lowl_audio_sample_format.h"
+#include "audio/lowl_audio_format.h"
 #include "lowl_typedef.h"
 
 namespace Lowl::Audio {
@@ -63,8 +61,7 @@ namespace Lowl::Audio {
         const int right_channel_index;
 
     protected:
-        const SampleRate sample_rate;
-        const ChannelLayout channel_layout;
+        const AudioFormat audio_format;
         std::atomic<bool> playback_enabled{true};
 
         static void clear_block(AudioBlockView p_block);
@@ -79,7 +76,7 @@ namespace Lowl::Audio {
         static MixGainVector make_unity_gain_vector();
 
     public:
-        AudioSource(SampleRate p_sample_rate, ChannelLayout p_channel_layout);
+        explicit AudioSource(AudioFormat p_audio_format);
 
         virtual ~AudioSource() = default;
 
@@ -102,15 +99,9 @@ namespace Lowl::Audio {
 
         void set_name(const std::string &p_name);
 
-        SampleRate get_sample_rate() const;
-
-        ChannelLayout get_channel_layout() const;
+        const AudioFormat &get_audio_format() const;
 
         uint8_t get_channel_count() const;
-
-        SampleFormat get_sample_format() const;
-
-        AudioDeviceProperties get_properties() const;
 
         void set_volume(Volume p_volume);
 

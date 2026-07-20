@@ -16,10 +16,8 @@ void Lowl::Audio::AudioData::rebuild_channel_ptrs() {
 
 Lowl::Audio::AudioData::AudioData(std::unique_ptr<Sample[]> p_storage,
                                   const size_t p_frame_count,
-                                  SampleRate p_sample_rate,
-                                  ChannelLayout p_channel_layout)
-    : sample_rate(p_sample_rate),
-      channel_layout(p_channel_layout),
+                                  const AudioFormat p_audio_format)
+    : audio_format(p_audio_format),
       frame_count(p_frame_count) {
     const uint8_t channel_count = get_channel_count();
     frame_stride = aligned_frame_stride(frame_count);
@@ -41,10 +39,10 @@ std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioData::create_slice(Tim
                                                                              TimeSeconds p_end_sec) {
     const TimeSeconds begin_sec = std::max<TimeSeconds>(0.0, p_begin_sec);
     const TimeSeconds end_sec = std::max<TimeSeconds>(0.0, p_end_sec);
-    size_t first_frame = static_cast<size_t>(begin_sec * sample_rate);
-    size_t last_frame = static_cast<size_t>(end_sec * sample_rate);
+    size_t first_frame = static_cast<size_t>(begin_sec * audio_format.sample_rate);
+    size_t last_frame = static_cast<size_t>(end_sec * audio_format.sample_rate);
     if (frame_count == 0) {
-        return std::make_unique<AudioData>(std::unique_ptr<Sample[]>(), 0, sample_rate, channel_layout);
+        return std::make_unique<AudioData>(std::unique_ptr<Sample[]>(), 0, audio_format);
     }
     first_frame = std::min(first_frame, frame_count);
     last_frame = p_end_sec > 0.0 ? std::min(last_frame, frame_count) : frame_count;
@@ -67,7 +65,7 @@ std::unique_ptr<Lowl::Audio::AudioData> Lowl::Audio::AudioData::create_slice(Tim
         }
     }
     std::unique_ptr<AudioData> audio_data =
-        std::make_unique<AudioData>(std::move(slice_storage), slice_frame_count, sample_rate, channel_layout);
+        std::make_unique<AudioData>(std::move(slice_storage), slice_frame_count, audio_format);
     audio_data->set_name(get_name());
     return audio_data;
 }
@@ -82,16 +80,12 @@ const Lowl::Sample *Lowl::Audio::AudioData::get_channel_data(const uint8_t p_cha
 Lowl::Audio::AudioData::~AudioData() {
 }
 
-Lowl::SampleRate Lowl::Audio::AudioData::get_sample_rate() const {
-    return sample_rate;
-}
-
-Lowl::Audio::ChannelLayout Lowl::Audio::AudioData::get_channel_layout() const {
-    return channel_layout;
+const Lowl::Audio::AudioFormat &Lowl::Audio::AudioData::get_audio_format() const {
+    return audio_format;
 }
 
 uint8_t Lowl::Audio::AudioData::get_channel_count() const {
-    return channel_layout.channel_count;
+    return audio_format.channel_layout.channel_count;
 }
 
 Lowl::size_l Lowl::Audio::AudioData::get_frames_remaining() const {

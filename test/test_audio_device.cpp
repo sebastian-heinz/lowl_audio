@@ -17,7 +17,8 @@ namespace {
     class ShortReadAudioSource final : public Lowl::Audio::AudioSource {
     public:
         explicit ShortReadAudioSource(std::vector<StereoSample> p_frames)
-            : AudioSource(44100.0, Lowl::Audio::ChannelLayout::Stereo), frames(std::move(p_frames)) {
+            : AudioSource(Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo}),
+              frames(std::move(p_frames)) {
         }
 
         RenderResult mix_into(Lowl::Audio::AudioBlockView p_block,
@@ -121,8 +122,9 @@ TEST_CASE("AudioDevice") {
     SUBCASE("AudioDeviceProperties - default initialization is safe") {
         Lowl::Audio::AudioDeviceProperties properties;
         REQUIRE_FALSE(properties.is_supported);
-        REQUIRE_EQ(properties.sample_rate, Lowl::NO_SAMPLE_RATE);
-        REQUIRE_FALSE(properties.channel_layout.is_valid());
+        REQUIRE_EQ(properties.audio_format.sample_rate, Lowl::NO_SAMPLE_RATE);
+        REQUIRE_FALSE(properties.audio_format.channel_layout.is_valid());
+        REQUIRE_FALSE(properties.audio_format.is_valid());
         REQUIRE_EQ(properties.sample_format, Lowl::Audio::SampleFormat::Unknown);
         REQUIRE_FALSE(properties.exclusive_mode);
         REQUIRE_EQ(properties.wasapi.valid_bits_per_sample, 0);
@@ -133,13 +135,12 @@ TEST_CASE("AudioDevice") {
 
         Lowl::Audio::AudioDeviceProperties exact{};
         exact.is_supported = true;
-        exact.sample_rate = 48000.0;
-        exact.channel_layout = Lowl::Audio::ChannelLayout::Stereo;
+        exact.audio_format = Lowl::Audio::AudioFormat{48000.0, Lowl::Audio::ChannelLayout::Stereo};
         exact.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
         exact.exclusive_mode = false;
 
         Lowl::Audio::AudioDeviceProperties wrong_channel = exact;
-        wrong_channel.channel_layout = Lowl::Audio::ChannelLayout::Mono;
+        wrong_channel.audio_format.channel_layout = Lowl::Audio::ChannelLayout::Mono;
 
         Lowl::Audio::AudioDeviceProperties wrong_format = exact;
         wrong_format.sample_format = Lowl::Audio::SampleFormat::INT_16;
@@ -157,34 +158,34 @@ TEST_CASE("AudioDevice") {
 
         Lowl::Audio::AudioDeviceProperties requested{};
         requested.is_supported = true;
-        requested.sample_rate = 50000.0;
-        requested.channel_layout = Lowl::Audio::ChannelLayout::Stereo;
+        requested.audio_format = Lowl::Audio::AudioFormat{50000.0, Lowl::Audio::ChannelLayout::Stereo};
         requested.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
 
         Lowl::Audio::AudioDeviceProperties low = requested;
-        low.sample_rate = 48000.0;
+        low.audio_format.sample_rate = 48000.0;
 
         Lowl::Audio::AudioDeviceProperties high = requested;
-        high.sample_rate = 96000.0;
+        high.audio_format.sample_rate = 96000.0;
 
         device.set_properties_list({high, low});
 
         Lowl::Error error;
         const Lowl::Audio::AudioDeviceProperties selected = device.get_closest_properties(requested, error);
         REQUIRE_FALSE(error.has_error());
-        REQUIRE_EQ(selected.sample_rate, doctest::Approx(48000.0));
+        REQUIRE_EQ(selected.audio_format.sample_rate, doctest::Approx(48000.0));
     }
 
     SUBCASE("AudioDeviceProperties - ordering treats rounded-equal sample rates as equal") {
         Lowl::Audio::AudioDeviceProperties lhs{};
         lhs.is_supported = true;
-        lhs.sample_rate = 48000.1;
-        lhs.channel_layout = Lowl::Audio::ChannelLayout::Stereo;
+        lhs.audio_format = Lowl::Audio::AudioFormat{48000.1, Lowl::Audio::ChannelLayout::Stereo};
         lhs.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
 
         Lowl::Audio::AudioDeviceProperties rhs = lhs;
-        rhs.sample_rate = 48000.4;
+        rhs.audio_format.sample_rate = 48000.4;
 
+        REQUIRE((lhs.get_audio_format() ==
+                 Lowl::Audio::AudioFormat{48000.0, Lowl::Audio::ChannelLayout::Stereo}));
         REQUIRE(lhs == rhs);
         REQUIRE_FALSE(lhs < rhs);
         REQUIRE_FALSE(rhs < lhs);
@@ -205,8 +206,8 @@ TEST_CASE("AudioDevice") {
         );
 
         Lowl::Audio::AudioDeviceProperties properties{};
+        properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
         properties.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
-        properties.channel_layout = Lowl::Audio::ChannelLayout::Stereo;
 
         TestAudioDevice device;
         device.configure(properties, source);
@@ -240,8 +241,8 @@ TEST_CASE("AudioDevice") {
         );
 
         Lowl::Audio::AudioDeviceProperties properties{};
+        properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
         properties.sample_format = Lowl::Audio::SampleFormat::Unknown;
-        properties.channel_layout = Lowl::Audio::ChannelLayout::Stereo;
 
         TestAudioDevice device;
         device.configure(properties, source);
@@ -272,8 +273,8 @@ TEST_CASE("AudioDevice") {
         );
 
         Lowl::Audio::AudioDeviceProperties properties{};
+        properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
         properties.sample_format = Lowl::Audio::SampleFormat::INT_16;
-        properties.channel_layout = Lowl::Audio::ChannelLayout::Stereo;
 
         TestAudioDevice device;
         device.configure(properties, source);
@@ -299,8 +300,8 @@ TEST_CASE("AudioDevice") {
         );
 
         Lowl::Audio::AudioDeviceProperties properties{};
+        properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
         properties.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
-        properties.channel_layout = Lowl::Audio::ChannelLayout::Stereo;
 
         TestAudioDevice device;
         device.configure(properties, source);
@@ -329,8 +330,8 @@ TEST_CASE("AudioDevice") {
         );
 
         Lowl::Audio::AudioDeviceProperties properties{};
+        properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
         properties.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
-        properties.channel_layout = Lowl::Audio::ChannelLayout::Stereo;
 
         TestAudioDevice device;
         device.configure(properties, source);
@@ -359,8 +360,8 @@ TEST_CASE("AudioDevice") {
         );
 
         Lowl::Audio::AudioDeviceProperties properties{};
+        properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
         properties.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
-        properties.channel_layout = Lowl::Audio::ChannelLayout::Stereo;
 
         TestAudioDevice device;
         device.configure(properties, source);

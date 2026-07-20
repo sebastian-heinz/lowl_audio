@@ -4,7 +4,6 @@
 #include <limits>
 #include <string>
 
-#include "audio/lowl_audio_utilities.h"
 #include "lowl_logger.h"
 
 namespace {
@@ -19,8 +18,8 @@ namespace {
     }
 } // namespace
 
-Lowl::Audio::AudioBus::AudioBus(const SampleRate p_sample_rate, const ChannelLayout p_channel_layout)
-    : AudioSource(p_sample_rate, p_channel_layout) {
+Lowl::Audio::AudioBus::AudioBus(const AudioFormat p_audio_format)
+    : AudioSource(p_audio_format) {
     sources.fill(ActiveSourceSlot{});
 }
 
@@ -246,17 +245,13 @@ void Lowl::Audio::AudioBus::submit(const AudioBusSlotHandle p_handle, AudioSourc
         return;
     }
 
-    if (p_audio_source->get_channel_layout() != channel_layout) {
-        LOWL_LOG_ERROR("Lowl::AudioBus::submit: source layout(" + p_audio_source->get_channel_layout().to_string() +
-                       ") does not match bus layout(" + channel_layout.to_string() + ").");
-        acks.try_enqueue(AudioBusAck{AudioBusAck::Type::Rejected, p_handle});
-        return;
-    }
-
-    if (!Lowl::Audio::sample_rates_equal(p_audio_source->get_sample_rate(), sample_rate)) {
-        LOWL_LOG_ERROR("Lowl::AudioBus::submit: source sample rate(" +
-                       std::to_string(p_audio_source->get_sample_rate()) + ") does not match bus(" +
-                       std::to_string(sample_rate) + ").");
+    const AudioFormat &source_format = p_audio_source->get_audio_format();
+    const AudioFormat &bus_format = get_audio_format();
+    if (source_format != bus_format) {
+        LOWL_LOG_ERROR("Lowl::AudioBus::submit: source format(rate:" + std::to_string(source_format.sample_rate) +
+                       ", layout:" + source_format.channel_layout.to_string() + ") does not match bus(rate:" +
+                       std::to_string(bus_format.sample_rate) + ", layout:" +
+                       bus_format.channel_layout.to_string() + ").");
         acks.try_enqueue(AudioBusAck{AudioBusAck::Type::Rejected, p_handle});
         return;
     }

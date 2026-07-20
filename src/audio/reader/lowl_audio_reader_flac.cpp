@@ -4,7 +4,6 @@
 #include <cstring>
 #include <limits>
 
-#include "audio/lowl_audio_format.h"
 #include "audio/reader/lowl_audio_reader_dr_lib.h"
 
 namespace {
@@ -72,7 +71,6 @@ Lowl::Audio::AudioReaderFlac::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p
 
     const DrLib::FlacInfo flac_info = flac.get_info();
     SampleFormat sample_format = SampleFormat::INT_32;
-    AudioFormat audio_format = AudioFormat::FLAC;
     size_t bytes_per_sample = get_sample_size_bytes(sample_format);
     const VorbisLayoutMapping mapping = get_vorbis_layout_mapping(flac_info.channels);
     if (!mapping.layout.is_valid()) {
@@ -118,7 +116,7 @@ Lowl::Audio::AudioReaderFlac::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p
     }
 
     return create_audio_data(
-        audio_format, sample_format, mapping.layout, sample_rate, pcm_frames, pcm_buffer_size, mapping.input_speakers, error);
+        sample_format, mapping.layout, sample_rate, pcm_frames, pcm_buffer_size, mapping.input_speakers, error);
 }
 
 bool Lowl::Audio::AudioReaderFlac::support(Lowl::FileFormat p_file_format) const {

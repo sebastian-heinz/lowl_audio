@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <cstdint>
 
-#include "audio/lowl_audio_format.h"
 
 struct OggData {
     uint8_t *data;
@@ -188,7 +187,8 @@ Lowl::Audio::AudioReaderOgg::read(std::unique_ptr<uint8_t[]> p_buffer, size_t p_
         storage = std::move(trimmed_storage);
     }
 
-    return std::make_unique<AudioData>(std::move(storage), frames_read_total, sample_rate, mapping.layout);
+    return std::make_unique<AudioData>(
+        std::move(storage), frames_read_total, AudioFormat{sample_rate, mapping.layout});
 }
 
 bool Lowl::Audio::AudioReaderOgg::support(Lowl::FileFormat p_file_format) const {

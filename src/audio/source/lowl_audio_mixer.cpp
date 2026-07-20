@@ -4,7 +4,6 @@
 #include <limits>
 #include <string>
 
-#include "audio/lowl_audio_utilities.h"
 #include "lowl_logger.h"
 
 namespace {
@@ -42,10 +41,8 @@ Lowl::Audio::AudioMixer::HandleSlot *Lowl::Audio::AudioMixer::get_handle_slot_lo
     return &slot;
 }
 
-Lowl::Audio::AudioMixer::AudioMixer(const SampleRate p_sample_rate,
-                                    const ChannelLayout p_channel_layout,
-                                    const uint32_t)
-    : AudioSource(p_sample_rate, p_channel_layout),
+Lowl::Audio::AudioMixer::AudioMixer(const AudioFormat p_audio_format, const uint32_t)
+    : AudioSource(p_audio_format),
       ack_owners(std::make_unique<AckOwnerSlot[]>(MAX_ACK_OWNERS)) {
     sources.fill(ActiveSourceSlot{});
 }
@@ -267,17 +264,13 @@ void Lowl::Audio::AudioMixer::mix(const AudioMixerHandle p_handle, AudioSource *
         }
     }
 
-    if (p_audio_source->get_channel_layout() != channel_layout) {
-        LOWL_LOG_ERROR("Lowl::AudioMixer::mix: source layout(" + p_audio_source->get_channel_layout().to_string() +
-                       ") does not match mixer layout(" + channel_layout.to_string() + ").");
-        enqueue_ack({AudioMixerAck::Type::Rejected, p_handle});
-        return;
-    }
-
-    if (!Lowl::Audio::sample_rates_equal(p_audio_source->get_sample_rate(), sample_rate)) {
-        LOWL_LOG_ERROR("Lowl::AudioMixer::mix: source sample rate(" +
-                       std::to_string(p_audio_source->get_sample_rate()) + ") does not match mixer(" +
-                       std::to_string(sample_rate) + ").");
+    const AudioFormat &source_format = p_audio_source->get_audio_format();
+    const AudioFormat &mixer_format = get_audio_format();
+    if (source_format != mixer_format) {
+        LOWL_LOG_ERROR("Lowl::AudioMixer::mix: source format(rate:" + std::to_string(source_format.sample_rate) +
+                       ", layout:" + source_format.channel_layout.to_string() + ") does not match mixer(rate:" +
+                       std::to_string(mixer_format.sample_rate) + ", layout:" +
+                       mixer_format.channel_layout.to_string() + ").");
         enqueue_ack({AudioMixerAck::Type::Rejected, p_handle});
         return;
     }

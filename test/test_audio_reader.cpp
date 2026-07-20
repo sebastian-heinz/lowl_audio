@@ -117,7 +117,9 @@ namespace {
             std::memcpy(storage.get(), p_samples.data(), p_samples.size() * sizeof(Lowl::Sample));
         }
         return std::make_shared<Lowl::Audio::AudioData>(
-            std::move(storage), p_samples.size(), p_sample_rate, Lowl::Audio::ChannelLayout::Mono);
+            std::move(storage),
+            p_samples.size(),
+            Lowl::Audio::AudioFormat{p_sample_rate, Lowl::Audio::ChannelLayout::Mono});
     }
 }
 
@@ -135,7 +137,6 @@ TEST_CASE("AudioReader") {
 
         Lowl::Error error;
         std::unique_ptr<Lowl::Audio::AudioData> audio_data = reader.create_audio_data(
-            Lowl::Audio::AudioFormat::WAVE_FORMAT_IEEE_FLOAT,
             Lowl::Audio::SampleFormat::FLOAT_32,
             Lowl::Audio::ChannelLayout::Stereo,
             44100.0,
@@ -147,6 +148,8 @@ TEST_CASE("AudioReader") {
 
         REQUIRE_FALSE(error.has_error());
         REQUIRE(audio_data != nullptr);
+        REQUIRE((audio_data->get_audio_format() ==
+                 Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo}));
         REQUIRE_EQ(audio_data->get_frame_count(), 2U);
         REQUIRE_EQ(audio_data->get_channel_data(0)[0], doctest::Approx(0.10f));
         REQUIRE_EQ(audio_data->get_channel_data(0)[1], doctest::Approx(0.30f));
@@ -188,7 +191,10 @@ TEST_CASE("AudioReader") {
 
     SUBCASE("ReSampler - zero-frame clips stay empty") {
         std::shared_ptr<Lowl::Audio::AudioData> audio =
-            std::make_shared<Lowl::Audio::AudioData>(std::unique_ptr<Lowl::Sample[]>(), 0, 44100.0, Lowl::Audio::ChannelLayout::Mono);
+            std::make_shared<Lowl::Audio::AudioData>(
+                std::unique_ptr<Lowl::Sample[]>(),
+                0,
+                Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Mono});
 
         std::unique_ptr<Lowl::Audio::AudioData> resampled = Lowl::Audio::ReSamplerR8b::resample(audio, 48000.0);
 
@@ -218,7 +224,9 @@ TEST_CASE("AudioReader") {
     SUBCASE("ReSampler - frame counts beyond r8brain int API fail safely") {
         const size_t too_many_frames = static_cast<size_t>(std::numeric_limits<int>::max()) + 1U;
         std::shared_ptr<Lowl::Audio::AudioData> audio = std::make_shared<Lowl::Audio::AudioData>(
-            std::unique_ptr<Lowl::Sample[]>(), too_many_frames, 44100.0, Lowl::Audio::ChannelLayout::Mono);
+            std::unique_ptr<Lowl::Sample[]>(),
+            too_many_frames,
+            Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Mono});
 
         std::unique_ptr<Lowl::Audio::AudioData> resampled;
         REQUIRE_NOTHROW(resampled = Lowl::Audio::ReSamplerR8b::resample(audio, 48000.0));

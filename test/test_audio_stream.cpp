@@ -15,6 +15,12 @@ namespace {
         Lowl::Sample right;
     };
 
+    Lowl::Audio::AudioFormat make_audio_format(
+        const Lowl::Audio::ChannelLayout p_channel_layout,
+        const Lowl::SampleRate p_sample_rate = 44100.0) {
+        return {p_sample_rate, p_channel_layout};
+    }
+
     std::unique_ptr<Lowl::Audio::AudioData>
     make_audio_data(Lowl::Audio::ChannelLayout p_channel_layout, const std::vector<Lowl::Sample> &p_interleaved_frames) {
         const uint8_t channel_count = p_channel_layout.channel_count;
@@ -29,7 +35,8 @@ namespace {
                 }
             }
         }
-        return std::make_unique<Lowl::Audio::AudioData>(std::move(storage), frame_count, 44100.0, p_channel_layout);
+        return std::make_unique<Lowl::Audio::AudioData>(
+            std::move(storage), frame_count, make_audio_format(p_channel_layout));
     }
 
     std::unique_ptr<Lowl::Audio::AudioData> make_stereo_audio_data(const std::vector<StereoSample> &p_frames) {
@@ -45,8 +52,7 @@ namespace {
         return std::make_unique<Lowl::Audio::AudioData>(
             std::move(storage),
             frame_count,
-            44100.0,
-            Lowl::Audio::ChannelLayout::Stereo
+            make_audio_format(Lowl::Audio::ChannelLayout::Stereo)
         );
     }
 
@@ -85,7 +91,7 @@ namespace {
     class MixerDetachProbe final : public Lowl::Audio::AudioSource {
     public:
         explicit MixerDetachProbe(Lowl::Audio::ChannelLayout p_channel_layout, const Lowl::SampleRate p_sample_rate = 44100.0)
-            : AudioSource(p_sample_rate, p_channel_layout) {
+            : AudioSource(make_audio_format(p_channel_layout, p_sample_rate)) {
         }
 
         RenderResult mix_into(Lowl::Audio::AudioBlockView,
@@ -115,7 +121,7 @@ namespace {
     class ConstantMixerSource final : public Lowl::Audio::AudioSource {
     public:
         explicit ConstantMixerSource(const StereoSample p_sample)
-            : AudioSource(44100.0, Lowl::Audio::ChannelLayout::Stereo),
+            : AudioSource(make_audio_format(Lowl::Audio::ChannelLayout::Stereo)),
               sample(p_sample) {
         }
 
@@ -161,10 +167,10 @@ TEST_CASE("AudioStream") {
     };
 
     std::shared_ptr<Lowl::Audio::AudioStream> audio_stream
-            = std::make_unique<Lowl::Audio::AudioStream>(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+            = std::make_unique<Lowl::Audio::AudioStream>(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
 
     SUBCASE("AudioMixer - aggregate frame queries use a consistent live sentinel") {
-        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
 
         REQUIRE_EQ(mixer.get_frames_remaining(), 1U);
         REQUIRE_EQ(mixer.get_frame_count(), 1U);
@@ -222,7 +228,7 @@ TEST_CASE("AudioStream") {
     }
 
     SUBCASE("AudioStream - Planar write wraps around ring") {
-        Lowl::Audio::AudioStream small_stream(44100.0, Lowl::Audio::ChannelLayout::Stereo, 3);
+        Lowl::Audio::AudioStream small_stream(make_audio_format(Lowl::Audio::ChannelLayout::Stereo), 3);
         const Lowl::Sample left_a[] = {0.1f, 0.2f};
         const Lowl::Sample right_a[] = {-0.1f, -0.2f};
         const std::vector<const Lowl::Sample *> first_block{left_a, right_a};
@@ -255,7 +261,7 @@ TEST_CASE("AudioStream") {
     }
 
     SUBCASE("AudioStream - Interleaved write wraps around ring") {
-        Lowl::Audio::AudioStream small_stream(44100.0, Lowl::Audio::ChannelLayout::Stereo, 3);
+        Lowl::Audio::AudioStream small_stream(make_audio_format(Lowl::Audio::ChannelLayout::Stereo), 3);
         const Lowl::Sample first_block[] = {0.1f, -0.1f, 0.2f, -0.2f};
         REQUIRE_EQ(small_stream.write_interleaved(first_block, 2), 2U);
 
@@ -284,7 +290,7 @@ TEST_CASE("AudioStream") {
     }
 
     SUBCASE("AudioStream - writes stop at capacity and resume after reads") {
-        Lowl::Audio::AudioStream small_stream(44100.0, Lowl::Audio::ChannelLayout::Stereo, 2);
+        Lowl::Audio::AudioStream small_stream(make_audio_format(Lowl::Audio::ChannelLayout::Stereo), 2);
         const Lowl::Sample first_block[] = {0.1f, -0.1f, 0.2f, -0.2f, 0.3f, -0.3f};
         REQUIRE_EQ(small_stream.write_interleaved(first_block, 3), 2U);
 
@@ -308,7 +314,7 @@ TEST_CASE("AudioStream") {
     }
 
     SUBCASE("AudioStream - requested capacity remains the writable limit") {
-        Lowl::Audio::AudioStream small_stream(44100.0, Lowl::Audio::ChannelLayout::Stereo, 3);
+        Lowl::Audio::AudioStream small_stream(make_audio_format(Lowl::Audio::ChannelLayout::Stereo), 3);
         const Lowl::Sample frames[] = {
             0.1f, -0.1f,
             0.2f, -0.2f,
@@ -342,7 +348,7 @@ TEST_CASE("AudioStream") {
 
     SUBCASE("AudioStream - concurrent single producer and single consumer preserve frame order") {
         constexpr size_t total_frames = 64;
-        Lowl::Audio::AudioStream stream(44100.0, Lowl::Audio::ChannelLayout::Stereo, 4);
+        Lowl::Audio::AudioStream stream(make_audio_format(Lowl::Audio::ChannelLayout::Stereo), 4);
         std::vector<StereoSample> expected_frames(total_frames);
         for (size_t frame_index = 0; frame_index < total_frames; frame_index++) {
             expected_frames[frame_index] = {
@@ -382,7 +388,7 @@ TEST_CASE("AudioStream") {
     }
 
     SUBCASE("AudioStream - render rejects mismatched channel block") {
-        Lowl::Audio::AudioStream mono_stream(44100.0, Lowl::Audio::ChannelLayout::Mono, 3);
+        Lowl::Audio::AudioStream mono_stream(make_audio_format(Lowl::Audio::ChannelLayout::Mono), 3);
         const Lowl::Sample samples[] = {0.5f};
         REQUIRE_EQ(mono_stream.write_interleaved(samples, 1), 1U);
 
@@ -398,7 +404,7 @@ TEST_CASE("AudioStream") {
     }
 
     SUBCASE("AudioMixer - render rejects mismatched channel block") {
-        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
 
         Lowl::Audio::AudioBuffer mono_buffer(1, 1);
         Lowl::Audio::AudioBlockView mono_block = mono_buffer.view(1);
@@ -411,7 +417,7 @@ TEST_CASE("AudioStream") {
     }
 
     SUBCASE("AudioMixer - mix rejects mismatched channel source") {
-        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
         MixerDetachProbe mono_probe(Lowl::Audio::ChannelLayout::Mono);
         const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
         const Lowl::AudioMixerHandle mono_handle = allocate_mixer_handle(mixer, owner_id);
@@ -424,7 +430,7 @@ TEST_CASE("AudioStream") {
     }
 
     SUBCASE("AudioMixer - mix rejects mismatched sample-rate source") {
-        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
         MixerDetachProbe probe(Lowl::Audio::ChannelLayout::Stereo, 48000.0);
         const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
         const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer, owner_id);
@@ -437,7 +443,7 @@ TEST_CASE("AudioStream") {
     }
 
     SUBCASE("AudioMixer - remove reuses a freed slot") {
-        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
         ConstantMixerSource source_a({0.25f, 0.25f});
         ConstantMixerSource source_b({0.50f, 0.50f});
         ConstantMixerSource source_c({0.75f, 0.75f});
@@ -477,7 +483,7 @@ TEST_CASE("AudioStream") {
     }
 
     SUBCASE("AudioMixer - handle cannot be rebound to a different source") {
-        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
         ConstantMixerSource source_a({0.25f, 0.25f});
         ConstantMixerSource source_b({0.50f, 0.50f});
         const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
@@ -504,7 +510,7 @@ TEST_CASE("AudioStream") {
     }
 
     SUBCASE("AudioMixer - duplicate mix events for the same handle and source are idempotent") {
-        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
         ConstantMixerSource source({0.25f, 0.25f});
         const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
         const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer, owner_id);
@@ -526,7 +532,7 @@ TEST_CASE("AudioStream") {
     }
 
     SUBCASE("AudioMixer - released handles are rejected") {
-        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
         ConstantMixerSource source({0.25f, 0.25f});
         const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
         const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer, owner_id);
@@ -538,7 +544,7 @@ TEST_CASE("AudioStream") {
     }
 
     SUBCASE("AudioMixer - ack owner lifecycle invalidates old handles and allows reuse") {
-        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
         const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
         const Lowl::AudioMixerHandle handle = allocate_mixer_handle(mixer, owner_id);
 
@@ -554,7 +560,7 @@ TEST_CASE("AudioStream") {
     }
 
     SUBCASE("AudioMixer - rejects sources beyond the active source limit") {
-        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo);
+        Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo));
         const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
 
         std::vector<Lowl::AudioMixerHandle> handles;
@@ -589,8 +595,8 @@ TEST_CASE("AudioStream") {
     }
 
     SUBCASE("AudioMixer - renders frames directly without chunking") {
-        Lowl::Audio::AudioMixer mixer(44100.0, Lowl::Audio::ChannelLayout::Stereo, 2);
-        Lowl::Audio::AudioStream stereo_stream(44100.0, Lowl::Audio::ChannelLayout::Stereo, 8);
+        Lowl::Audio::AudioMixer mixer(make_audio_format(Lowl::Audio::ChannelLayout::Stereo), 2);
+        Lowl::Audio::AudioStream stereo_stream(make_audio_format(Lowl::Audio::ChannelLayout::Stereo), 8);
         const Lowl::uint16_l owner_id = register_mixer_owner(mixer);
         const Lowl::AudioMixerHandle stream_handle = allocate_mixer_handle(mixer, owner_id);
         const Lowl::Sample samples[] = {
@@ -641,13 +647,13 @@ TEST_CASE("AudioStream") {
         };
 
         Lowl::Error error;
-        Lowl::Audio::AudioSpace audio_space(44100.0, channel);
-        Lowl::Audio::AudioMixer mixer_a(44100.0, channel, 3);
-        Lowl::Audio::AudioMixer mixer_b(44100.0, channel);
-        Lowl::Audio::AudioMixer mixer_c(44100.0, channel);
-        Lowl::Audio::AudioStream stream_a(44100.0, channel, 16);
-        Lowl::Audio::AudioStream stream_b0(44100.0, channel, 16);
-        Lowl::Audio::AudioStream stream_b1(44100.0, channel, 16);
+        Lowl::Audio::AudioSpace audio_space(make_audio_format(channel));
+        Lowl::Audio::AudioMixer mixer_a(make_audio_format(channel), 3);
+        Lowl::Audio::AudioMixer mixer_b(make_audio_format(channel));
+        Lowl::Audio::AudioMixer mixer_c(make_audio_format(channel));
+        Lowl::Audio::AudioStream stream_a(make_audio_format(channel), 16);
+        Lowl::Audio::AudioStream stream_b0(make_audio_format(channel), 16);
+        Lowl::Audio::AudioStream stream_b1(make_audio_format(channel), 16);
         const Lowl::uint16_l owner_a = register_mixer_owner(mixer_a);
         const Lowl::uint16_l owner_b = register_mixer_owner(mixer_b);
         const Lowl::uint16_l owner_c = register_mixer_owner(mixer_c);

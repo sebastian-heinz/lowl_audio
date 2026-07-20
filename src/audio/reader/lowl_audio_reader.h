@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "audio/convert/lowl_audio_sample_converter.h"
-#include "audio/lowl_audio_format.h"
 #include "audio/source/lowl_audio_data.h"
 #include "audio/source/lowl_audio_stream.h"
 #include "lowl_file_format.h"
@@ -36,8 +35,7 @@ namespace Lowl::Audio {
 
         virtual ~AudioReader() = default;
 
-        std::unique_ptr<AudioData> create_audio_data(AudioFormat p_audio_format,
-                                                     SampleFormat p_sample_format,
+        std::unique_ptr<AudioData> create_audio_data(SampleFormat p_sample_format,
                                                      ChannelLayout p_layout,
                                                      SampleRate p_sample_rate,
                                                      const std::unique_ptr<uint8_t[]> &p_buffer,

@@ -20,7 +20,8 @@ namespace {
                 }
             }
         }
-        return std::make_shared<Lowl::Audio::AudioData>(std::move(storage), frame_count, 48000.0, p_layout);
+        return std::make_shared<Lowl::Audio::AudioData>(
+            std::move(storage), frame_count, Lowl::Audio::AudioFormat{48000.0, p_layout});
     }
 } // namespace
 
@@ -37,7 +38,7 @@ TEST_CASE("ChannelConverter") {
         std::unique_ptr<Lowl::Audio::AudioData> converted = converter.convert(ChannelLayout::Stereo, source, error);
         REQUIRE_FALSE(error.has_error());
         REQUIRE(converted != nullptr);
-        REQUIRE_EQ(converted->get_channel_layout(), ChannelLayout::Stereo);
+        REQUIRE_EQ(converted->get_audio_format().channel_layout, ChannelLayout::Stereo);
         REQUIRE_EQ(converted->get_channel_data(0)[0], doctest::Approx(0.25f));
         REQUIRE_EQ(converted->get_channel_data(1)[1], doctest::Approx(-0.5f));
     }
@@ -68,7 +69,7 @@ TEST_CASE("ChannelConverter") {
             converter.convert(ChannelLayout::Surround_5_1_Rear, source, error);
         REQUIRE_FALSE(error.has_error());
         REQUIRE(converted != nullptr);
-        REQUIRE_EQ(converted->get_channel_layout(), ChannelLayout::Surround_5_1_Rear);
+        REQUIRE_EQ(converted->get_audio_format().channel_layout, ChannelLayout::Surround_5_1_Rear);
         REQUIRE_EQ(converted->get_channel_data(0)[0], doctest::Approx(1.0f));
         REQUIRE_EQ(converted->get_channel_data(1)[0], doctest::Approx(2.0f));
         REQUIRE_EQ(converted->get_channel_data(2)[0], doctest::Approx(3.0f));
