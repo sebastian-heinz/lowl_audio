@@ -1,130 +1,323 @@
 # lowl_audio — Design Specification
 
-**Directive date:** 2026-07-20
+**Directive date:** 2026-07-21
 
-> **Implementation directive:** Use one `Mixer` node implementation and instantiate it as many times as the graph requires. Do not add an `AudioBus` class, `AudioBusHandle`, `create_bus()` facade, or a second render/control implementation. Callers that need a submix create another Mixer and connect it explicitly. Each `AudioSpace` owns exactly one private Mixer for its voices and owns no external graph topology.
+> **Implementation directive:** `lowl_audio` is an explicit, pull-based audio graph. Use one `AudioMixer` implementation and instantiate it as many times as the application needs. Do not introduce `AudioBus`, `AudioBusHandle`, `create_bus()`, or another bus-specific render/control path. An `AudioSpace` owns exactly one private `AudioMixer`, registers render-ready assets, and manages playback voices through IDs. The caller owns every mixer and connection outside a Space.
 
-## Core Concept
+This document is the aligned architecture and implementation direction. Sections marked **Implemented** describe the current foundation. Sections marked **Planned** describe intended additions and are repeated in priority order in **Things Left To Do** at the bottom.
 
-A composable, pull-model audio node graph. Nodes connect source→sink. The graph is evaluated from sinks backward on the render thread. All render-path evaluation is real-time safe (no locks, no allocations).
+## Goals
 
-## Node Model
+- Provide small audio building blocks that can be composed explicitly.
+- Make `AudioSpace` the convenient game-facing building block for preloaded sound assets and polyphonic playback by ID.
+- Keep the render callback deterministic and real-time safe: no locks, allocations, blocking, or ownership churn.
+- Make formats, conversion, topology, ownership, and failure visible rather than implicit.
+- Reuse one mixer design for root mixes, submixes, logical volume groups, and the private mix inside a Space.
 
-Every node can be read from (source) and/or written to (sink). Every node has built-in volume and panning — these are not separate nodes.
+The library does not own a game scene, global listener, or application-wide audio graph. It supplies sources, mixers, import/conversion utilities, and device backends; the application composes them.
 
-Adding a new node type = implementing one interface.
+## Whole-System Picture
 
+```text
+encoded file / bytes
+        |
+        v
+   AudioReader ---------------------> AudioData
+   WAV, MP3, FLAC, OGG, Opus          decoded planar samples + AudioFormat
+                                             |
+                         register / convert  |
+                                             v
+                                      AudioSpace asset registry
+                                             |
+                                      create playback ID
+                                             |
+                                             v
+                                        AudioVoice(s)
+                                             |
+                                      private AudioMixer
+                                             |
+                                             v
+                                         AudioSpace --------------------+
+                                                                        |
+external producer --> AudioStream --> optional processing --> AudioMixer(s) --> AudioDevice
+                                                                        ^
+manually-owned AudioSource / AudioMixer --------------------------------+
 ```
-[Clip]   ──→ [Spatializer] ──→ [Mixer "SFX"]   ──→ [Mixer "Master"] ──→ [Device]
-[Clip]   ──→ [Spatializer] ──↗
-[Stream] ──→ [Reverb]      ──→ [Mixer "Music"]  ──↗
-[Space]  ───────────────────────────────────────────↗
+
+The device pulls a block from its root `AudioSource`. A root source is commonly an `AudioMixer`, but it can be any format-compatible source. Pulling a parent mixer recursively pulls nested mixers and their sources on the same render thread.
+
+There is no central `AudioGraph` object and no implicit routing. The graph is the object topology created by the caller.
+
+## Core Render Contract — Implemented
+
+`AudioSource` is the common renderable abstraction. `AudioVoice`, `AudioStream`, `AudioMixer`, and `AudioSpace` are all sources. Each source has one output `AudioFormat`, volume, panning, playback enable state, and a `mix_into()` implementation.
+
+`mix_into()` accumulates samples into a planar `AudioBlockView`; it does not assume that it owns or should clear the destination. The sink clears the final block once, then the graph accumulates into it. This permits nested gain-only mixers to render directly into the device block without intermediate copies.
+
+The render result contains a produced-frame count and one state:
+
+- `Ok` — audio was produced normally.
+- `Starved` — a live source temporarily had no audio, such as an empty stream.
+- `Finished` — the source currently has no more output.
+- `Remove` — a finite source reached a terminal point and its mixer should detach it.
+- `Error` — rendering failed; callers may preserve any audio already produced while propagating the error state.
+
+The current audio block supports up to eight channels. All render-time storage is planar and uses the library `Sample` type.
+
+## Data, Voices, and Playback — Implemented
+
+### `AudioData`
+
+`AudioData` is decoded asset data, not a graph node and not a playback cursor. It owns aligned planar sample storage, a frame count, a name, and one `AudioFormat`. Sample storage is shared read-only by playback voices.
+
+There is no separate `Clip` node in the design. Where old terminology says “clip,” the actual model is:
+
+```text
+AudioData (asset) + AudioVoice (playback instance)
 ```
 
-## Node Types
+### `AudioVoice`
 
-### Source Nodes (0 inputs → 1 output)
+An `AudioVoice` is a finite source backed by shared `AudioData`. Every voice has independent position, playback state, volume, and panning. It supports play/restart, pause/resume, stop, reset, and seek.
 
-**Clip** — Fixed-length audio data with playback cursor. Data can originate from file, memory, or any source — once loaded it is just a sample buffer. Seek, loop, play/pause/stop/reset. Has volume, panning.
+Playback position, playback state, and mixer-detachment state are published as one coherent `PlaybackSnapshot`. Code making a decision from more than one of these fields must read the snapshot once. Reading separate convenience getters is acceptable only when no cross-field invariant is required.
 
-**Stream** — SPSC lock-free ring buffer. External producer writes interleaved or planar samples from any thread. Render thread consumes. Has volume, panning.
+Control transitions are serialized by a control-side mutex. The render thread never takes that mutex; it consumes atomic commands and publishes the coherent snapshot atomically. This prevents impossible observations such as combining a new state with an old position while preserving real-time safety.
 
-**Space** — Game-oriented, managed polyphonic source. Registering an asset decodes it and converts its sample rate and channel layout to the Space AudioFormat before publishing an asset handle. Playback creates a Voice managed through a generation-safe playback handle. Per-handle control: play, pause, stop, seek, reset, loop, volume, panning, query position/remaining. Each Space owns exactly one private Mixer for these Voices. The Space itself is a source node with volume/panning that scales all of its Voices. It does not own Streams, submixers, or external graph topology.
+Looping is not part of the current voice contract. It is explicitly deferred.
 
-### Processing Nodes (1 input → 1 output)
+### `AudioStream`
 
-**Spatializer** — 3D audio positioning. Parameters: emitter position/velocity, listener position/orientation. Computes relative angle/distance and applies gain + panning. The library has no concept of a scene or shared listener — it is just math on two sets of coordinates set as parameters by the caller.
+`AudioStream` is a live source backed by a preallocated single-producer/single-consumer ring buffer. One producer writes planar or interleaved `Sample` frames; the render thread consumes them. Empty input produces `Starved`, not terminal removal.
 
-**Resampler** — Bridges different sample rates in the graph. Input-side AudioFormat has the source sample rate, output-side AudioFormat has the target sample rate. This is the only way to connect nodes with different sample rates.
+The SPSC contract is intentional: one stream has one producer and one render consumer. Applications needing multiple producers must combine them before the stream or give each producer its own stream and mix those streams.
 
-**ChannelMap** — Bridges different channel layouts. Has a routing table: `source_channel[i] → output_channel[j]`. Unmapped output channels are filled with silence. Input-side AudioFormat has the source channel layout, output-side AudioFormat has the target channel layout. For complex routing (e.g. multiple sources with different layouts into a surround mix), use one ChannelMap per source to route into the target layout, then a Mixer to sum.
+## `AudioSpace` — Implemented
 
+`AudioSpace` is the game-facing sound-bank and voice-management source. It exists so a game can register or preload audio once, prepare it for playback, and thereafter control playback through stable IDs rather than repeatedly decoding or directly owning voice objects.
+
+Registering audio performs control-time work:
+
+1. Decode a supported file or accept existing `AudioData`.
+2. Resample it to the Space sample rate when necessary.
+3. Convert it to the Space channel layout when necessary.
+4. Store the render-ready asset and return an `AudioAssetHandle`.
+
+This conversion is preprocessing at the Space boundary, before the asset enters the live graph. It is not implicit conversion between connected graph nodes.
+
+Creating playback constructs an `AudioVoice` and returns an `AudioPlaybackHandle`. Per-playback operations include play, pause, resume, stop, destroy, seek, reset, volume, panning, and position/frame queries. Removing a registered asset prevents new lookups while existing voices may retain the shared sample data they need.
+
+Every Space owns exactly one private `AudioMixer`. Its voices feed that mixer, and the Space delegates rendering to it. The Space itself is an `AudioSource`, so its own volume and panning scale the aggregate result.
+
+A Space does not:
+
+- expose or replace its private mixer;
+- create buses or submixers;
+- own `AudioStream` objects;
+- own the root device graph;
+- route itself into an external mixer;
+- represent a scene or listener.
+
+If an application wants several Spaces, a music stream, or manually-owned sources grouped together, it creates external `AudioMixer` instances and connects those sources explicitly.
+
+## Mixing and Topology — Implemented
+
+There is one `AudioMixer` class and any number of instances. “One mixer” means one implementation, not a singleton and not one instance for the whole application.
+
+```text
+AudioSpace "World SFX" ----> AudioMixer "SFX" -----+
+AudioSpace "UI" -----------> AudioMixer "SFX"      |
+                                                     v
+AudioStream "Music" -------> AudioMixer "Music" -> AudioMixer "Master" -> AudioDevice
 ```
-[SrcA Stereo] → [ChannelMap: L→bass, R→center, rest=silence]  → [Mixer 5.1] → [Device]
-[SrcB Mono]   → [ChannelMap: mono→left, rest=silence]          ──↗
+
+Names such as “SFX bus” or “music bus” are valid application terminology, but those objects remain ordinary mixers. The library does not need a bus type, bus handle, or `create_bus()` facade. A caller that needs a submix constructs another mixer and connects it to its parent like any other source.
+
+Each source and mixer has its own gain/panning. A mixer's gain controls its aggregate output; a child source's gain controls that source. Connection-local/per-input gain is not part of the current core contract. Because a stateful source is expected to have one render parent, source and group gain cover the established use cases without another parameter ownership model.
+
+Nested gain-only mixers do not need scratch buffers. They compose their gain with the upstream gain vector and let children accumulate directly into the downstream block. This avoids clear/copy passes for ordinary submixes.
+
+The render-side mixer has bounded, preallocated source slots; the current limit is 1024 active sources per mixer. Add/remove commands cross to the render thread through a bounded queue. A terminal acknowledgement (`Removed`, `Finished`, or `Rejected`) crosses back to the controller.
+
+### Mixer Ownership and Threads
+
+Each mixer has one logical controller and one acknowledgement consumer. The mixer does not maintain several owner registries or route acknowledgements to multiple owners. Its control mutex serializes API bookkeeping, but that does not turn one mixer into a shared multi-owner control domain.
+
+Different control threads may own and operate different mixer instances that feed a common parent. The parent still pulls the complete nested graph on one render thread. Mutations of the parent's input list belong to the parent's controller.
+
+A stateful source must not be rendered concurrently by two independent sinks. Connecting a child mixer to one parent is supported; attaching the same child to two independently running device graphs is not.
+
+### Connection Lifetime
+
+Mixer connections use mixer-scoped, generation-safe `AudioMixerHandle` values. The low-level mixer connection currently carries a non-owning `AudioSource*`. The caller must keep the source alive until it receives the matching terminal acknowledgement, then release the handle. `AudioSpace` implements this retirement protocol internally for its voices.
+
+The handle prevents stale commands from targeting a recycled slot; it does not own the source. This distinction must remain explicit in the API and documentation.
+
+## Identity and Handles — Implemented
+
+The three handle types have deliberately separate scopes:
+
+- `AudioAssetHandle` identifies registered data inside one `AudioSpace`.
+- `AudioPlaybackHandle` identifies one managed voice inside one `AudioSpace`.
+- `AudioMixerHandle` identifies one connection slot inside one `AudioMixer`.
+
+Each handle contains an owner/mixer identity, slot identity, and generation. Recycling a slot advances its generation so stale handles fail validation. There is no `AudioBusHandle` and no second handle indirection around a mixer.
+
+## Audio Formats and Conversion — Implemented Foundation
+
+`AudioFormat` is the graph compatibility value:
+
+```text
+AudioFormat = sample_rate + channel_layout
 ```
 
-**Effects/DSP** — Extensible slot for user-defined processing (reverb, EQ, filters, compression, etc.). Architecture supports them; not all implemented day one.
+Format-bearing types store and expose the complete `AudioFormat`. Constructors accept one `AudioFormat` value; parallel `(SampleRate, ChannelLayout)` constructors are not provided. `get_channel_count()` remains as the only derived convenience accessor because it is frequently needed for buffer iteration. Sample rate and channel layout are read from `get_audio_format()` and are not stored a second time.
 
-### Mixing Nodes (N inputs → 1 output)
+`AudioDeviceProperties` also contains an `AudioFormat`, then adds boundary information such as `SampleFormat`, exclusive mode, support state, and backend-specific fields.
 
-**Mixer** — Combines N sources. Per-input gain. Add/remove sources from the control thread, lock-free on the render thread. Has its own volume/panning.
+The format vocabulary has one responsibility per type:
 
-There is one Mixer implementation and any number of Mixer instances. This does not mean one global mixer. Logical volume groups are ordinary Mixer instances: an “SFX” mixer and a “Music” mixer can both feed a “Master” mixer. A Mixer can therefore consume another Mixer exactly as it consumes any other compatible source node.
+- `FileFormat` selects an encoded reader: WAV, MP3, FLAC, OGG, or Opus.
+- `SampleFormat` describes scalar representation at an import or device boundary.
+- `AudioFormat` describes compatibility inside the graph.
+- Decoder-specific tags, such as WAV codec tags, stay private to the decoder.
 
-“Bus” may describe the role of a Mixer instance in application terminology, but it is not a library node or handle type. The caller creates and connects that Mixer directly.
+There is no public encoded-audio-format bundle. Container and codec identity are discarded after decoding.
 
-For gain-only hierarchy, Mixers propagate composed gain down to their inputs and those inputs accumulate directly into the downstream output block. A Mixer does not allocate, clear, or copy through an intermediate audio buffer merely because it is nested. Intermediate buffers are introduced only by processing that requires them, such as effects, resampling, channel mapping, or deliberate render caching.
-
-Graph or controller code owns connection lifetime, mutation ordering, and user-facing handles. Each Mixer has one controller, one generation-safe input-handle table, and one acknowledgement queue; it does not register multiple acknowledgement owners. Ownership differences between callers must not produce different Mixer implementations. The render-side Mixer owns only the fixed-capacity input state needed to sum its active inputs safely.
-
-### Sink Nodes (1 input → 0 outputs)
-
-**Device** — OS audio backend (CoreAudio, WASAPI). Format conversion (float32/int16/int24/int32). Mono and stereo. Enumerate and select device properties. Real-time safe callback.
-
-## AudioFormat and Validation
-
-**AudioFormat** = `sample_rate` + `channel_layout`. Every node has an AudioFormat. This is the unit of compatibility inside the graph.
-
-The format is passed as one `AudioFormat` constructor argument. Do not add parallel `(SampleRate, ChannelLayout)` constructor overloads; callers construct the value explicitly at the boundary.
-
-Format-bearing types expose the complete AudioFormat rather than separate sample-rate or channel-layout accessors. `get_channel_count()` remains as a derived buffer-iteration convenience; it does not represent or store a second format.
-
-The format vocabulary is deliberately non-overlapping:
-
-- **FileFormat** selects an encoded file/container reader: WAV, MP3, FLAC, OGG, or Opus.
-- **SampleFormat** describes the scalar representation at an import or device boundary: integer or floating point, with a defined bit width.
-- **AudioFormat** describes graph compatibility only: sample rate and channel layout.
-- **AudioDeviceProperties** stores an AudioFormat and adds `sample_format`, `exclusive_mode`, and backend-specific fields such as WASAPI valid bits per sample.
-- Decoder-specific identifiers such as a WAV format tag remain private to that decoder.
-
-There is no public `EncodedAudioFormat` type. Container/codec identity is discarded after decoding, and SampleFormat does not travel through the graph.
-
-```
+```text
 encoded bytes + FileFormat
-        ↓ decoder
+        |
+        v
 AudioData { AudioFormat, planar Sample[] }
-        ↓ graph
-Device { AudioDeviceProperties, boundary SampleFormat conversion }
+        |
+        v
+graph of AudioSource objects
+        |
+        v
+AudioDevice { AudioDeviceProperties, boundary SampleFormat conversion }
 ```
 
-The historical encoded-format enum named `AudioFormat` is removed. The name `AudioFormat` is reserved exclusively for the graph value type.
+Connected graph endpoints must have equal sample rates and channel layouts. There is no implicit live-graph conversion. The mixer rejects mismatched sources.
 
-**Connection rule: AudioFormat must match on both ends of every connection.** No implicit conversion. If sample rates differ, insert a Resampler. If channel layouts differ, insert a ChannelMap.
+Offline resampling and channel conversion already exist and are used while registering assets in a Space. Live `Resampler` and `ChannelMap` processing nodes are planned; until they exist, live sources must already match their destination format.
 
-**Format-converting nodes** (Resampler, ChannelMap) are the only nodes with different AudioFormats on input vs output. Validation checks that the input side matches the upstream node and the output side matches the downstream node. All other nodes have a single AudioFormat — input and output are the same.
+### Internal Sample Type and Panning
 
-**SampleFormat** is irrelevant inside the graph. All processing uses `Sample`. Format conversion (int16/int24/int32) only happens at boundaries: Device output and data import.
+All graph processing uses `Sample`: `float32` by default or `double` with `LOWL_TYPE_SAMPLE_64`. Import converts encoded sample representations into `Sample`; the device converts `Sample` to its selected output `SampleFormat`.
 
-## Panning
+Panning is channel gain inside the source's existing layout. It never changes `AudioFormat`. Stereo pans across the left/right channels; mono panning only scales its one channel. Upmixing, downmixing, and arbitrary routing are channel conversion, not panning.
 
-Panning is gain scaling within the node's own channel layout. A stereo node pans across left/right. A mono node with panning just scales its single channel. No implicit upmixing — to go from mono to stereo, use a ChannelMap node.
+## Planned Processing Nodes
 
-## Internal Audio Format
+Processing nodes will implement `AudioSource` while holding one upstream source. They are explicit graph objects rather than modes hidden in a mixer or Space.
 
-All processing uses a single sample type: `float32` by default, `double` when compiled with `LOWL_TYPE_SAMPLE_64`. Controlled via the `Sample` typedef (`lowl_typedef.h`). Must be `atomic`-lock-free (static-asserted). Device node handles conversion to output formats (int16/int24/int32) at the boundary.
+- `Resampler` bridges different sample rates in a live graph.
+- `ChannelMap` bridges channel layouts through an explicit routing/downmix/upmix policy.
+- `Spatializer` accepts caller-provided listener and emitter values and computes spatial gain/panning; the library does not own a scene or global listener.
+- Effects/DSP nodes cover filters, EQ, dynamics, reverb, delay, and application-defined processing.
 
-## Cross-Cutting Requirements
+A format-converting processor has an input format matching its upstream source and a different output format matching its downstream sink. Other processors have the same input and output format.
 
-**Handle system** — All user-facing references are opaque handles with generation counters. No raw pointers in the public API.
+Per-playback processing inside `AudioSpace` needs an explicit extension design because Space intentionally owns and hides its voices. Processing the Space as a whole is already possible by placing a processor after it; inserting a unique processor between each managed voice and the private mixer is not yet represented by the public API.
 
-**Real-time safety** — Render path: no locks, no allocations. Control-thread mutations (add/remove nodes, change parameters) are communicated via lock-free queues or atomics.
+## Real-Time and Memory Model — Implemented Foundation
 
-**Thread model** — Control thread (mutates graph, manages parameters), render thread (evaluates graph), producer threads (feed streams). No contention on render thread.
+The render path obeys these rules:
 
-**Built-in gain/pan** — Every source node has volume and panning built in. Gain is applied inline during mix (one pass, no extra buffer copies). Separate processing nodes are reserved for actual effects.
+- no mutex acquisition;
+- no heap allocation or deallocation;
+- no blocking system calls;
+- no `shared_ptr` reference-count changes;
+- no graph mutation in place;
+- bounded work and preallocated storage;
+- invalid or unavailable device state produces silence rather than throwing.
 
-## Scope
+Control-side locks are valid for asset registration, playback management, names, handle tables, and device lifecycle. Atomics or bounded queues publish only the state needed by rendering.
 
-Implementation only. No tests, benchmarks, or test harnesses until the core library is complete.
+`AudioSpace::state_mutex` is control-side only. `AudioVoice` uses atomic render commands and a coherent atomic snapshot. `AudioStream` separates its producer and consumer cursors. `AudioMixer` applies queued mutations before rendering a block and reads from fixed source slots.
 
-## Decisions
+## Buffers and Scratch Storage — Implemented Policy
 
-- Gain/pan is built into every source node, not separate graph nodes. Reason: every source needs it, and inline application avoids extra buffer copies.
-- Panning is gain scaling within the node's own channel layout. No implicit upmixing. Channel conversion is always explicit via a ChannelMap node.
-- AudioFormat (sample_rate + channel_layout) must match on both ends of every connection. Format-converting nodes (Resampler, ChannelMap) are the bridges — they have different AudioFormats on input vs output.
-- Format names have one responsibility: FileFormat identifies encoded input, SampleFormat identifies a boundary scalar representation, and AudioFormat identifies graph compatibility. Encoded file or decoder tags never enter the graph.
-- One Mixer implementation, instantiated as many times as needed; not one global Mixer, not separate Bus + Mixer classes, and no bus facade. Each Mixer has a single controller and a single acknowledgement path.
-- Space is a source node in the graph, not a god object that owns the graph. It preprocesses registered assets into one AudioFormat, manages Voices through asset/playback IDs, and owns one private Mixer. It does not manage Streams or submixers. Graph topology is the caller's responsibility.
-- Spatializer is a processing node, not part of Space. Listener and emitter are just parameters on the node, not shared state. The library has no concept of scenes or listeners.
-- Clean rewrite over incremental refactor. The structural problems (Bus/Mixer duplication, AudioSpace as god object, double handle indirection) are load-bearing and not fixable incrementally. The proven lock-free primitives (ring buffer, event queues, gain caching) are portable to the new design.
+There is no universal `DefaultScratchBufferCapacity` and no mixer scratch-capacity parameter.
+
+The device owns the final planar render buffer. Its frame capacity comes from the backend's actual callback requirement—CoreAudio's maximum frames per slice or WASAPI's buffer size—not from an arbitrary library constant.
+
+Simple sources and nested mixers render directly into the downstream block. A processor that genuinely needs intermediate or historical data owns its own storage:
+
+- delay/reverb owns persistent history;
+- resampling owns filter state and any required staging;
+- channel mapping may own a preallocated intermediate block when direct accumulation is insufficient;
+- look-ahead or deliberately delayed processing owns a preallocated delay buffer.
+
+Such storage is sized during construction or a quiescent control operation. It is never allocated or resized in the render callback.
+
+## Device Boundary and Lifecycle — Implemented Foundation
+
+`AudioDevice` is the sink boundary. CoreAudio and WASAPI enumerate/select `AudioDeviceProperties`, run their platform callback, pull one root source, and convert the planar internal block into the selected device sample representation. The dummy backend supports non-hardware use.
+
+The callback reads one immutable-for-the-run `RenderState` containing:
+
+- selected `AudioDeviceProperties`;
+- the root source ownership reference;
+- the preallocated render buffer.
+
+The control side owns this state with `unique_ptr` and publishes only a lock-free atomic raw pointer. The callback loads the pointer but never copies the contained `shared_ptr`. Startup publishes a complete state before callbacks may use it. Shutdown follows this ordering:
+
+1. Unpublish the render state so new callback work cannot acquire it.
+2. Stop the backend callback/audio thread.
+3. Wait until backend callback activity is quiescent.
+4. Dispose backend resources.
+5. Release the unpublished render state and root source ownership.
+
+Backend started/initialized/listener flags are changed only after a lifecycle stage succeeds. If shutdown fails partway through, a later `stop()` can resume from the remaining stage rather than assuming everything was disposed.
+
+Device lifecycle code is intentionally top-down and explicit. Each failing platform call is checked at the call site, logged with context, written to `Error`, and followed by an early return. Cleanup is not hidden behind a generic result accumulator. Programmer-invariant guards log, assert in debug builds, and also return a failure in release builds. Exceptions are not used on the render path.
+
+## Decision Record
+
+- One `AudioMixer` implementation, many mixer instances; no global mixer singleton.
+- No `AudioBus`, bus handle, bus factory, or bus-specific render path.
+- One private mixer per `AudioSpace`; all external topology belongs to the caller.
+- `AudioSpace` is a renderable sound bank and voice manager, not a graph or scene owner.
+- `AudioData` stores decoded samples; `AudioVoice` stores playback state. There is no separate Clip node.
+- `AudioFormat` is one bundled graph value and the single constructor argument for format-bearing objects.
+- Only `get_channel_count()` remains as a format convenience; sample rate and layout come from `get_audio_format()`.
+- Graph connections require exact `AudioFormat` compatibility; conversion is explicit.
+- Gain/panning is built into every source; mixer gain controls a group. No connection-local gain is required by the current design.
+- A mixer has one logical controller and acknowledgement owner. Different mixers may have different control threads.
+- Nested gain-only mixers render without scratch buffers. Processors own only the preallocated state they require.
+- Multi-field playback observations use one coherent `PlaybackSnapshot`.
+- Device callbacks consume an atomically published, preallocated render state and never take control-side ownership.
+- Lifecycle error handling uses visible call-site checks, logging, `Error`, and early return.
+- Looping is deferred.
+
+## Validation Policy
+
+Correctness and real-time behavior must be tested alongside implementation. Mechanical repository changes, such as line-ending normalization, stay in separate commits from architecture or behavior changes. Performance work should measure the complete render path and must not weaken ownership, lifetime, or real-time guarantees for unmeasured micro-optimizations.
+
+## Things Left To Do
+
+### P0 — Correctness and Lifetime Safety
+
+1. Make terminal mixer acknowledgements loss-proof under queue saturation. A dropped `Removed`, `Finished`, or `Rejected` acknowledgement must never leave a source lifetime permanently unresolved; add overflow recovery and stress coverage.
+2. Validate staged start/stop failure handling on real CoreAudio and WASAPI devices. Exercise failure at every lifecycle stage, retry `stop()`, and verify that no callback can observe released `RenderState`, source, or buffer memory.
+3. Add focused concurrency stress coverage for mixer add/remove/retire, Space playback-slot recycling, stale generations, and coherent `AudioVoice::PlaybackSnapshot` observations.
+
+### P1 — Complete the Explicit Graph
+
+4. Implement the live `Resampler` source node. Reuse the existing offline resampling work where appropriate, but preallocate all render state and define latency/flush behavior.
+5. Implement the live `ChannelMap` source node with explicit routing, upmix, downmix, and silence rules.
+6. Resolve the per-playback processing extension for `AudioSpace`, then implement `Spatializer`. The solution must preserve ID-based control, one private mixer, caller-owned external topology, and render-time lifetime safety without reintroducing AudioBus.
+7. Define and implement the effects/DSP source contract, including construction-time scratch/history sizing, latency reporting where needed, bypass, reset, and terminal-state propagation.
+
+### P2 — API and Platform Hardening
+
+8. Harden or wrap the low-level non-owning mixer connection API so the source-until-ack lifetime rule is difficult to misuse, while keeping graph topology explicit.
+9. Remove remaining public “clip” vocabulary, such as `play_clip()`, in favor of asset/voice/playback terminology, with a deliberate compatibility plan if the API is already consumed externally.
+10. Verify advertised channel-layout and `SampleFormat` behavior across CoreAudio and WASAPI, including callback sizes larger than common defaults and layouts up to the graph's eight-channel limit.
+11. Add small composition examples for a root mixer, nested mixers, multiple Spaces, a stream, and clean acknowledgement-driven teardown. The examples must not introduce a bus facade.
+
+### P3 — Explicitly Deferred / Optional
+
+12. Add `AudioVoice` and `AudioSpace` looping only after the core non-looping lifecycle is stable. Define loop bounds, seek/reset interaction, snapshot semantics, and terminal acknowledgement behavior before implementation.
+13. Add further decoder coverage only when required. WAV A-law, mu-law, and ADPCM variants are currently outside the supported PCM/IEEE-float WAV path and should fail explicitly rather than be interpreted as linear PCM.
