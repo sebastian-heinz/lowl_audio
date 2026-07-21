@@ -86,18 +86,12 @@ Lowl::Audio::AudioSpace::insert_playback_locked(std::unique_ptr<AudioVoice> p_vo
         return InvalidAudioPlaybackHandle;
     }
 
-    const AudioMixerHandle mixer_handle = mixer.allocate_handle();
-    if (!mixer_handle.is_valid()) {
-        return InvalidAudioPlaybackHandle;
-    }
-
     AudioPlaybackId playback_id = InvalidPlaybackSlotId;
     const bool reusing_slot = !free_playback_slots.empty();
     if (reusing_slot) {
         playback_id = free_playback_slots.back();
     } else {
         if (current_audio_playback_slot_id == InvalidPlaybackSlotId) {
-            mixer.release_handle(mixer_handle);
             return InvalidAudioPlaybackHandle;
         }
         playback_id = current_audio_playback_slot_id;
@@ -109,7 +103,6 @@ Lowl::Audio::AudioSpace::insert_playback_locked(std::unique_ptr<AudioVoice> p_vo
     }
 
     if (playback_id == InvalidPlaybackSlotId || playback_id >= playback_lookup.size()) {
-        mixer.release_handle(mixer_handle);
         return InvalidAudioPlaybackHandle;
     }
     if (reusing_slot) {
@@ -118,22 +111,14 @@ Lowl::Audio::AudioSpace::insert_playback_locked(std::unique_ptr<AudioVoice> p_vo
         current_audio_playback_slot_id = advance_allocation_id(playback_id);
     }
 
-    const size_t mixer_lookup_size = static_cast<size_t>(mixer_handle.playback_id) + 1;
-    if (mixer_playback_lookup.size() < mixer_lookup_size) {
-        mixer_playback_lookup.resize(mixer_lookup_size, InvalidPlaybackSlotId);
-    }
-
     PlaybackSlot &slot = playback_lookup[playback_id];
     slot.voice = std::move(p_voice);
     slot.audio_asset_handle = p_audio_asset_handle;
-    slot.mixer_handle = mixer_handle;
+    slot.mixer_handle = {};
     if (slot.generation == 0) {
         slot.generation = 1;
     }
     slot.slot_state = SlotState::Active;
-    slot.mixer_submission_started = false;
-    slot.retirement_retry_needed = false;
-    mixer_playback_lookup[mixer_handle.playback_id] = playback_id;
     return {owner_id, playback_id, slot.generation};
 }
 
@@ -146,24 +131,55 @@ void Lowl::Audio::AudioSpace::recycle_audio_asset_locked(const AudioAssetId p_as
 }
 
 void Lowl::Audio::AudioSpace::recycle_playback_locked(const AudioPlaybackId p_slot_id, PlaybackSlot &p_slot) {
-    if (p_slot.mixer_handle.is_valid()) {
-        const AudioPlaybackId mixer_id = p_slot.mixer_handle.playback_id;
-        if (mixer_id < mixer_playback_lookup.size() && mixer_playback_lookup[mixer_id] == p_slot_id) {
-            mixer_playback_lookup[mixer_id] = InvalidPlaybackSlotId;
-        }
-        mixer.release_handle(p_slot.mixer_handle);
-    }
+    clear_mixer_connection_locked(p_slot_id, p_slot);
 
     p_slot.voice.reset();
     p_slot.audio_asset_handle = InvalidAudioAssetHandle;
-    p_slot.mixer_handle = {};
     p_slot.slot_state = SlotState::Active;
-    p_slot.mixer_submission_started = false;
-    p_slot.retirement_retry_needed = false;
     p_slot.generation = advance_generation(p_slot.generation);
     if (p_slot_id != InvalidPlaybackSlotId) {
         free_playback_slots.push_back(p_slot_id);
     }
+}
+
+bool Lowl::Audio::AudioSpace::connect_playback_locked(const AudioPlaybackId p_slot_id, PlaybackSlot &p_slot) {
+    if (!p_slot.voice) {
+        LOWL_LOG_ERROR("AudioSpace::connect_playback_locked: playback has no voice.");
+        return false;
+    }
+    if (p_slot.mixer_handle.is_valid()) {
+        return true;
+    }
+
+    Error error;
+    const AudioMixerHandle mixer_handle = mixer.connect(p_slot.voice.get(), error);
+    if (error.has_error() || !mixer_handle.is_valid()) {
+        LOWL_LOG_ERROR("AudioSpace::connect_playback_locked: mixer rejected the connection.");
+        return false;
+    }
+
+    const size_t required_lookup_size = static_cast<size_t>(mixer_handle.playback_id) + 1;
+    if (mixer_playback_lookup.size() < required_lookup_size) {
+        mixer_playback_lookup.resize(required_lookup_size, InvalidPlaybackSlotId);
+    }
+
+    p_slot.mixer_handle = mixer_handle;
+    mixer_playback_lookup[mixer_handle.playback_id] = p_slot_id;
+    return true;
+}
+
+void Lowl::Audio::AudioSpace::clear_mixer_connection_locked(const AudioPlaybackId p_slot_id,
+                                                             PlaybackSlot &p_slot) {
+    if (!p_slot.mixer_handle.is_valid()) {
+        return;
+    }
+
+    const AudioPlaybackId mixer_connection_id = p_slot.mixer_handle.playback_id;
+    if (mixer_connection_id < mixer_playback_lookup.size() &&
+        mixer_playback_lookup[mixer_connection_id] == p_slot_id) {
+        mixer_playback_lookup[mixer_connection_id] = InvalidPlaybackSlotId;
+    }
+    p_slot.mixer_handle = {};
 }
 
 void Lowl::Audio::AudioSpace::retire_playback_locked(const AudioPlaybackId p_slot_id, PlaybackSlot &p_slot) {
@@ -171,21 +187,19 @@ void Lowl::Audio::AudioSpace::retire_playback_locked(const AudioPlaybackId p_slo
         return;
     }
 
-    const AudioVoice::PlaybackSnapshot playback_snapshot =
-        p_slot.voice->get_playback_snapshot();
-    const bool can_recycle_immediately =
-        !p_slot.mixer_handle.is_valid() || !p_slot.mixer_submission_started ||
-        (playback_snapshot.detached &&
-         playback_snapshot.playback_state != AudioVoice::PlaybackState::Playing);
-    if (can_recycle_immediately) {
+    if (!p_slot.mixer_handle.is_valid()) {
         recycle_playback_locked(p_slot_id, p_slot);
         return;
     }
 
     p_slot.voice->stop_playback();
+    Error error;
+    mixer.disconnect(p_slot.mixer_handle, error);
+    if (error.has_error()) {
+        LOWL_LOG_ERROR("AudioSpace::retire_playback_locked: failed to queue mixer disconnection.");
+        return;
+    }
     p_slot.slot_state = SlotState::Retiring;
-    p_slot.retirement_retry_needed = false;
-    mixer.remove(p_slot.mixer_handle, true);
 }
 
 Lowl::AudioPlaybackId
@@ -201,59 +215,25 @@ Lowl::Audio::AudioSpace::find_playback_slot_id_by_mixer_handle_locked(const Audi
     return slot.voice && slot.mixer_handle == p_mixer_handle ? playback_id : InvalidPlaybackSlotId;
 }
 
-void Lowl::Audio::AudioSpace::drain_mixer_acks_locked() {
-    AudioMixerAck ack{};
-    while (mixer.try_dequeue_ack(ack)) {
-        const AudioPlaybackId playback_id = find_playback_slot_id_by_mixer_handle_locked(ack.handle);
+void Lowl::Audio::AudioSpace::collect_mixer_completions_locked() {
+    AudioMixerCompletion completion{};
+    while (mixer.try_collect_completion(completion)) {
+        const AudioPlaybackId playback_id = find_playback_slot_id_by_mixer_handle_locked(completion.handle);
         if (playback_id == InvalidPlaybackSlotId) {
             continue;
         }
 
         PlaybackSlot &slot = playback_lookup[playback_id];
-        switch (ack.type) {
-            case AudioMixerAck::Type::Removed: {
-                if (slot.slot_state == SlotState::Retiring) {
-                    recycle_playback_locked(playback_id, slot);
-                }
-                break;
-            }
-            case AudioMixerAck::Type::Finished: {
-                if (!slot.voice) {
-                    break;
-                }
-                slot.voice->stop_playback();
-                if (slot.slot_state == SlotState::Retiring) {
-                    recycle_playback_locked(playback_id, slot);
-                }
-                break;
-            }
-            case AudioMixerAck::Type::Rejected: {
-                if (!slot.voice) {
-                    break;
-                }
-                if (slot.slot_state == SlotState::Retiring) {
-                    slot.retirement_retry_needed = true;
-                    retirement_retry_slots.push_back(playback_id);
-                } else if (slot.voice->get_playback_state() == AudioVoice::PlaybackState::Playing) {
-                    slot.voice->pause_playback();
-                }
-                break;
-            }
+        if (completion.type == AudioMixerCompletion::Type::Finished) {
+            slot.voice->stop_playback();
         }
-    }
 
-    for (const AudioPlaybackId playback_id : retirement_retry_slots) {
-        if (playback_id == InvalidPlaybackSlotId || playback_id >= playback_lookup.size()) {
+        if (slot.slot_state == SlotState::Retiring) {
+            recycle_playback_locked(playback_id, slot);
             continue;
         }
-        PlaybackSlot &slot = playback_lookup[playback_id];
-        if (!slot.voice || slot.slot_state != SlotState::Retiring || !slot.retirement_retry_needed) {
-            continue;
-        }
-        slot.retirement_retry_needed = false;
-        mixer.remove(slot.mixer_handle, true);
+        clear_mixer_connection_locked(playback_id, slot);
     }
-    retirement_retry_slots.clear();
 }
 
 Lowl::AudioAssetHandle Lowl::Audio::AudioSpace::add_audio(std::unique_ptr<AudioData> p_audio_data, Error &p_error) {
@@ -314,7 +294,7 @@ void Lowl::Audio::AudioSpace::remove_audio(const AudioAssetHandle p_audio_asset_
 
 Lowl::AudioPlaybackHandle Lowl::Audio::AudioSpace::create_playback(const AudioAssetHandle p_audio_asset_handle) {
     std::lock_guard<std::mutex> lock(state_mutex);
-    drain_mixer_acks_locked();
+    collect_mixer_completions_locked();
     std::shared_ptr<AudioData> audio_data = get_audio_asset_locked(p_audio_asset_handle);
     if (!audio_data) {
         return InvalidAudioPlaybackHandle;
@@ -335,7 +315,7 @@ Lowl::AudioPlaybackHandle Lowl::Audio::AudioSpace::play_clip(const AudioAssetHan
 
 void Lowl::Audio::AudioSpace::destroy_playback(const AudioPlaybackHandle p_audio_playback_handle) {
     std::lock_guard<std::mutex> lock(state_mutex);
-    drain_mixer_acks_locked();
+    collect_mixer_completions_locked();
     if (!p_audio_playback_handle.is_valid() || p_audio_playback_handle.owner_id != owner_id ||
         p_audio_playback_handle.id >= playback_lookup.size()) {
         return;
@@ -351,15 +331,16 @@ void Lowl::Audio::AudioSpace::destroy_playback(const AudioPlaybackHandle p_audio
 
 void Lowl::Audio::AudioSpace::play(const AudioPlaybackHandle p_audio_playback_handle) {
     std::lock_guard<std::mutex> lock(state_mutex);
-    drain_mixer_acks_locked();
+    collect_mixer_completions_locked();
     PlaybackSlot *slot = get_playback_slot_locked(p_audio_playback_handle);
     if (!slot) {
         return;
     }
+    if (!connect_playback_locked(p_audio_playback_handle.id, *slot)) {
+        return;
+    }
 
     slot->voice->restart_playback();
-    slot->mixer_submission_started = true;
-    mixer.mix(slot->mixer_handle, slot->voice.get());
 }
 
 void Lowl::Audio::AudioSpace::pause(const AudioPlaybackHandle p_audio_playback_handle) {
@@ -369,21 +350,16 @@ void Lowl::Audio::AudioSpace::pause(const AudioPlaybackHandle p_audio_playback_h
         return;
     }
     slot->voice->pause_playback();
-    if (slot->mixer_submission_started) {
-        mixer.remove(slot->mixer_handle);
-    }
 }
 
 void Lowl::Audio::AudioSpace::resume(const AudioPlaybackHandle p_audio_playback_handle) {
     std::lock_guard<std::mutex> lock(state_mutex);
-    drain_mixer_acks_locked();
+    collect_mixer_completions_locked();
     PlaybackSlot *slot = get_playback_slot_locked(p_audio_playback_handle);
     if (!slot || slot->voice->get_playback_state() != AudioVoice::PlaybackState::Paused) {
         return;
     }
     slot->voice->resume_playback();
-    slot->mixer_submission_started = true;
-    mixer.mix(slot->mixer_handle, slot->voice.get());
 }
 
 void Lowl::Audio::AudioSpace::stop(const AudioPlaybackHandle p_audio_playback_handle) {
@@ -393,14 +369,11 @@ void Lowl::Audio::AudioSpace::stop(const AudioPlaybackHandle p_audio_playback_ha
         return;
     }
     slot->voice->stop_playback();
-    if (slot->mixer_submission_started) {
-        mixer.remove(slot->mixer_handle);
-    }
 }
 
 void Lowl::Audio::AudioSpace::clear_all_audio() {
     std::lock_guard<std::mutex> lock(state_mutex);
-    drain_mixer_acks_locked();
+    collect_mixer_completions_locked();
 
     for (size_t index = FirstPlaybackSlotId; index < playback_lookup.size(); index++) {
         const AudioPlaybackId playback_id = static_cast<AudioPlaybackId>(index);
@@ -420,7 +393,7 @@ void Lowl::Audio::AudioSpace::clear_all_audio() {
 
 void Lowl::Audio::AudioSpace::stop_all_audio() {
     std::lock_guard<std::mutex> lock(state_mutex);
-    drain_mixer_acks_locked();
+    collect_mixer_completions_locked();
 
     for (size_t index = FirstPlaybackSlotId; index < playback_lookup.size(); index++) {
         const AudioPlaybackId playback_id = static_cast<AudioPlaybackId>(index);
@@ -430,9 +403,6 @@ void Lowl::Audio::AudioSpace::stop_all_audio() {
             continue;
         }
         slot->voice->stop_playback();
-        if (slot->mixer_submission_started) {
-            mixer.remove(slot->mixer_handle);
-        }
     }
 }
 

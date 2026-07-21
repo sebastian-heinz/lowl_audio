@@ -6,25 +6,23 @@
 
 namespace Lowl::Audio {
     /**
-     * Queued command used to add or remove a source from the mixer thread-safely.
+     * Queued command used to connect or disconnect a source from the mixer.
      */
     struct AudioMixerEvent {
         enum class Type : uint8_t {
-            Mix = 0,
-            Remove = 1,
+            Connect = 0,
+            Disconnect = 1,
         };
 
-        Type type = Type::Mix;
+        Type type = Type::Connect;
         AudioMixerHandle handle{};
         AudioSource *audio_source = nullptr;
-        bool acknowledge_removal = false;
     };
 
-    struct AudioMixerAck {
+    struct AudioMixerCompletion {
         enum class Type : uint8_t {
             Removed = 0,
             Finished = 1,
-            Rejected = 2,
         };
 
         Type type = Type::Removed;

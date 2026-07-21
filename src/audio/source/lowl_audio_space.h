@@ -61,8 +61,6 @@ namespace Lowl::Audio {
             AudioMixerHandle mixer_handle{};
             uint16_l generation = 1;
             SlotState slot_state = SlotState::Active;
-            bool mixer_submission_started = false;
-            bool retirement_retry_needed = false;
         };
 
         std::vector<AssetSlot> audio_asset_lookup;
@@ -70,7 +68,6 @@ namespace Lowl::Audio {
         std::vector<AudioPlaybackId> mixer_playback_lookup;
         std::vector<AudioAssetId> free_audio_asset_slots;
         std::vector<AudioPlaybackId> free_playback_slots;
-        std::vector<AudioPlaybackId> retirement_retry_slots;
         mutable std::mutex state_mutex;
         AudioMixer mixer;
         uint32_l owner_id;
@@ -82,8 +79,10 @@ namespace Lowl::Audio {
                                                    AudioAssetHandle p_audio_asset_handle);
         void recycle_audio_asset_locked(AudioAssetId p_asset_id, AssetSlot &p_slot);
         void recycle_playback_locked(AudioPlaybackId p_slot_id, PlaybackSlot &p_slot);
+        bool connect_playback_locked(AudioPlaybackId p_slot_id, PlaybackSlot &p_slot);
+        void clear_mixer_connection_locked(AudioPlaybackId p_slot_id, PlaybackSlot &p_slot);
         void retire_playback_locked(AudioPlaybackId p_slot_id, PlaybackSlot &p_slot);
-        void drain_mixer_acks_locked();
+        void collect_mixer_completions_locked();
 
         std::shared_ptr<AudioData> get_audio_asset_locked(AudioAssetHandle p_audio_asset_handle) const;
         AudioPlaybackId find_playback_slot_id_by_mixer_handle_locked(AudioMixerHandle p_mixer_handle) const;

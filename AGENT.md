@@ -4,3 +4,7 @@
 - Disallow read list: `doc/`
 - Keep `cmake_minimum_required(VERSION 3.31)` unless explicitly asked to change it.
 - Do not run benchmarks unless explicitly requested.
+- Prefer solutions that reduce total code and state. Solve problems through simpler invariants where possible instead of adding recovery machinery, indirection, or new types.
+- Write control flow top-down with validation and descriptive errors at the point of failure, followed by immediate early returns. Keep the successful path visually direct and readable.
+- Evaluate non-trivial design changes holistically. Propose at least two viable solutions, state their tradeoffs, and recommend the better one against simplicity, correctness, readability, and runtime behavior.
+- Prefer explicit hard caps, fixed-capacity queues, and preallocated storage when they provide deterministic runtime and memory use. Treat capacity exhaustion as a clear, fail-fast error rather than introducing unbounded growth or unpredictable recovery work.

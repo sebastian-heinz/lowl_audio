@@ -2,22 +2,22 @@
 #define LOWL_AUDIO_MIXER_H
 
 #include <array>
-#include <atomic>
 #include <mutex>
-#include <vector>
 
 #include "audio/lowl_audio_lock_free_queue.h"
 #include "audio/source/lowl_audio_mixer_handle.h"
 #include "audio/source/lowl_audio_mixer_event.h"
 #include "audio/source/lowl_audio_source.h"
+#include "lowl_error.h"
 #include "lowl_typedef.h"
 
 namespace Lowl::Audio {
     /**
      * Mixes multiple active sources into a single renderable output stream.
      *
-     * One controller owns each Mixer instance. Connections use Mixer-scoped, generation-safe
-     * handles and share one acknowledgement path; there is no controller/owner registry.
+     * One controller owns each Mixer instance. A handle represents one fixed-capacity,
+     * one-shot connection lifetime. Capacity is reserved before the connect command is
+     * accepted and is released only when its terminal completion is collected.
      *
      * This is a live aggregate source with no finite total frame count. Its frame-count queries
      * therefore use a one-frame sentinel so callers can treat it as renderable without observing
@@ -25,44 +25,42 @@ namespace Lowl::Audio {
      */
     class AudioMixer : public AudioSource {
     private:
-        static constexpr size_t MAX_ACTIVE_SOURCES = 1024;
-        static constexpr size_t EVENT_QUEUE_CAPACITY = MAX_ACTIVE_SOURCES * 2;
-        static constexpr size_t ACK_QUEUE_CAPACITY = MAX_ACTIVE_SOURCES * 2;
-        static constexpr size_t InvalidSourceIndex = MAX_ACTIVE_SOURCES;
-        static constexpr AudioPlaybackId InvalidHandleId = 0;
-        static constexpr AudioPlaybackId FirstHandleId = 1;
+        static constexpr size_t MAX_CONNECTIONS = 1024;
+        static constexpr size_t EVENT_QUEUE_CAPACITY = MAX_CONNECTIONS * 2;
+        static constexpr size_t COMPLETION_QUEUE_CAPACITY = MAX_CONNECTIONS;
+        static constexpr size_t InvalidConnectionIndex = MAX_CONNECTIONS;
         static constexpr size_l LiveFrameCountSentinel = 1;
 
-        struct ActiveSourceSlot {
+        struct RenderConnectionSlot {
             AudioMixerHandle handle{};
             AudioSource *source = nullptr;
         };
 
-        struct HandleSlot {
+        struct ControlConnectionSlot {
             uint16_l generation = 1;
-            AudioSource *bound_source = nullptr;
             bool allocated = false;
+            bool disconnect_queued = false;
         };
 
-        std::array<ActiveSourceSlot, MAX_ACTIVE_SOURCES> sources{};
-        std::vector<HandleSlot> handles;
-        std::vector<AudioPlaybackId> free_handle_ids;
+        std::array<RenderConnectionSlot, MAX_CONNECTIONS> render_connections{};
+        std::array<ControlConnectionSlot, MAX_CONNECTIONS> control_connections{};
         BoundedMpscQueue<AudioMixerEvent, EVENT_QUEUE_CAPACITY> events{};
-        BoundedMpscQueue<AudioMixerAck, ACK_QUEUE_CAPACITY> acknowledgements{};
-        std::atomic<bool> queued_ack_overflow{false};
+        BoundedSpscQueue<AudioMixerCompletion, COMPLETION_QUEUE_CAPACITY> completions{};
         std::mutex control_mutex;
         uint32_l mixer_id;
-        AudioPlaybackId next_handle_id = FirstHandleId;
         size_t active_source_count = 0;
 
-        size_t find_source_index(AudioMixerHandle p_handle) const;
-        size_t find_free_source_index() const;
-        HandleSlot *get_handle_slot_locked(AudioMixerHandle p_handle);
-        void add_source(size_t p_source_index, AudioMixerHandle p_handle, AudioSource *p_audio_source);
-        void remove_source(size_t p_source_index);
+        static size_t get_connection_index(AudioMixerHandle p_handle);
+        size_t find_free_connection_index_locked() const;
+        ControlConnectionSlot *get_control_connection_locked(AudioMixerHandle p_handle);
+        void connect_source(size_t p_connection_index,
+                            AudioMixerHandle p_handle,
+                            AudioSource *p_audio_source);
+        void disconnect_source(size_t p_connection_index);
+        void complete_connection(size_t p_connection_index, AudioMixerCompletion::Type p_type);
         void process_events();
         RenderResult render_mixed_block(AudioBlockView p_block, const MixGainVector &p_upstream_gain);
-        void enqueue_ack(const AudioMixerAck &p_ack);
+        void enqueue_completion(const AudioMixerCompletion &p_completion);
 
     public:
         size_l get_frames_remaining() const override;
@@ -78,29 +76,22 @@ namespace Lowl::Audio {
                               const MixGainVector &p_upstream_gain) override;
 
         /**
-         * adds a audio source to mix
-         * Caller must keep p_audio_source alive until a matching terminal acknowledgement
-         * (`Removed`, `Finished`, or `Rejected`) is dequeued for p_handle.
-         * A handle is bound to exactly one source object for its lifetime and may not
-         * be rebound to a different source before `release_handle()`.
+         * Reserves one connection and queues its source for rendering. The returned
+         * handle is one-shot and remains reserved until its terminal completion
+         * is collected. The caller must keep p_audio_source alive until then.
          */
-        virtual void mix(AudioMixerHandle p_handle, AudioSource *p_audio_source);
+        AudioMixerHandle connect(AudioSource *p_audio_source, Error &p_error);
 
         /**
-         * removes a audio source from the mix
-         * `remove(p_handle, true)` starts asynchronous retirement. The caller may only
-         * destroy the source after dequeuing the matching terminal acknowledgement.
+         * Queues terminal disconnection. On success, the caller must wait for the
+         * matching completion before destroying the source.
          */
-        virtual void remove(AudioMixerHandle p_handle);
-        virtual void remove(AudioMixerHandle p_handle, bool p_acknowledge_removal);
+        void disconnect(AudioMixerHandle p_handle, Error &p_error);
 
-        AudioMixerHandle allocate_handle();
         /**
-         * Releases a caller-owned handle after the matching source has been retired
-         * and its terminal acknowledgement has been observed.
+         * Collects one terminal connection result and recycles its connection slot.
          */
-        void release_handle(AudioMixerHandle p_handle);
-        bool try_dequeue_ack(AudioMixerAck &p_ack);
+        bool try_collect_completion(AudioMixerCompletion &p_completion);
 
         explicit AudioMixer(AudioFormat p_audio_format);
 
