@@ -70,8 +70,8 @@ namespace {
             audio_source = std::move(p_audio_source);
         }
 
-        void prepare(unsigned long p_frames_per_buffer) {
-            allocate_render_buffer(p_frames_per_buffer);
+        bool prepare(unsigned long p_frames_per_buffer) {
+            return allocate_render_buffer(p_frames_per_buffer);
         }
 
         void poison_live_configuration() {
@@ -80,17 +80,24 @@ namespace {
         }
 
         void clear_published_state() {
-            clear_render_state();
+            unpublish_render_state();
         }
 
-        void write(void *p_dst, unsigned long p_frames_per_buffer, unsigned long p_bytes_per_frame) {
-            prepare(p_frames_per_buffer);
+        bool release_retired_state() {
+            return release_render_state();
+        }
+
+        bool write(void *p_dst, unsigned long p_frames_per_buffer, unsigned long p_bytes_per_frame) {
+            if (!prepare(p_frames_per_buffer)) {
+                return false;
+            }
             write_published(
                 p_dst,
                 static_cast<size_t>(p_frames_per_buffer) * p_bytes_per_frame,
                 p_frames_per_buffer,
                 p_bytes_per_frame
             );
+            return true;
         }
 
         void write_published(
@@ -211,7 +218,7 @@ TEST_CASE("AudioDevice") {
 
         TestAudioDevice device;
         device.configure(properties, source);
-        device.write(buffer.data(), frames_per_buffer, bytes_per_frame);
+        REQUIRE(device.write(buffer.data(), frames_per_buffer, bytes_per_frame));
 
         auto *samples = reinterpret_cast<const float *>(buffer.data());
         REQUIRE_EQ(samples[0], doctest::Approx(0.25f));
@@ -246,7 +253,7 @@ TEST_CASE("AudioDevice") {
 
         TestAudioDevice device;
         device.configure(properties, source);
-        device.write(buffer.data(), frames_per_buffer, bytes_per_frame);
+        REQUIRE(device.write(buffer.data(), frames_per_buffer, bytes_per_frame));
 
         for (size_t current_byte = 0; current_byte < audio_bytes; current_byte++) {
             REQUIRE_EQ(buffer[current_byte], static_cast<uint8_t>(0x00));
@@ -278,7 +285,7 @@ TEST_CASE("AudioDevice") {
 
         TestAudioDevice device;
         device.configure(properties, source);
-        device.write(buffer.data(), frames_per_buffer, bytes_per_frame);
+        REQUIRE(device.write(buffer.data(), frames_per_buffer, bytes_per_frame));
 
         REQUIRE_EQ(buffer[0], static_cast<int16_t>(8191));
         REQUIRE_EQ(buffer[1], static_cast<int16_t>(-8191));
@@ -305,7 +312,7 @@ TEST_CASE("AudioDevice") {
 
         TestAudioDevice device;
         device.configure(properties, source);
-        device.prepare(frames_per_buffer);
+        REQUIRE(device.prepare(frames_per_buffer));
         device.poison_live_configuration();
         device.write_published(buffer.data(), audio_bytes, frames_per_buffer, bytes_per_frame);
 
@@ -335,7 +342,7 @@ TEST_CASE("AudioDevice") {
 
         TestAudioDevice device;
         device.configure(properties, source);
-        device.prepare(frames_per_buffer);
+        REQUIRE(device.prepare(frames_per_buffer));
         device.clear_published_state();
         device.write_published(buffer.data(), audio_bytes, frames_per_buffer, bytes_per_frame);
 
@@ -343,6 +350,33 @@ TEST_CASE("AudioDevice") {
         for (size_t current_sample = 0; current_sample < frames_per_buffer * channels; current_sample++) {
             REQUIRE_EQ(samples[current_sample], doctest::Approx(0.0f));
         }
+    }
+
+    SUBCASE("AudioDevice - unpublished render state remains alive until explicit retirement") {
+        constexpr unsigned long frames_per_buffer = 2;
+
+        auto source = std::make_shared<ShortReadAudioSource>(
+            std::vector<StereoSample>{StereoSample{0.25f, -0.25f}}
+        );
+        std::weak_ptr<ShortReadAudioSource> source_lifetime = source;
+
+        Lowl::Audio::AudioDeviceProperties properties{};
+        properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
+        properties.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
+
+        TestAudioDevice device;
+        device.configure(properties, source);
+        REQUIRE(device.prepare(frames_per_buffer));
+
+        source.reset();
+        device.poison_live_configuration();
+        device.clear_published_state();
+
+        REQUIRE_FALSE(source_lifetime.expired());
+
+        REQUIRE(device.release_retired_state());
+
+        REQUIRE(source_lifetime.expired());
     }
 
     SUBCASE("AudioDevice - render_to_device_buffer does not overrun when caller buffer is smaller than requested") {
@@ -365,7 +399,7 @@ TEST_CASE("AudioDevice") {
 
         TestAudioDevice device;
         device.configure(properties, source);
-        device.prepare(frames_per_buffer);
+        REQUIRE(device.prepare(frames_per_buffer));
         device.write_published(buffer.data(), safe_audio_bytes, frames_per_buffer, bytes_per_frame);
 
         for (size_t current_byte = 0; current_byte < safe_audio_bytes; current_byte++) {

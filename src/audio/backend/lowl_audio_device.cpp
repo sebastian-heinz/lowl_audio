@@ -2,12 +2,14 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cassert>
 #include <cmath>
 #include <cstring>
 #include <tuple>
 
 #include "audio/convert/lowl_audio_sample_converter.h"
 #include "audio/simd/lowl_audio_simd.h"
+#include "lowl_logger.h"
 
 namespace {
     auto make_property_score(const Lowl::Audio::AudioDeviceProperties &p_requested,
@@ -100,7 +102,6 @@ Lowl::Audio::AudioDevice::AudioDevice(_constructor_tag) {
     name = std::string();
     audio_source = std::shared_ptr<AudioSource>();
     audio_device_properties = AudioDeviceProperties{};
-    render_state = std::shared_ptr<RenderState>();
 }
 
 Lowl::Audio::AudioDeviceProperties
@@ -127,26 +128,46 @@ std::vector<Lowl::Audio::AudioDeviceProperties> Lowl::Audio::AudioDevice::get_pr
 }
 
 Lowl::Audio::AudioDevice::~AudioDevice() {
+    unpublish_render_state();
 }
 
-void Lowl::Audio::AudioDevice::allocate_render_buffer(const unsigned long p_frame_capacity) {
-    auto published_state = std::make_shared<RenderState>();
-    published_state->audio_device_properties = audio_device_properties;
-    published_state->audio_source = audio_source;
+bool Lowl::Audio::AudioDevice::allocate_render_buffer(const unsigned long p_frame_capacity) {
+    if (published_render_state.load(std::memory_order_acquire) != nullptr || render_state_owner != nullptr) {
+        LOWL_LOG_ERROR("AudioDevice::allocate_render_buffer: existing render state must be retired first.");
+        assert(false && "Existing render state must be retired before replacement");
+        return false;
+    }
+
+    auto next_render_state = std::make_unique<RenderState>();
+    next_render_state->audio_device_properties = audio_device_properties;
+    next_render_state->audio_source = audio_source;
     const uint8_t channel_count = audio_device_properties.audio_format.channel_layout.channel_count;
-    published_state->render_buffer = AudioBuffer(static_cast<uint32_t>(p_frame_capacity), channel_count);
-    std::atomic_store_explicit(&render_state, std::move(published_state), std::memory_order_release);
+    next_render_state->render_buffer = AudioBuffer(static_cast<uint32_t>(p_frame_capacity), channel_count);
+
+    render_state_owner = std::move(next_render_state);
+    published_render_state.store(render_state_owner.get(), std::memory_order_release);
+    return true;
 }
 
-std::shared_ptr<Lowl::Audio::AudioDevice::RenderState> Lowl::Audio::AudioDevice::load_render_state() const {
-    return std::atomic_load_explicit(&render_state, std::memory_order_acquire);
+Lowl::Audio::AudioDevice::RenderState *Lowl::Audio::AudioDevice::load_render_state() const {
+    return published_render_state.load(std::memory_order_acquire);
 }
 
-void Lowl::Audio::AudioDevice::clear_render_state() {
-    std::atomic_store_explicit(&render_state, std::shared_ptr<RenderState>(), std::memory_order_release);
+void Lowl::Audio::AudioDevice::unpublish_render_state() {
+    published_render_state.store(nullptr, std::memory_order_release);
 }
 
-void Lowl::Audio::AudioDevice::render_to_device_buffer(const std::shared_ptr<RenderState> &p_render_state,
+bool Lowl::Audio::AudioDevice::release_render_state() {
+    if (published_render_state.load(std::memory_order_acquire) != nullptr) {
+        LOWL_LOG_ERROR("AudioDevice::release_render_state: render state is still published.");
+        assert(false && "Cannot release a published render state");
+        return false;
+    }
+    render_state_owner.reset();
+    return true;
+}
+
+void Lowl::Audio::AudioDevice::render_to_device_buffer(RenderState *p_render_state,
                                                        void *p_dst,
                                                        size_t p_dst_byte_size,
                                                        unsigned long p_frames_per_buffer,

@@ -327,7 +327,11 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
         cleanup_failed_start();
         return;
     }
-    allocate_render_buffer(total_frames_in_buffer);
+    if (!allocate_render_buffer(total_frames_in_buffer)) {
+        error.set_error(ErrorCode::InvalidOperationWhileActive);
+        cleanup_failed_start();
+        return;
+    }
 
     wasapi_audio_stop_handle = CreateEvent(nullptr, false, false, nullptr);
     if (wasapi_audio_stop_handle == INVALID_HANDLE_VALUE || wasapi_audio_stop_handle == nullptr) {
@@ -383,6 +387,8 @@ void Lowl::Audio::WasapiDevice::cleanup_failed_start() {
 
 void Lowl::Audio::WasapiDevice::stop(Lowl::Error &error) {
     LOWL_LOG_DEBUG_F("stop->%s", name.c_str());
+    unpublish_render_state();
+
     if (audio_client != nullptr) {
         HRESULT result = audio_client->Stop();
         if (result != S_OK) {
@@ -400,7 +406,9 @@ void Lowl::Audio::WasapiDevice::stop(Lowl::Error &error) {
     SAFE_CLOSE(wasapi_audio_stop_handle)
     SAFE_CLOSE(wasapi_audio_event_handle)
     SAFE_CLOSE(wasapi_audio_thread_handle)
-    clear_render_state();
+    if (!release_render_state() && !error.has_error()) {
+        error.set_error(ErrorCode::InvalidOperationWhileActive);
+    }
     audio_source.reset();
     LOWL_LOG_DEBUG_F("stopped->%s", name.c_str());
 }
@@ -479,7 +487,7 @@ uint32_t Lowl::Audio::WasapiDevice::audio_callback() {
             break;
         }
 
-        const std::shared_ptr<RenderState> published_state = load_render_state();
+        RenderState *const published_state = load_render_state();
         if (published_state == nullptr) {
             result = audio_render_client->ReleaseBuffer(available_frames_in_buffer, AUDCLNT_BUFFERFLAGS_SILENT);
             if (FAILED(result)) {

@@ -78,28 +78,18 @@ namespace Lowl {
     };
 } // namespace Lowl
 
-#ifdef LOWL_DEBUG
 #define LOWL_LOG_F(level, fmt, ...)                                                                                    \
     Lowl::Logger::write(__FILE__, __FUNCTION__, __LINE__, level, Lowl::Logger::format_arguments(fmt, __VA_ARGS__))
 #define LOWL_LOG(level, fmt) Lowl::Logger::write(__FILE__, __FUNCTION__, __LINE__, level, fmt)
-
-#define LOWL_LOG_L_ERROR_F(error, fmt, ...)                                                                            \
-    Lowl::Logger::write(__FILE__,                                                                                      \
-                        __FUNCTION__,                                                                                  \
-                        __LINE__,                                                                                      \
-                        Lowl::Logger::Level::Error,                                                                    \
-                        Lowl::Logger::format_arguments(fmt, __VA_ARGS__) + " ErrTxt[" + error.get_error_text() + "]")
-
 #define LOWL_LOG_L_ERROR(error) LOWL_LOG(Lowl::Logger::Level::Error, error.get_error_text())
-#else
-#define LOWL_LOG_F(level, fmt, ...) (void)0
-#define LOWL_LOG(level, fmt) (void)0
-#define LOWL_LOG_L_ERROR_F(error, fmt, ...) (void)0
-#define LOWL_LOG_L_ERROR(error) (void)0
-#endif
 
+#if defined(LOWL_DEBUG)
 #define LOWL_LOG_DEBUG_F(fmt, ...) LOWL_LOG_F(Lowl::Logger::Level::Debug, fmt, __VA_ARGS__)
 #define LOWL_LOG_DEBUG(fmt) LOWL_LOG(Lowl::Logger::Level::Debug, fmt)
+#else
+#define LOWL_LOG_DEBUG_F(fmt, ...) (void)0
+#define LOWL_LOG_DEBUG(fmt) (void)0
+#endif
 
 #define LOWL_LOG_INFO_F(fmt, ...) LOWL_LOG_F(Lowl::Logger::Level::Info, fmt, __VA_ARGS__)
 #define LOWL_LOG_INFO(fmt) LOWL_LOG(Lowl::Logger::Level::Info, fmt)

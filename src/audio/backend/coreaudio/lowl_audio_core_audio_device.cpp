@@ -97,8 +97,17 @@ OSStatus Lowl::Audio::CoreAudioDevice::audio_callback(AudioUnitRenderActionFlags
                                                       UInt32 inBusNumber,
                                                       UInt32 inNumberFrames,
                                                       AudioBufferList *ioData) {
-    const std::shared_ptr<RenderState> published_state = load_render_state();
-    if (published_state == nullptr || ioData == nullptr || ioData->mNumberBuffers == 0) {
+    if (ioData == nullptr || ioData->mNumberBuffers == 0) {
+        return noErr;
+    }
+    RenderState *const published_state = load_render_state();
+    if (published_state == nullptr || !published_state->audio_source) {
+        for (UInt32 buffer_index = 0; buffer_index < ioData->mNumberBuffers; buffer_index++) {
+            ::AudioBuffer &buffer = ioData->mBuffers[buffer_index];
+            if (buffer.mData != nullptr) {
+                std::memset(buffer.mData, 0, buffer.mDataByteSize);
+            }
+        }
         return noErr;
     }
 
@@ -327,7 +336,11 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
         return;
     }
 
-    allocate_render_buffer(static_cast<unsigned long>(max_frames_per_buffer));
+    if (!allocate_render_buffer(static_cast<unsigned long>(max_frames_per_buffer))) {
+        error.set_error(ErrorCode::InvalidOperationWhileActive);
+        cleanup_failed_start();
+        return;
+    }
 
     AURenderCallbackStruct render_callback;
     render_callback.inputProc = &osx_audio_callback;
@@ -655,6 +668,8 @@ void Lowl::Audio::CoreAudioDevice::release_hog() {
 }
 
 void Lowl::Audio::CoreAudioDevice::cleanup_audio_unit(Error &error) {
+    unpublish_render_state();
+
     if (audio_unit_initialized && audio_unit != nullptr) {
         OSStatus result = AudioOutputUnitStop(audio_unit);
         if (result != noErr) {
@@ -701,7 +716,9 @@ void Lowl::Audio::CoreAudioDevice::cleanup_audio_unit(Error &error) {
 
     release_hog();
     dispose_audio_unit(audio_unit, &error);
-    clear_render_state();
+    if (!release_render_state() && !error.has_error()) {
+        error.set_error(ErrorCode::InvalidOperationWhileActive);
+    }
     audio_source.reset();
 }
 

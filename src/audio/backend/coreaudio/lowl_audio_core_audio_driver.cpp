@@ -26,7 +26,7 @@ void Lowl::Audio::CoreAudioDriver::create_devices(Error &error) {
         std::shared_ptr<Lowl::Audio::CoreAudioDevice> device =
             Lowl::Audio::CoreAudioDevice::construct(name, device_id, error);
         if (error.has_error()) {
-            LOWL_LOG_L_ERROR_F(error, "Device:%u", device_id);
+            LOWL_LOG_ERROR_F("Device:%u ErrTxt[%s]", device_id, error.get_error_text().c_str());
             error.clear();
             continue;
         }

@@ -1,9 +1,10 @@
 #ifndef LOWL_AUDIO_DEVICE_H
 #define LOWL_AUDIO_DEVICE_H
-	
+
+#include <atomic>
 #include <memory>
 #include <vector>
-	
+
 #include "audio/backend/lowl_audio_device_properties.h"
 #include "audio/lowl_audio_buffer.h"
 #include "audio/source/lowl_audio_source.h"
@@ -22,21 +23,30 @@ namespace Lowl::Audio {
             AudioBuffer render_buffer{};
         };
 
+        static_assert(std::atomic<RenderState *>::is_always_lock_free,
+                      "Render-state publication must be lock-free for real-time audio safety");
+
         virtual ~AudioDevice() = 0;
 
         std::shared_ptr<AudioSource> audio_source;
         AudioDeviceProperties audio_device_properties{};
-        std::shared_ptr<RenderState> render_state;
+        std::unique_ptr<RenderState> render_state_owner;
+        std::atomic<RenderState *> published_render_state{nullptr};
         std::vector<AudioDeviceProperties> properties_list;
         std::string name;
 
-        void allocate_render_buffer(unsigned long p_frame_capacity);
+        /** Allocates and publishes a render state while the backend callback is quiescent. */
+        bool allocate_render_buffer(unsigned long p_frame_capacity);
 
-        std::shared_ptr<RenderState> load_render_state() const;
+        RenderState *load_render_state() const;
 
-        void clear_render_state();
+        /** Prevents new callbacks from acquiring the render state without destroying it. */
+        void unpublish_render_state();
 
-        void render_to_device_buffer(const std::shared_ptr<RenderState> &p_render_state,
+        /** Releases the unpublished state after the backend callback is quiescent. */
+        bool release_render_state();
+
+        void render_to_device_buffer(RenderState *p_render_state,
                                      void *p_dst,
                                      size_t p_dst_byte_size,
                                      unsigned long p_frames_per_buffer,
