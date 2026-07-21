@@ -49,21 +49,15 @@ namespace {
         return false;
     }
 
-    void set_error_if_clear(Lowl::Error &error, OSStatus result) {
-        if (!error.has_error()) {
-            error.set_vendor_error(result, Lowl::Error::VendorError::CoreAudioVendorError);
-        }
-    }
-
-    void dispose_audio_unit(AudioUnit &p_audio_unit, Lowl::Error *p_error = nullptr) {
+    OSStatus dispose_audio_unit(AudioUnit &p_audio_unit) {
         if (p_audio_unit == nullptr) {
-            return;
+            return noErr;
         }
         const OSStatus result = AudioComponentInstanceDispose(p_audio_unit);
-        if (result != noErr && p_error != nullptr) {
-            set_error_if_clear(*p_error, result);
+        if (result == noErr) {
+            p_audio_unit = nullptr;
         }
-        p_audio_unit = nullptr;
+        return result;
     }
 
 } // namespace
@@ -189,6 +183,7 @@ Lowl::Audio::CoreAudioDevice::CoreAudioDevice(_constructor_tag ct) : AudioDevice
     device_property_listener_registered = false;
     running_listener_registered = false;
     audio_unit_initialized = false;
+    audio_unit_started = false;
 }
 
 std::unique_ptr<Lowl::Audio::CoreAudioDevice>
@@ -234,10 +229,10 @@ Lowl::Audio::CoreAudioDevice::construct(const std::string &p_driver_name, AudioO
 void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_properties,
                                          std::shared_ptr<AudioSource> p_audio_source,
                                          Error &error) {
-    Error stop_error;
-    stop(stop_error);
-    if (stop_error.has_error()) {
+    stop(error);
+    if (error.has_error()) {
         LOWL_LOG_ERROR_F("CoreAudioDevice::start cleanup failed before restart (device:%u)", device_id);
+        return;
     }
 
     if (!p_audio_device_properties.is_supported) {
@@ -374,6 +369,7 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
         cleanup_failed_start();
         return;
     }
+    audio_unit_started = true;
 }
 
 void Lowl::Audio::CoreAudioDevice::stop(Lowl::Error &error) {
@@ -398,7 +394,12 @@ Lowl::Audio::CoreAudioDevice::create_device_properties(AudioObjectID p_device_id
         LOWL_LOG_ERROR_F("failed to create_audio_unit (device:%u)", p_device_id);
         return properties_list;
     }
-    auto cleanup_test_audio_unit = [&]() { dispose_audio_unit(test_audio_unit); };
+    auto cleanup_test_audio_unit = [&]() {
+        const OSStatus result = dispose_audio_unit(test_audio_unit);
+        if (result != noErr) {
+            LOWL_LOG_ERROR_F("failed to dispose test AudioUnit (device:%u, OSStatus:%u)", p_device_id, result);
+        }
+    };
 
     Lowl::SampleRate default_sample_rate =
         Lowl::Audio::CoreAudioUtilities::get_device_default_sample_rate(p_device_id, error);
@@ -515,14 +516,18 @@ bool Lowl::Audio::CoreAudioDevice::test_device_properties(AudioObjectID p_device
 
     Error error;
     CoreAudioUtilities::set_input_sample_rate(p_audio_unit, p_properties.audio_format.sample_rate, error);
-    if (error.has_error() && !silent) {
-        LOWL_LOG_ERROR_F("failed to set input sample rate (device:%u)", p_device_id);
+    if (error.has_error()) {
+        if (!silent) {
+            LOWL_LOG_ERROR_F("failed to set input sample rate (device:%u)", p_device_id);
+        }
         return false;
     }
 
     SampleRate output_sample_rate = CoreAudioUtilities::get_output_sample_rate(p_audio_unit, error);
-    if (error.has_error() && !silent) {
-        LOWL_LOG_ERROR_F("failed to get output sample rate (device:%u)", p_device_id);
+    if (error.has_error()) {
+        if (!silent) {
+            LOWL_LOG_ERROR_F("failed to get output sample rate (device:%u)", p_device_id);
+        }
         return false;
     }
     if (!Lowl::Audio::sample_rates_equal(output_sample_rate, p_properties.audio_format.sample_rate)) {
@@ -545,13 +550,17 @@ AudioUnit _Nullable Lowl::Audio::CoreAudioDevice::create_audio_unit(AudioObjectI
         return nullptr;
     }
 
-    AudioUnit _Nullable new_audio_unit;
+    AudioUnit _Nullable new_audio_unit = nullptr;
     OSStatus result = noErr;
     result = AudioComponentInstanceNew(comp, &new_audio_unit);
     if (result != noErr) {
         LOWL_LOG_ERROR_F("failed to create AudioUnit (device:%u, OSStatus:%u)", p_device_id, result);
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
-        dispose_audio_unit(new_audio_unit);
+        const OSStatus dispose_result = dispose_audio_unit(new_audio_unit);
+        if (dispose_result != noErr) {
+            LOWL_LOG_ERROR_F(
+                "failed to dispose partially created AudioUnit (device:%u, OSStatus:%u)", p_device_id, dispose_result);
+        }
         return nullptr;
     }
 
@@ -564,7 +573,11 @@ AudioUnit _Nullable Lowl::Audio::CoreAudioDevice::create_audio_unit(AudioObjectI
     if (result != noErr) {
         LOWL_LOG_ERROR_F("failed to set property: CurrentDevice (device:%u, OSStatus:%u)", p_device_id, result);
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
-        dispose_audio_unit(new_audio_unit);
+        const OSStatus dispose_result = dispose_audio_unit(new_audio_unit);
+        if (dispose_result != noErr) {
+            LOWL_LOG_ERROR_F(
+                "failed to dispose unconfigured AudioUnit (device:%u, OSStatus:%u)", p_device_id, dispose_result);
+        }
         return nullptr;
     }
 
@@ -650,35 +663,38 @@ bool Lowl::Audio::CoreAudioDevice::create_description(const Lowl::Audio::AudioDe
     return true;
 }
 
-void Lowl::Audio::CoreAudioDevice::release_hog() {
-    Error error;
-
-    if (hog_pid == getpid()) {
-        // i hogged
-        CoreAudioUtilities::set_output_hog_device_pid(device_id, CoreAudioUtilities::freeHogDevice, error);
-        LOWL_LOG_DEBUG_F("Device:%u - un-hogged (hog_pid:%u)", device_id, hog_pid);
+void Lowl::Audio::CoreAudioDevice::release_hog(Error &error) {
+    if (hog_pid == CoreAudioUtilities::freeHogDevice) {
+        return;
     }
 
-    pid_t output_hog_pid = CoreAudioUtilities::get_output_hog_pid(device_id, error);
-    if (hog_pid == output_hog_pid) {
-        // i hogged but different process
-        CoreAudioUtilities::set_output_hog_device_pid(device_id, CoreAudioUtilities::freeHogDevice, error);
-        LOWL_LOG_DEBUG_F("Device:%u - un-hogged (hog_pid:%u,getpid():%u)", device_id, hog_pid, getpid());
+    CoreAudioUtilities::set_output_hog_device_pid(device_id, CoreAudioUtilities::freeHogDevice, error);
+    if (error.has_error()) {
+        return;
     }
+    LOWL_LOG_DEBUG_F("Device:%u - un-hogged (hog_pid:%u)", device_id, hog_pid);
+    hog_pid = CoreAudioUtilities::freeHogDevice;
 }
 
 void Lowl::Audio::CoreAudioDevice::cleanup_audio_unit(Error &error) {
     unpublish_render_state();
 
-    if (audio_unit_initialized && audio_unit != nullptr) {
-        OSStatus result = AudioOutputUnitStop(audio_unit);
+    if (audio_unit_started && audio_unit != nullptr) {
+        const OSStatus result = AudioOutputUnitStop(audio_unit);
         if (result != noErr) {
-            set_error_if_clear(error, result);
+            LOWL_LOG_ERROR_F("failed at AudioOutputUnitStop (device:%u, OSStatus:%u)", device_id, result);
+            error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+            return;
         }
+        audio_unit_started = false;
+    }
 
-        result = AudioUnitReset(audio_unit, kAudioUnitScope_Global, 0);
+    if (audio_unit_initialized && audio_unit != nullptr) {
+        const OSStatus result = AudioUnitReset(audio_unit, kAudioUnitScope_Global, 0);
         if (result != noErr) {
-            set_error_if_clear(error, result);
+            LOWL_LOG_ERROR_F("failed at AudioUnitReset (device:%u, OSStatus:%u)", device_id, result);
+            error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+            return;
         }
     }
 
@@ -686,7 +702,9 @@ void Lowl::Audio::CoreAudioDevice::cleanup_audio_unit(Error &error) {
         const OSStatus result = AudioUnitRemovePropertyListenerWithUserData(
             audio_unit, kAudioOutputUnitProperty_IsRunning, &osx_start_stop_callback, this);
         if (result != noErr) {
-            set_error_if_clear(error, result);
+            LOWL_LOG_ERROR_F("failed to remove isRunning listener (device:%u, OSStatus:%u)", device_id, result);
+            error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+            return;
         }
         running_listener_registered = false;
     }
@@ -694,30 +712,46 @@ void Lowl::Audio::CoreAudioDevice::cleanup_audio_unit(Error &error) {
     if (audio_unit_initialized && audio_unit != nullptr) {
         const OSStatus result = AudioUnitUninitialize(audio_unit);
         if (result != noErr) {
-            set_error_if_clear(error, result);
+            LOWL_LOG_ERROR_F("failed at AudioUnitUninitialize (device:%u, OSStatus:%u)", device_id, result);
+            error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+            return;
         }
         audio_unit_initialized = false;
     }
 
     if (device_property_listener_registered) {
-        Error listener_error;
-        CoreAudioUtilities::remove_property_listener(
-            device_id,
-            kAudioDeviceProcessorOverload,
-            kAudioDevicePropertyScopeOutput,
-            osx_property_callback,
-            this,
-            listener_error);
-        if (listener_error.has_error()) {
-            set_error_if_clear(error, static_cast<OSStatus>(listener_error.get_vendor_error()));
+        CoreAudioUtilities::remove_property_listener(device_id,
+                                                     kAudioDeviceProcessorOverload,
+                                                     kAudioDevicePropertyScopeOutput,
+                                                     osx_property_callback,
+                                                     this,
+                                                     error);
+        if (error.has_error()) {
+            LOWL_LOG_ERROR_F("failed to remove processor-overload listener (device:%u)", device_id);
+            return;
         }
         device_property_listener_registered = false;
     }
 
-    release_hog();
-    dispose_audio_unit(audio_unit, &error);
-    if (!release_render_state() && !error.has_error()) {
+    release_hog(error);
+    if (error.has_error()) {
+        LOWL_LOG_ERROR_F("failed to release hog mode (device:%u)", device_id);
+        return;
+    }
+
+    const OSStatus dispose_result = dispose_audio_unit(audio_unit);
+    if (dispose_result != noErr) {
+        LOWL_LOG_ERROR_F("failed to dispose AudioUnit (device:%u, OSStatus:%u)", device_id, dispose_result);
+        error.set_vendor_error(dispose_result, Error::VendorError::CoreAudioVendorError);
+        return;
+    }
+    audio_unit_started = false;
+    audio_unit_initialized = false;
+    running_listener_registered = false;
+
+    if (!release_render_state()) {
         error.set_error(ErrorCode::InvalidOperationWhileActive);
+        return;
     }
     audio_source.reset();
 }

@@ -13,7 +13,7 @@ std::string Lowl::Audio::CoreAudioUtilities::get_device_name(AudioObjectID p_dev
                                                 kAudioObjectPropertyElementMain};
     OSStatus result =
         AudioObjectGetPropertyData(p_device_id, &name_property, 0, nullptr, &name_cf_ref_size, &name_cf_ref);
-    if (result != kAudioHardwareNoError) {
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return std::string();
     }
@@ -33,14 +33,15 @@ uint32_t Lowl::Audio::CoreAudioUtilities::get_num_stream(AudioObjectID p_device_
                                                          AudioObjectPropertyScope p_scope,
                                                          Lowl::Error &error) {
     if (p_scope != kAudioDevicePropertyScopeInput && p_scope != kAudioDevicePropertyScopeOutput) {
-        // error
+        error.set_error(ErrorCode::InvalidParameter);
+        return 0;
     }
 
     AudioObjectPropertyAddress stream_property = {
         kAudioDevicePropertyStreams, p_scope, kAudioObjectPropertyElementMain};
     uint32_t stream_data_size = 0;
     OSStatus result = AudioObjectGetPropertyDataSize(p_device_id, &stream_property, 0, nullptr, &stream_data_size);
-    if (result != kAudioHardwareNoError) {
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return 0;
     }
@@ -56,7 +57,7 @@ Lowl::SampleRate Lowl::Audio::CoreAudioUtilities::get_device_default_sample_rate
         kAudioDevicePropertyNominalSampleRate, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain};
     OSStatus result = AudioObjectGetPropertyData(
         p_device_id, &default_sample_rate_property, 0, nullptr, &default_sample_rate_size, &default_sample_rate);
-    if (result != kAudioHardwareNoError) {
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return 0.0;
     }
@@ -67,7 +68,8 @@ uint32_t Lowl::Audio::CoreAudioUtilities::get_num_channel(AudioObjectID p_device
                                                           AudioObjectPropertyScope p_scope,
                                                           Lowl::Error &error) {
     if (p_scope != kAudioDevicePropertyScopeInput && p_scope != kAudioDevicePropertyScopeOutput) {
-        // error
+        error.set_error(ErrorCode::InvalidParameter);
+        return 0;
     }
 
     AudioObjectPropertyAddress stream_config_property = {
@@ -75,7 +77,7 @@ uint32_t Lowl::Audio::CoreAudioUtilities::get_num_channel(AudioObjectID p_device
     uint32_t stream_config_data_size = 0;
     OSStatus result =
         AudioObjectGetPropertyDataSize(p_device_id, &stream_config_property, 0, nullptr, &stream_config_data_size);
-    if (result != kAudioHardwareNoError) {
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return 0;
     }
@@ -85,7 +87,7 @@ uint32_t Lowl::Audio::CoreAudioUtilities::get_num_channel(AudioObjectID p_device
 
     result = AudioObjectGetPropertyData(
         p_device_id, &stream_config_property, 0, nullptr, &stream_config_data_size, audio_buffers);
-    if (result != kAudioHardwareNoError) {
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return 0;
     }
@@ -106,7 +108,7 @@ Lowl::Audio::ChannelLayout Lowl::Audio::CoreAudioUtilities::get_channel_layout(A
     uint32_t channel_layout_size = 0;
     OSStatus result =
         AudioObjectGetPropertyDataSize(p_device_id, &channel_layout_property, 0, nullptr, &channel_layout_size);
-    if (result != kAudioHardwareNoError) {
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return {};
     }
@@ -118,7 +120,7 @@ Lowl::Audio::ChannelLayout Lowl::Audio::CoreAudioUtilities::get_channel_layout(A
     AudioChannelLayout *channel_layout = reinterpret_cast<AudioChannelLayout *>(channel_layout_buffer.data());
     result =
         AudioObjectGetPropertyData(p_device_id, &channel_layout_property, 0, nullptr, &channel_layout_size, channel_layout);
-    if (result != kAudioHardwareNoError) {
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return {};
     }
@@ -140,6 +142,7 @@ void Lowl::Audio::CoreAudioUtilities::set_audio_unit_channel_layout(AudioUnit p_
                                                  p_channel_layout_size);
     if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return;
     }
 }
 
@@ -151,7 +154,7 @@ std::vector<AudioObjectID> Lowl::Audio::CoreAudioUtilities::get_device_ids(Lowl:
     uint32_t device_property_size;
     result =
         AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &device_property, 0, nullptr, &device_property_size);
-    if (result != kAudioHardwareNoError) {
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return std::vector<AudioObjectID>();
     }
@@ -161,7 +164,7 @@ std::vector<AudioObjectID> Lowl::Audio::CoreAudioUtilities::get_device_ids(Lowl:
     std::vector<AudioObjectID> device_ids = std::vector<AudioObjectID>(device_count);
     result = AudioObjectGetPropertyData(
         kAudioObjectSystemObject, &device_property, 0, nullptr, &device_property_size, device_ids.data());
-    if (result != kAudioHardwareNoError) {
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return std::vector<AudioObjectID>();
     }
@@ -177,7 +180,7 @@ AudioObjectID Lowl::Audio::CoreAudioUtilities::get_default_device_id(Lowl::Error
     uint32_t audio_object_size = sizeof(AudioObjectID);
     OSStatus result = AudioObjectGetPropertyData(
         kAudioObjectSystemObject, &default_device_property, 0, nullptr, &audio_object_size, &default_out_device_id);
-    if (result != kAudioHardwareNoError) {
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return 0;
     }
@@ -192,7 +195,7 @@ Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::get_device_latency(AudioObjec
         kAudioDevicePropertyLatency, p_scope, kAudioObjectPropertyElementMain};
     OSStatus result =
         AudioObjectGetPropertyData(p_device_id, &latency_property, 0, nullptr, &device_property_size, &device_latency);
-    if (result != kAudioHardwareNoError) {
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return 0;
     }
@@ -207,7 +210,7 @@ Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::get_safety_offset(AudioObject
         kAudioDevicePropertySafetyOffset, p_scope, kAudioObjectPropertyElementMain};
     OSStatus result = AudioObjectGetPropertyData(
         p_device_id, &safety_offset_property, 0, nullptr, &safety_offset_property_size, &safety_offset);
-    if (result != kAudioHardwareNoError) {
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return 0;
     }
@@ -220,7 +223,7 @@ Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::get_stream_latency(AudioStrea
     UInt32 stream_latency;
     UInt32 property_size = sizeof(UInt32);    AudioObjectPropertyAddress property = {kAudioStreamPropertyLatency, p_scope, kAudioObjectPropertyElementMain};
     OSStatus result = AudioObjectGetPropertyData(p_stream_id, &property, 0, nullptr, &property_size, &stream_latency);
-    if (result != kAudioHardwareNoError) {
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return 0;
     }
@@ -286,7 +289,7 @@ Lowl::SampleCount Lowl::Audio::CoreAudioUtilities::get_buffer_frame_size(AudioOb
         kAudioDevicePropertyBufferFrameSize, p_scope, kAudioObjectPropertyElementMain};
     OSStatus result =
         AudioObjectGetPropertyData(p_device_id, &latency_property, 0, nullptr, &property_size, &buffer_frame_size);
-    if (result != kAudioHardwareNoError) {
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return 0;
     }
@@ -297,6 +300,9 @@ std::vector<AudioObjectID> Lowl::Audio::CoreAudioUtilities::get_stream_ids(Audio
                                                                            AudioObjectPropertyScope p_scope,
                                                                            Lowl::Error &error) {
     uint32_t stream_count = get_num_stream(p_device_id, p_scope, error);
+    if (error.has_error()) {
+        return {};
+    }
     if (stream_count == 0) {
         error.set_error(ErrorCode::InvalidParameter);
         return {};
@@ -305,7 +311,7 @@ std::vector<AudioObjectID> Lowl::Audio::CoreAudioUtilities::get_stream_ids(Audio
     AudioObjectPropertyAddress property = {kAudioDevicePropertyStreams, p_scope, kAudioObjectPropertyElementMain};
     std::vector<AudioObjectID> streams = std::vector<AudioObjectID>(stream_count);
     OSStatus result = AudioObjectGetPropertyData(p_device_id, &property, 0, nullptr, &property_size, streams.data());
-    if (result != kAudioHardwareNoError) {
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return std::vector<AudioObjectID>();
     }
@@ -320,7 +326,7 @@ AudioValueRange Lowl::Audio::CoreAudioUtilities::get_buffer_frame_size_range(Aud
     AudioObjectPropertyAddress property = {
         kAudioDevicePropertyBufferFrameSizeRange, p_scope, kAudioObjectPropertyElementMain};
     OSStatus result = AudioObjectGetPropertyData(p_device_id, &property, 0, nullptr, &property_size, &audio_range);
-    if (result != kAudioHardwareNoError) {
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return AudioValueRange{};
     }
@@ -336,7 +342,7 @@ void Lowl::Audio::CoreAudioUtilities::set_buffer_frame_size(AudioObjectID p_devi
         kAudioDevicePropertyBufferFrameSize, p_scope, kAudioObjectPropertyElementMain};
     OSStatus result =
         AudioObjectSetPropertyData(p_device_id, &property, 0, nullptr, property_size, &p_frames_per_buffer);
-    if (result != kAudioHardwareNoError) {
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
         return;
     }
@@ -387,9 +393,12 @@ void Lowl::Audio::CoreAudioUtilities::add_property_listener(AudioObjectID p_devi
     AudioObjectPropertyAddress property = {p_property, p_scope, kAudioObjectPropertyElementMain};
     OSStatus result = AudioObjectAddPropertyListener(p_device_id, &property, p_proc, p_user_data);
     if (result == kAudioHardwareIllegalOperationError) {
-        // already registered
-    } else if (result != noErr) {
+        // Already registered.
+        return;
+    }
+    if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return;
     }
 }
 
@@ -406,6 +415,7 @@ void Lowl::Audio::CoreAudioUtilities::remove_property_listener(AudioObjectID p_d
     }
     if (result != noErr) {
         error.set_vendor_error(result, Error::VendorError::CoreAudioVendorError);
+        return;
     }
 }
 

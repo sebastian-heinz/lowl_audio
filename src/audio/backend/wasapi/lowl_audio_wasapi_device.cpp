@@ -96,6 +96,7 @@ Lowl::Audio::WasapiDevice::WasapiDevice(_constructor_tag ct) : AudioDevice(ct) {
     audio_render_client = nullptr;
     avrt_handle = nullptr;
     avrt_task_index = 0;
+    audio_client_started = false;
 }
 
 void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_properties,
@@ -103,8 +104,11 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
                                       Lowl::Error &error) {
     LOWL_LOG_DEBUG_F("start->%s", name.c_str());
 
-    Lowl::Error stop_error;
-    stop(stop_error);
+    stop(error);
+    if (error.has_error()) {
+        LOWL_LOG_ERROR_F("WasapiDevice::start cleanup failed before restart (%s)", name.c_str());
+        return;
+    }
 
     HRESULT result = S_OK;
 
@@ -372,6 +376,7 @@ void Lowl::Audio::WasapiDevice::start(AudioDeviceProperties p_audio_device_prope
         cleanup_failed_start();
         return;
     }
+    audio_client_started = true;
     LOWL_LOG_DEBUG_F("start->%s - audio_client->Start:OK", name.c_str());
 
     LOWL_LOG_DEBUG_F("started->%s", name.c_str());
@@ -389,16 +394,32 @@ void Lowl::Audio::WasapiDevice::stop(Lowl::Error &error) {
     LOWL_LOG_DEBUG_F("stop->%s", name.c_str());
     unpublish_render_state();
 
-    if (audio_client != nullptr) {
-        HRESULT result = audio_client->Stop();
-        if (result != S_OK) {
-            LOWL_LOG_DEBUG_F("stop->%s - audio_client->Stop:FAILED (%ld)", name.c_str(), result);
+    if (audio_client_started && audio_client != nullptr) {
+        const HRESULT result = audio_client->Stop();
+        if (FAILED(result)) {
+            LOWL_LOG_ERROR_F("stop->%s - audio_client->Stop:FAILED (%ld)", name.c_str(), result);
+            error.set_vendor_error(result, Error::VendorError::WasapiVendorError);
+            return;
         }
+        audio_client_started = false;
     }
 
     if (wasapi_audio_thread_handle) {
-        SetEvent(wasapi_audio_stop_handle);
-        WaitForSingleObject(wasapi_audio_thread_handle, INFINITE);
+        if (wasapi_audio_stop_handle == nullptr) {
+            LOWL_LOG_ERROR_F("stop->%s - audio thread has no stop event", name.c_str());
+            error.set_error(ErrorCode::InvalidOperationWhileActive);
+            return;
+        }
+        if (!SetEvent(wasapi_audio_stop_handle)) {
+            LOWL_LOG_ERROR_F("stop->%s - failed to signal audio thread", name.c_str());
+            error.set_error(ErrorCode::InvalidOperationWhileActive);
+            return;
+        }
+        if (WaitForSingleObject(wasapi_audio_thread_handle, INFINITE) != WAIT_OBJECT_0) {
+            LOWL_LOG_ERROR_F("stop->%s - failed waiting for audio thread", name.c_str());
+            error.set_error(ErrorCode::InvalidOperationWhileActive);
+            return;
+        }
     }
 
     SAFE_RELEASE(audio_client)
@@ -406,8 +427,10 @@ void Lowl::Audio::WasapiDevice::stop(Lowl::Error &error) {
     SAFE_CLOSE(wasapi_audio_stop_handle)
     SAFE_CLOSE(wasapi_audio_event_handle)
     SAFE_CLOSE(wasapi_audio_thread_handle)
-    if (!release_render_state() && !error.has_error()) {
+    audio_client_started = false;
+    if (!release_render_state()) {
         error.set_error(ErrorCode::InvalidOperationWhileActive);
+        return;
     }
     audio_source.reset();
     LOWL_LOG_DEBUG_F("stopped->%s", name.c_str());

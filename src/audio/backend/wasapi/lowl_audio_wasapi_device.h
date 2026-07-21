@@ -42,6 +42,7 @@ namespace Lowl::Audio {
         HANDLE wasapi_audio_stop_handle;
         HANDLE avrt_handle;
         DWORD avrt_task_index;
+        bool audio_client_started;
 
         bool enable_avrt();
         void cleanup_failed_start();
