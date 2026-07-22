@@ -33,6 +33,28 @@ namespace Lowl {
 
         StreamWriteFailed = -500,
 
+        MixerCapacityExhausted = -600,
+        MixerConnectionInvalid = -604,
+        MixerShutdown = -605,
+
+        AudioAssetHandleInvalid = -610,
+        AudioPlaybackHandleInvalid = -611,
+        AudioPlaybackCapacityExhausted = -612,
+        AudioAssetCapacityExhausted = -613,
+
+        GraphNodeCapacityExhausted = -620,
+        GraphNodeIdentityExhausted = -621,
+        GraphNodeInvalid = -622,
+        GraphNodeTypeMismatch = -623,
+        GraphNodeAlreadyConnected = -624,
+        GraphParentNotMixer = -625,
+        GraphTopologyDepthExceeded = -627,
+        GraphNodeNotConnected = -628,
+        GraphNodeRetiring = -629,
+        GraphRootOperationInvalid = -630,
+        GraphParentNotReachable = -631,
+        GraphShutdown = -632,
+
         // Vendor Error
         CoreAudioVendorError = -2000,
         CoreAudioNoSuitableComponentFound = -2001,

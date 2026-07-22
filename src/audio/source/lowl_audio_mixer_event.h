@@ -2,21 +2,14 @@
 #define LOWL_AUDIO_MIXER_EVENT_H
 
 #include "audio/source/lowl_audio_mixer_handle.h"
-#include "audio/source/lowl_audio_source.h"
 
 namespace Lowl::Audio {
     /**
-     * Queued command used to connect or disconnect a source from the mixer.
+     * Queued command used to connect a source to the mixer.
      */
     struct AudioMixerEvent {
-        enum class Type : uint8_t {
-            Connect = 0,
-            Disconnect = 1,
-        };
-
-        Type type = Type::Connect;
-        AudioMixerHandle handle{};
-        AudioSource *audio_source = nullptr;
+        uint64_l generation = 0;
+        AudioPlaybackId connection_id = 0;
     };
 
     struct AudioMixerCompletion {

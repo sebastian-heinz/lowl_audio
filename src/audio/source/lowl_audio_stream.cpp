@@ -164,9 +164,6 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioStream::mix_into(AudioB
 
     const uint8_t expected_channel_count = get_channel_count();
     if (p_block.channel_count != expected_channel_count) {
-        for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
-            std::fill_n(p_block.channel(channel_index), p_block.frame_count, static_cast<Sample>(0));
-        }
         return {0, RenderState::Error};
     }
 

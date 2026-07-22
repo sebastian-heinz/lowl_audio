@@ -99,6 +99,47 @@ std::string Lowl::Error::to_error_text(ErrorCode p_error) {
         case ErrorCode::StreamWriteFailed:
             return "StreamWriteFailed";
 
+        case ErrorCode::MixerCapacityExhausted:
+            return "MixerCapacityExhausted";
+        case ErrorCode::MixerConnectionInvalid:
+            return "MixerConnectionInvalid";
+        case ErrorCode::MixerShutdown:
+            return "MixerShutdown";
+
+        case ErrorCode::AudioAssetHandleInvalid:
+            return "AudioAssetHandleInvalid";
+        case ErrorCode::AudioPlaybackHandleInvalid:
+            return "AudioPlaybackHandleInvalid";
+        case ErrorCode::AudioPlaybackCapacityExhausted:
+            return "AudioPlaybackCapacityExhausted";
+        case ErrorCode::AudioAssetCapacityExhausted:
+            return "AudioAssetCapacityExhausted";
+
+        case ErrorCode::GraphNodeCapacityExhausted:
+            return "GraphNodeCapacityExhausted";
+        case ErrorCode::GraphNodeIdentityExhausted:
+            return "GraphNodeIdentityExhausted";
+        case ErrorCode::GraphNodeInvalid:
+            return "GraphNodeInvalid";
+        case ErrorCode::GraphNodeTypeMismatch:
+            return "GraphNodeTypeMismatch";
+        case ErrorCode::GraphNodeAlreadyConnected:
+            return "GraphNodeAlreadyConnected";
+        case ErrorCode::GraphParentNotMixer:
+            return "GraphParentNotMixer";
+        case ErrorCode::GraphTopologyDepthExceeded:
+            return "GraphTopologyDepthExceeded";
+        case ErrorCode::GraphNodeNotConnected:
+            return "GraphNodeNotConnected";
+        case ErrorCode::GraphNodeRetiring:
+            return "GraphNodeRetiring";
+        case ErrorCode::GraphRootOperationInvalid:
+            return "GraphRootOperationInvalid";
+        case ErrorCode::GraphParentNotReachable:
+            return "GraphParentNotReachable";
+        case ErrorCode::GraphShutdown:
+            return "GraphShutdown";
+
         case ErrorCode::CoreAudioVendorError:
             return "CoreAudioVendorError";
         case ErrorCode::CoreAudioNoSuitableComponentFound:

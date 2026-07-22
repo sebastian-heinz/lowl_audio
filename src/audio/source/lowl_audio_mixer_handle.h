@@ -5,16 +5,16 @@
 
 namespace Lowl {
     struct AudioMixerHandle {
-        uint32_l mixer_id = 0;
-        AudioPlaybackId playback_id = 0;
-        uint16_l generation = 0;
+        uint64_l mixer_id = 0;
+        AudioPlaybackId connection_id = 0;
+        uint64_l generation = 0;
 
         bool is_valid() const {
-            return mixer_id != 0 && playback_id != 0 && generation != 0;
+            return mixer_id != 0 && connection_id != 0 && generation != 0;
         }
 
         bool operator==(const AudioMixerHandle &p_other) const {
-            return mixer_id == p_other.mixer_id && playback_id == p_other.playback_id &&
+            return mixer_id == p_other.mixer_id && connection_id == p_other.connection_id &&
                    generation == p_other.generation;
         }
 

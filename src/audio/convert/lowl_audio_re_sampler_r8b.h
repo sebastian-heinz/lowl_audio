@@ -1,8 +1,6 @@
 #ifndef LOWL_RE_SAMPLER_R8B_H
 #define LOWL_RE_SAMPLER_R8B_H
 
-#include <CDSPResampler.h>
-
 #include "audio/source/lowl_audio_data.h"
 
 namespace Lowl::Audio {

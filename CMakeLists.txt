@@ -61,6 +61,7 @@ set(LOWL_SOURCES
         src/audio/reader/lowl_audio_reader_wav.cpp
 
         src/audio/source/lowl_audio_data.cpp
+        src/audio/source/lowl_audio_graph.cpp
         src/audio/source/lowl_audio_mixer.cpp
         src/audio/source/lowl_audio_source.cpp
         src/audio/source/lowl_audio_space.cpp
@@ -70,7 +71,10 @@ set(LOWL_SOURCES
 
 add_library(${LOWL_LIB_MAIN} ${LOWL_SOURCES})
 set_target_properties(${LOWL_LIB_MAIN} PROPERTIES PREFIX "")
-target_include_directories(${LOWL_LIB_MAIN} PUBLIC src/)
+target_include_directories(${LOWL_LIB_MAIN}
+        PUBLIC src/
+        PRIVATE third_party/r8brain-free-src
+)
 
 IF (LOWL_DRIVER_DUMMY)
     target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_DUMMY)

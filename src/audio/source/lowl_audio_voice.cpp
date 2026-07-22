@@ -18,13 +18,13 @@ Lowl::Audio::AudioVoice::AudioVoice(std::shared_ptr<const AudioData> p_audio_dat
       audio_data(std::move(p_audio_data)) {
     render_position.store(0, std::memory_order_relaxed);
     pause();
-    published_state.store(PlaybackSnapshot{0, PlaybackState::Stopped, false});
+    published_state.store(PlaybackSnapshot{0, PlaybackState::Stopped});
 }
 
 Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::mix_into(AudioBlockView p_block,
                                                                          const MixGainVector &p_upstream_gain) {
     if (!audio_data) {
-        published_state.update([](PlaybackSnapshot &p_snapshot) {
+        published_state.try_update([](PlaybackSnapshot &p_snapshot) {
             p_snapshot.frame_position = 0;
             p_snapshot.playback_state = PlaybackState::Stopped;
         });
@@ -36,9 +36,6 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::mix_into(AudioBl
 
     const uint8_t expected_channel_count = get_channel_count();
     if (p_block.channel_count != expected_channel_count) {
-        for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
-            std::fill_n(p_block.channel(channel_index), p_block.frame_count, static_cast<Sample>(0));
-        }
         return {0, RenderState::Error};
     }
 
@@ -63,7 +60,7 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::mix_into(AudioBl
         render_position.store(0, std::memory_order_relaxed);
         if ((observed_control_state_serial & 0x1U) == 0U &&
             control_state_serial.load(std::memory_order_acquire) == observed_control_state_serial) {
-            published_state.update([](PlaybackSnapshot &p_snapshot) {
+            published_state.try_update([](PlaybackSnapshot &p_snapshot) {
                 p_snapshot.frame_position = 0;
                 p_snapshot.playback_state = PlaybackState::Stopped;
             });
@@ -93,7 +90,7 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::mix_into(AudioBl
         render_position.store(0, std::memory_order_relaxed);
         if ((observed_control_state_serial & 0x1U) == 0U &&
             control_state_serial.load(std::memory_order_acquire) == observed_control_state_serial) {
-            published_state.update([](PlaybackSnapshot &p_snapshot) {
+            published_state.try_update([](PlaybackSnapshot &p_snapshot) {
                 p_snapshot.frame_position = 0;
                 p_snapshot.playback_state = PlaybackState::Stopped;
             });
@@ -103,7 +100,7 @@ Lowl::Audio::AudioSource::RenderResult Lowl::Audio::AudioVoice::mix_into(AudioBl
     render_position.store(current_position, std::memory_order_relaxed);
     if ((observed_control_state_serial & 0x1U) == 0U &&
         control_state_serial.load(std::memory_order_acquire) == observed_control_state_serial) {
-        published_state.update([current_position](PlaybackSnapshot &p_snapshot) {
+        published_state.try_update([current_position](PlaybackSnapshot &p_snapshot) {
             p_snapshot.frame_position = current_position;
         });
     }
@@ -173,10 +170,6 @@ Lowl::Audio::AudioVoice::PlaybackSnapshot Lowl::Audio::AudioVoice::get_playback_
     return published_state.load();
 }
 
-bool Lowl::Audio::AudioVoice::is_detached() const {
-    return get_playback_snapshot().detached;
-}
-
 Lowl::Audio::AudioVoice::PlaybackState Lowl::Audio::AudioVoice::get_playback_state() const {
     return get_playback_snapshot().playback_state;
 }
@@ -225,16 +218,4 @@ void Lowl::Audio::AudioVoice::stop_playback() {
         p_snapshot.playback_state = PlaybackState::Stopped;
     });
     end_control_state_transition();
-}
-
-void Lowl::Audio::AudioVoice::on_added_to_mixer() {
-    published_state.update([](PlaybackSnapshot &p_snapshot) {
-        p_snapshot.detached = false;
-    });
-}
-
-void Lowl::Audio::AudioVoice::on_removed_from_mixer() {
-    published_state.update([](PlaybackSnapshot &p_snapshot) {
-        p_snapshot.detached = true;
-    });
 }

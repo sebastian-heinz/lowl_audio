@@ -14,6 +14,8 @@ namespace Lowl::Audio {
     private:
         static_assert(Capacity >= 2, "BoundedSpscQueue capacity must be at least 2");
         static_assert((Capacity & (Capacity - 1)) == 0, "BoundedSpscQueue capacity must be a power of 2");
+        static_assert(std::atomic<size_t>::is_always_lock_free,
+                      "BoundedSpscQueue counters must be lock-free for real-time audio safety");
 
         static constexpr size_t Mask = Capacity - 1;
 
@@ -52,87 +54,6 @@ namespace Lowl::Audio {
         }
     };
 
-    template <typename T, size_t Capacity>
-    class BoundedMpscQueue {
-    private:
-        static_assert(Capacity >= 2, "BoundedMpscQueue capacity must be at least 2");
-        static_assert((Capacity & (Capacity - 1)) == 0, "BoundedMpscQueue capacity must be a power of 2");
-
-        struct Cell {
-            std::atomic<size_t> sequence{0};
-            T data{};
-        };
-
-        static constexpr size_t Mask = Capacity - 1;
-
-        alignas(64) std::atomic<size_t> enqueue_pos{0};
-        alignas(64) std::atomic<size_t> dequeue_pos{0};
-        std::array<Cell, Capacity> storage{};
-
-    public:
-        BoundedMpscQueue() {
-            for (size_t index = 0; index < Capacity; index++) {
-                storage[index].sequence.store(index, std::memory_order_relaxed);
-            }
-        }
-
-        BoundedMpscQueue(const BoundedMpscQueue &) = delete;
-        BoundedMpscQueue &operator=(const BoundedMpscQueue &) = delete;
-
-        template <typename U>
-        bool try_enqueue(U &&p_item) {
-            Cell *cell = nullptr;
-            size_t position = enqueue_pos.load(std::memory_order_relaxed);
-
-            while (true) {
-                cell = &storage[position & Mask];
-                const size_t sequence = cell->sequence.load(std::memory_order_acquire);
-                const intptr_t diff =
-                    static_cast<intptr_t>(sequence) - static_cast<intptr_t>(position);
-
-                if (diff == 0) {
-                    if (enqueue_pos.compare_exchange_weak(
-                            position,
-                            position + 1,
-                            std::memory_order_relaxed,
-                            std::memory_order_relaxed)) {
-                        break;
-                    }
-                } else if (diff < 0) {
-                    return false;
-                } else {
-                    position = enqueue_pos.load(std::memory_order_relaxed);
-                }
-            }
-
-            cell->data = std::forward<U>(p_item);
-            cell->sequence.store(position + 1, std::memory_order_release);
-            return true;
-        }
-
-        bool try_dequeue(T &p_item) {
-            size_t position = dequeue_pos.load(std::memory_order_relaxed);
-
-            while (true) {
-                Cell &cell = storage[position & Mask];
-                const size_t sequence = cell.sequence.load(std::memory_order_acquire);
-                const intptr_t diff =
-                    static_cast<intptr_t>(sequence) - static_cast<intptr_t>(position + 1);
-
-                if (diff == 0) {
-                    dequeue_pos.store(position + 1, std::memory_order_relaxed);
-                    p_item = std::move(cell.data);
-                    cell.sequence.store(position + Capacity, std::memory_order_release);
-                    return true;
-                }
-                if (diff < 0) {
-                    return false;
-                }
-
-                position = dequeue_pos.load(std::memory_order_relaxed);
-            }
-        }
-    };
 } // namespace Lowl::Audio
 
 #endif // LOWL_AUDIO_LOCK_FREE_QUEUE_H

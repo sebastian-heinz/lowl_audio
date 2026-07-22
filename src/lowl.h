@@ -9,6 +9,7 @@
 #include "audio/backend/lowl_audio_driver.h"
 #include "audio/reader/lowl_audio_reader.h"
 #include "audio/source/lowl_audio_data.h"
+#include "audio/source/lowl_audio_graph.h"
 #include "audio/source/lowl_audio_mixer.h"
 #include "audio/source/lowl_audio_space.h"
 #include "audio/source/lowl_audio_stream.h"

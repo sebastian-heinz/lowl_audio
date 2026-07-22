@@ -18,12 +18,6 @@ const Lowl::Audio::AudioFormat &Lowl::Audio::AudioSource::get_audio_format() con
     return audio_format;
 }
 
-void Lowl::Audio::AudioSource::on_added_to_mixer() {
-}
-
-void Lowl::Audio::AudioSource::on_removed_from_mixer() {
-}
-
 uint8_t Lowl::Audio::AudioSource::get_channel_count() const {
     return audio_format.channel_layout.channel_count;
 }

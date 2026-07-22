@@ -5,9 +5,9 @@
 
 namespace Lowl {
     struct AudioAssetHandle {
-        uint32_l owner_id = 0;
+        uint64_l owner_id = 0;
         AudioAssetId id = 0;
-        uint16_l generation = 0;
+        uint64_l generation = 0;
 
         bool is_valid() const {
             return owner_id != 0 && id != 0 && generation != 0;

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cstdlib>
 #include <limits>
 #include <utility>
 
@@ -12,21 +13,27 @@
 #include "lowl_logger.h"
 
 namespace {
-    std::atomic<Lowl::uint32_l> next_audio_space_owner_id{1};
+    std::atomic<Lowl::uint64_l> next_audio_space_owner_id{1};
 
     template <typename T>
     T advance_allocation_id(const T p_current) {
         return p_current == std::numeric_limits<T>::max() ? static_cast<T>(0) : static_cast<T>(p_current + 1);
     }
 
-    Lowl::uint16_l advance_generation(const Lowl::uint16_l p_current) {
-        return p_current == std::numeric_limits<Lowl::uint16_l>::max() ? 1 : static_cast<Lowl::uint16_l>(p_current + 1);
+    bool advance_generation(Lowl::uint64_l &p_generation) {
+        if (p_generation == std::numeric_limits<Lowl::uint64_l>::max()) {
+            p_generation = 0;
+            return false;
+        }
+        p_generation++;
+        return true;
     }
 
-    Lowl::uint32_l allocate_audio_space_owner_id() {
-        Lowl::uint32_l owner_id = next_audio_space_owner_id.fetch_add(1, std::memory_order_relaxed);
-        if (owner_id == 0) {
-            owner_id = next_audio_space_owner_id.fetch_add(1, std::memory_order_relaxed);
+    Lowl::uint64_l allocate_audio_space_owner_id() {
+        const Lowl::uint64_l owner_id = next_audio_space_owner_id.fetch_add(1, std::memory_order_relaxed);
+        if (owner_id == 0 || owner_id == std::numeric_limits<Lowl::uint64_l>::max()) {
+            LOWL_LOG_ERROR("AudioSpace: process-wide owner identity capacity is exhausted.");
+            std::abort();
         }
         return owner_id;
     }
@@ -73,9 +80,6 @@ Lowl::Audio::AudioSpace::insert_audio_asset_locked(std::shared_ptr<AudioData> p_
 
     AssetSlot &slot = audio_asset_lookup[asset_id];
     slot.audio_data = std::move(p_audio_data);
-    if (slot.generation == 0) {
-        slot.generation = 1;
-    }
     return {owner_id, asset_id, slot.generation};
 }
 
@@ -115,16 +119,16 @@ Lowl::Audio::AudioSpace::insert_playback_locked(std::unique_ptr<AudioVoice> p_vo
     slot.voice = std::move(p_voice);
     slot.audio_asset_handle = p_audio_asset_handle;
     slot.mixer_handle = {};
-    if (slot.generation == 0) {
-        slot.generation = 1;
-    }
     slot.slot_state = SlotState::Active;
     return {owner_id, playback_id, slot.generation};
 }
 
 void Lowl::Audio::AudioSpace::recycle_audio_asset_locked(const AudioAssetId p_asset_id, AssetSlot &p_slot) {
     p_slot.audio_data.reset();
-    p_slot.generation = advance_generation(p_slot.generation);
+    if (!advance_generation(p_slot.generation)) {
+        LOWL_LOG_ERROR("AudioSpace::recycle_audio_asset_locked: asset generation exhausted; slot retired.");
+        return;
+    }
     if (p_asset_id != InvalidAudioAssetId) {
         free_audio_asset_slots.push_back(p_asset_id);
     }
@@ -136,35 +140,35 @@ void Lowl::Audio::AudioSpace::recycle_playback_locked(const AudioPlaybackId p_sl
     p_slot.voice.reset();
     p_slot.audio_asset_handle = InvalidAudioAssetHandle;
     p_slot.slot_state = SlotState::Active;
-    p_slot.generation = advance_generation(p_slot.generation);
+    if (!advance_generation(p_slot.generation)) {
+        LOWL_LOG_ERROR("AudioSpace::recycle_playback_locked: playback generation exhausted; slot retired.");
+        return;
+    }
     if (p_slot_id != InvalidPlaybackSlotId) {
         free_playback_slots.push_back(p_slot_id);
     }
 }
 
-bool Lowl::Audio::AudioSpace::connect_playback_locked(const AudioPlaybackId p_slot_id, PlaybackSlot &p_slot) {
+bool Lowl::Audio::AudioSpace::connect_playback_locked(const AudioPlaybackId p_slot_id,
+                                                      PlaybackSlot &p_slot,
+                                                      Error &p_error) {
     if (!p_slot.voice) {
         LOWL_LOG_ERROR("AudioSpace::connect_playback_locked: playback has no voice.");
+        p_error.set_error(ErrorCode::AudioPlaybackHandleInvalid);
         return false;
     }
     if (p_slot.mixer_handle.is_valid()) {
         return true;
     }
 
-    Error error;
-    const AudioMixerHandle mixer_handle = mixer.connect(p_slot.voice.get(), error);
-    if (error.has_error() || !mixer_handle.is_valid()) {
+    const AudioMixerHandle mixer_handle = mixer.connect(*p_slot.voice, p_error);
+    if (p_error.has_error() || !mixer_handle.is_valid()) {
         LOWL_LOG_ERROR("AudioSpace::connect_playback_locked: mixer rejected the connection.");
         return false;
     }
 
-    const size_t required_lookup_size = static_cast<size_t>(mixer_handle.playback_id) + 1;
-    if (mixer_playback_lookup.size() < required_lookup_size) {
-        mixer_playback_lookup.resize(required_lookup_size, InvalidPlaybackSlotId);
-    }
-
     p_slot.mixer_handle = mixer_handle;
-    mixer_playback_lookup[mixer_handle.playback_id] = p_slot_id;
+    mixer_playback_lookup[mixer_handle.connection_id] = p_slot_id;
     return true;
 }
 
@@ -174,7 +178,7 @@ void Lowl::Audio::AudioSpace::clear_mixer_connection_locked(const AudioPlaybackI
         return;
     }
 
-    const AudioPlaybackId mixer_connection_id = p_slot.mixer_handle.playback_id;
+    const AudioPlaybackId mixer_connection_id = p_slot.mixer_handle.connection_id;
     if (mixer_connection_id < mixer_playback_lookup.size() &&
         mixer_playback_lookup[mixer_connection_id] == p_slot_id) {
         mixer_playback_lookup[mixer_connection_id] = InvalidPlaybackSlotId;
@@ -182,32 +186,36 @@ void Lowl::Audio::AudioSpace::clear_mixer_connection_locked(const AudioPlaybackI
     p_slot.mixer_handle = {};
 }
 
-void Lowl::Audio::AudioSpace::retire_playback_locked(const AudioPlaybackId p_slot_id, PlaybackSlot &p_slot) {
+bool Lowl::Audio::AudioSpace::retire_playback_locked(const AudioPlaybackId p_slot_id,
+                                                     PlaybackSlot &p_slot,
+                                                     Error &p_error) {
     if (!p_slot.voice || p_slot.slot_state == SlotState::Retiring) {
-        return;
+        LOWL_LOG_ERROR("AudioSpace::retire_playback_locked: playback is invalid or already retiring.");
+        p_error.set_error(ErrorCode::AudioPlaybackHandleInvalid);
+        return false;
     }
 
     if (!p_slot.mixer_handle.is_valid()) {
         recycle_playback_locked(p_slot_id, p_slot);
-        return;
+        return true;
     }
 
     p_slot.voice->stop_playback();
-    Error error;
-    mixer.disconnect(p_slot.mixer_handle, error);
-    if (error.has_error()) {
-        LOWL_LOG_ERROR("AudioSpace::retire_playback_locked: failed to queue mixer disconnection.");
-        return;
+    mixer.disconnect(p_slot.mixer_handle, p_error);
+    if (p_error.has_error()) {
+        LOWL_LOG_ERROR("AudioSpace::retire_playback_locked: mixer rejected the disconnection request.");
+        return false;
     }
     p_slot.slot_state = SlotState::Retiring;
+    return true;
 }
 
 Lowl::AudioPlaybackId
 Lowl::Audio::AudioSpace::find_playback_slot_id_by_mixer_handle_locked(const AudioMixerHandle p_mixer_handle) const {
-    if (!p_mixer_handle.is_valid() || p_mixer_handle.playback_id >= mixer_playback_lookup.size()) {
+    if (!p_mixer_handle.is_valid() || p_mixer_handle.connection_id >= mixer_playback_lookup.size()) {
         return InvalidPlaybackSlotId;
     }
-    const AudioPlaybackId playback_id = mixer_playback_lookup[p_mixer_handle.playback_id];
+    const AudioPlaybackId playback_id = mixer_playback_lookup[p_mixer_handle.connection_id];
     if (playback_id == InvalidPlaybackSlotId || playback_id >= playback_lookup.size()) {
         return InvalidPlaybackSlotId;
     }
@@ -217,7 +225,9 @@ Lowl::Audio::AudioSpace::find_playback_slot_id_by_mixer_handle_locked(const Audi
 
 void Lowl::Audio::AudioSpace::collect_mixer_completions_locked() {
     AudioMixerCompletion completion{};
-    while (mixer.try_collect_completion(completion)) {
+    for (size_t completion_count = 0;
+         completion_count < AudioMixer::MaxConnections && mixer.try_collect_completion(completion);
+         completion_count++) {
         const AudioPlaybackId playback_id = find_playback_slot_id_by_mixer_handle_locked(completion.handle);
         if (playback_id == InvalidPlaybackSlotId) {
             continue;
@@ -237,8 +247,12 @@ void Lowl::Audio::AudioSpace::collect_mixer_completions_locked() {
 }
 
 Lowl::AudioAssetHandle Lowl::Audio::AudioSpace::add_audio(std::unique_ptr<AudioData> p_audio_data, Error &p_error) {
+    p_error.clear();
+
     std::shared_ptr<AudioData> audio = std::move(p_audio_data);
     if (!audio) {
+        LOWL_LOG_ERROR("AudioSpace::add_audio: audio data must not be null.");
+        p_error.set_error(ErrorCode::InvalidParameter);
         return InvalidAudioAssetHandle;
     }
 
@@ -267,10 +281,16 @@ Lowl::AudioAssetHandle Lowl::Audio::AudioSpace::add_audio(std::unique_ptr<AudioD
     }
 
     std::lock_guard<std::mutex> lock(state_mutex);
-    return insert_audio_asset_locked(std::move(audio));
+    const AudioAssetHandle handle = insert_audio_asset_locked(std::move(audio));
+    if (!handle.is_valid()) {
+        LOWL_LOG_ERROR("AudioSpace::add_audio: fixed asset handle capacity is exhausted.");
+        p_error.set_error(ErrorCode::AudioAssetCapacityExhausted);
+    }
+    return handle;
 }
 
 Lowl::AudioAssetHandle Lowl::Audio::AudioSpace::add_audio(const std::string &p_path, Error &p_error) {
+    p_error.clear();
     std::unique_ptr<AudioData> audio_data = AudioReader::create_data(p_path, p_error);
     if (p_error.has_error()) {
         return InvalidAudioAssetHandle;
@@ -278,100 +298,143 @@ Lowl::AudioAssetHandle Lowl::Audio::AudioSpace::add_audio(const std::string &p_p
     return add_audio(std::move(audio_data), p_error);
 }
 
-void Lowl::Audio::AudioSpace::remove_audio(const AudioAssetHandle p_audio_asset_handle) {
+void Lowl::Audio::AudioSpace::remove_audio(const AudioAssetHandle p_audio_asset_handle, Error &p_error) {
+    p_error.clear();
     std::lock_guard<std::mutex> lock(state_mutex);
     if (!p_audio_asset_handle.is_valid() || p_audio_asset_handle.owner_id != owner_id ||
         p_audio_asset_handle.id >= audio_asset_lookup.size()) {
+        LOWL_LOG_ERROR("AudioSpace::remove_audio: asset handle is invalid or belongs to another space.");
+        p_error.set_error(ErrorCode::AudioAssetHandleInvalid);
         return;
     }
 
     AssetSlot &slot = audio_asset_lookup[p_audio_asset_handle.id];
     if (!slot.audio_data || slot.generation != p_audio_asset_handle.generation) {
+        LOWL_LOG_ERROR("AudioSpace::remove_audio: asset handle is stale or already removed.");
+        p_error.set_error(ErrorCode::AudioAssetHandleInvalid);
         return;
     }
     recycle_audio_asset_locked(p_audio_asset_handle.id, slot);
 }
 
-Lowl::AudioPlaybackHandle Lowl::Audio::AudioSpace::create_playback(const AudioAssetHandle p_audio_asset_handle) {
+Lowl::AudioPlaybackHandle Lowl::Audio::AudioSpace::create_playback(const AudioAssetHandle p_audio_asset_handle,
+                                                                   Error &p_error) {
+    p_error.clear();
     std::lock_guard<std::mutex> lock(state_mutex);
     collect_mixer_completions_locked();
     std::shared_ptr<AudioData> audio_data = get_audio_asset_locked(p_audio_asset_handle);
     if (!audio_data) {
+        LOWL_LOG_ERROR("AudioSpace::create_playback: asset handle is invalid, stale, or belongs to another space.");
+        p_error.set_error(ErrorCode::AudioAssetHandleInvalid);
         return InvalidAudioPlaybackHandle;
     }
 
     auto voice = std::make_unique<AudioVoice>(audio_data);
     voice->set_name(audio_data->get_name());
-    return insert_playback_locked(std::move(voice), p_audio_asset_handle);
+    const AudioPlaybackHandle handle = insert_playback_locked(std::move(voice), p_audio_asset_handle);
+    if (!handle.is_valid()) {
+        LOWL_LOG_ERROR("AudioSpace::create_playback: fixed playback handle capacity is exhausted.");
+        p_error.set_error(ErrorCode::AudioPlaybackCapacityExhausted);
+    }
+    return handle;
 }
 
-Lowl::AudioPlaybackHandle Lowl::Audio::AudioSpace::play_clip(const AudioAssetHandle p_audio_asset_handle) {
-    const AudioPlaybackHandle playback_handle = create_playback(p_audio_asset_handle);
-    if (playback_handle.is_valid()) {
-        play(playback_handle);
+Lowl::AudioPlaybackHandle Lowl::Audio::AudioSpace::play_clip(const AudioAssetHandle p_audio_asset_handle,
+                                                             Error &p_error) {
+    p_error.clear();
+    const AudioPlaybackHandle playback_handle = create_playback(p_audio_asset_handle, p_error);
+    if (p_error.has_error() || !playback_handle.is_valid()) {
+        return InvalidAudioPlaybackHandle;
+    }
+
+    play(playback_handle, p_error);
+    if (p_error.has_error()) {
+        Error cleanup_error;
+        destroy_playback(playback_handle, cleanup_error);
+        return InvalidAudioPlaybackHandle;
     }
     return playback_handle;
 }
 
-void Lowl::Audio::AudioSpace::destroy_playback(const AudioPlaybackHandle p_audio_playback_handle) {
+void Lowl::Audio::AudioSpace::destroy_playback(const AudioPlaybackHandle p_audio_playback_handle, Error &p_error) {
+    p_error.clear();
     std::lock_guard<std::mutex> lock(state_mutex);
     collect_mixer_completions_locked();
-    if (!p_audio_playback_handle.is_valid() || p_audio_playback_handle.owner_id != owner_id ||
-        p_audio_playback_handle.id >= playback_lookup.size()) {
-        return;
-    }
-
-    PlaybackSlot &slot = playback_lookup[p_audio_playback_handle.id];
-    if (!slot.voice || slot.slot_state == SlotState::Retiring ||
-        slot.generation != p_audio_playback_handle.generation) {
-        return;
-    }
-    retire_playback_locked(p_audio_playback_handle.id, slot);
-}
-
-void Lowl::Audio::AudioSpace::play(const AudioPlaybackHandle p_audio_playback_handle) {
-    std::lock_guard<std::mutex> lock(state_mutex);
-    collect_mixer_completions_locked();
-    PlaybackSlot *slot = get_playback_slot_locked(p_audio_playback_handle);
+    PlaybackSlot *slot = require_playback_slot_locked(
+        p_audio_playback_handle,
+        p_error,
+        "AudioSpace::destroy_playback: playback handle is invalid, stale, or retiring.");
     if (!slot) {
         return;
     }
-    if (!connect_playback_locked(p_audio_playback_handle.id, *slot)) {
+    retire_playback_locked(p_audio_playback_handle.id, *slot, p_error);
+}
+
+void Lowl::Audio::AudioSpace::play(const AudioPlaybackHandle p_audio_playback_handle, Error &p_error) {
+    p_error.clear();
+    std::lock_guard<std::mutex> lock(state_mutex);
+    collect_mixer_completions_locked();
+    PlaybackSlot *slot = require_playback_slot_locked(
+        p_audio_playback_handle,
+        p_error,
+        "AudioSpace::play: playback handle is invalid, stale, or retiring.");
+    if (!slot) {
+        return;
+    }
+    if (!connect_playback_locked(p_audio_playback_handle.id, *slot, p_error)) {
         return;
     }
 
     slot->voice->restart_playback();
 }
 
-void Lowl::Audio::AudioSpace::pause(const AudioPlaybackHandle p_audio_playback_handle) {
+void Lowl::Audio::AudioSpace::pause(const AudioPlaybackHandle p_audio_playback_handle, Error &p_error) {
+    p_error.clear();
     std::lock_guard<std::mutex> lock(state_mutex);
-    PlaybackSlot *slot = get_playback_slot_locked(p_audio_playback_handle);
+    PlaybackSlot *slot = require_playback_slot_locked(
+        p_audio_playback_handle,
+        p_error,
+        "AudioSpace::pause: playback handle is invalid, stale, or retiring.");
     if (!slot) {
         return;
     }
     slot->voice->pause_playback();
 }
 
-void Lowl::Audio::AudioSpace::resume(const AudioPlaybackHandle p_audio_playback_handle) {
+void Lowl::Audio::AudioSpace::resume(const AudioPlaybackHandle p_audio_playback_handle, Error &p_error) {
+    p_error.clear();
     std::lock_guard<std::mutex> lock(state_mutex);
     collect_mixer_completions_locked();
-    PlaybackSlot *slot = get_playback_slot_locked(p_audio_playback_handle);
-    if (!slot || slot->voice->get_playback_state() != AudioVoice::PlaybackState::Paused) {
+    PlaybackSlot *slot = require_playback_slot_locked(
+        p_audio_playback_handle,
+        p_error,
+        "AudioSpace::resume: playback handle is invalid, stale, or retiring.");
+    if (!slot) {
+        return;
+    }
+    if (slot->voice->get_playback_state() != AudioVoice::PlaybackState::Paused) {
+        LOWL_LOG_ERROR("AudioSpace::resume: playback is not paused.");
+        p_error.set_error(ErrorCode::InvalidOperationWhileActive);
         return;
     }
     slot->voice->resume_playback();
 }
 
-void Lowl::Audio::AudioSpace::stop(const AudioPlaybackHandle p_audio_playback_handle) {
+void Lowl::Audio::AudioSpace::stop(const AudioPlaybackHandle p_audio_playback_handle, Error &p_error) {
+    p_error.clear();
     std::lock_guard<std::mutex> lock(state_mutex);
-    PlaybackSlot *slot = get_playback_slot_locked(p_audio_playback_handle);
+    PlaybackSlot *slot = require_playback_slot_locked(
+        p_audio_playback_handle,
+        p_error,
+        "AudioSpace::stop: playback handle is invalid, stale, or retiring.");
     if (!slot) {
         return;
     }
     slot->voice->stop_playback();
 }
 
-void Lowl::Audio::AudioSpace::clear_all_audio() {
+void Lowl::Audio::AudioSpace::clear_all_audio(Error &p_error) {
+    p_error.clear();
     std::lock_guard<std::mutex> lock(state_mutex);
     collect_mixer_completions_locked();
 
@@ -379,7 +442,9 @@ void Lowl::Audio::AudioSpace::clear_all_audio() {
         const AudioPlaybackId playback_id = static_cast<AudioPlaybackId>(index);
         PlaybackSlot &slot = playback_lookup[playback_id];
         if (slot.voice && slot.slot_state != SlotState::Retiring) {
-            retire_playback_locked(playback_id, slot);
+            if (!retire_playback_locked(playback_id, slot, p_error)) {
+                return;
+            }
         }
     }
     for (size_t index = FirstAudioAssetId; index < audio_asset_lookup.size(); index++) {
@@ -407,66 +472,120 @@ void Lowl::Audio::AudioSpace::stop_all_audio() {
 }
 
 void Lowl::Audio::AudioSpace::set_volume(const AudioPlaybackHandle p_audio_playback_handle,
-                                         const Volume p_volume) {
+                                         const Volume p_volume,
+                                         Error &p_error) {
+    p_error.clear();
     std::lock_guard<std::mutex> lock(state_mutex);
-    PlaybackSlot *slot = get_playback_slot_locked(p_audio_playback_handle);
-    if (slot) {
-        slot->voice->set_volume(p_volume);
+    PlaybackSlot *slot = require_playback_slot_locked(
+        p_audio_playback_handle,
+        p_error,
+        "AudioSpace::set_volume: playback handle is invalid, stale, or retiring.");
+    if (!slot) {
+        return;
     }
+    slot->voice->set_volume(p_volume);
 }
 
 void Lowl::Audio::AudioSpace::set_panning(const AudioPlaybackHandle p_audio_playback_handle,
-                                          const Panning p_panning) {
+                                          const Panning p_panning,
+                                          Error &p_error) {
+    p_error.clear();
     std::lock_guard<std::mutex> lock(state_mutex);
-    PlaybackSlot *slot = get_playback_slot_locked(p_audio_playback_handle);
-    if (slot) {
-        slot->voice->set_panning(p_panning);
+    PlaybackSlot *slot = require_playback_slot_locked(
+        p_audio_playback_handle,
+        p_error,
+        "AudioSpace::set_panning: playback handle is invalid, stale, or retiring.");
+    if (!slot) {
+        return;
     }
+    slot->voice->set_panning(p_panning);
 }
 
-void Lowl::Audio::AudioSpace::seek_frame(const AudioPlaybackHandle p_audio_playback_handle, const size_t p_frame) {
+void Lowl::Audio::AudioSpace::seek_frame(const AudioPlaybackHandle p_audio_playback_handle,
+                                        const size_t p_frame,
+                                        Error &p_error) {
+    p_error.clear();
     std::lock_guard<std::mutex> lock(state_mutex);
-    PlaybackSlot *slot = get_playback_slot_locked(p_audio_playback_handle);
-    if (slot) {
-        slot->voice->seek_frame(p_frame);
+    PlaybackSlot *slot = require_playback_slot_locked(
+        p_audio_playback_handle,
+        p_error,
+        "AudioSpace::seek_frame: playback handle is invalid, stale, or retiring.");
+    if (!slot) {
+        return;
     }
+    slot->voice->seek_frame(p_frame);
 }
 
 void Lowl::Audio::AudioSpace::seek_time(const AudioPlaybackHandle p_audio_playback_handle,
-                                        const double_l p_seconds) {
+                                        const double_l p_seconds,
+                                        Error &p_error) {
+    p_error.clear();
     std::lock_guard<std::mutex> lock(state_mutex);
-    PlaybackSlot *slot = get_playback_slot_locked(p_audio_playback_handle);
-    if (slot) {
-        slot->voice->seek_time(p_seconds);
+    PlaybackSlot *slot = require_playback_slot_locked(
+        p_audio_playback_handle,
+        p_error,
+        "AudioSpace::seek_time: playback handle is invalid, stale, or retiring.");
+    if (!slot) {
+        return;
     }
+    slot->voice->seek_time(p_seconds);
 }
 
-void Lowl::Audio::AudioSpace::reset(const AudioPlaybackHandle p_audio_playback_handle) {
+void Lowl::Audio::AudioSpace::reset(const AudioPlaybackHandle p_audio_playback_handle, Error &p_error) {
+    p_error.clear();
     std::lock_guard<std::mutex> lock(state_mutex);
-    PlaybackSlot *slot = get_playback_slot_locked(p_audio_playback_handle);
-    if (slot) {
-        slot->voice->reset();
+    PlaybackSlot *slot = require_playback_slot_locked(
+        p_audio_playback_handle,
+        p_error,
+        "AudioSpace::reset: playback handle is invalid, stale, or retiring.");
+    if (!slot) {
+        return;
     }
+    slot->voice->reset();
 }
 
 Lowl::size_l
-Lowl::Audio::AudioSpace::get_frame_position(const AudioPlaybackHandle p_audio_playback_handle) const {
+Lowl::Audio::AudioSpace::get_frame_position(const AudioPlaybackHandle p_audio_playback_handle,
+                                            Error &p_error) const {
+    p_error.clear();
     std::lock_guard<std::mutex> lock(state_mutex);
-    const PlaybackSlot *slot = get_playback_slot_locked(p_audio_playback_handle);
-    return slot ? slot->voice->get_frame_position() : 0;
+    const PlaybackSlot *slot = require_playback_slot_locked(
+        p_audio_playback_handle,
+        p_error,
+        "AudioSpace::get_frame_position: playback handle is invalid, stale, or retiring.");
+    if (!slot) {
+        return 0;
+    }
+    return slot->voice->get_frame_position();
 }
 
 Lowl::size_l
-Lowl::Audio::AudioSpace::get_frames_remaining(const AudioPlaybackHandle p_audio_playback_handle) const {
+Lowl::Audio::AudioSpace::get_frames_remaining(const AudioPlaybackHandle p_audio_playback_handle,
+                                              Error &p_error) const {
+    p_error.clear();
     std::lock_guard<std::mutex> lock(state_mutex);
-    const PlaybackSlot *slot = get_playback_slot_locked(p_audio_playback_handle);
-    return slot ? slot->voice->get_frames_remaining() : 0;
+    const PlaybackSlot *slot = require_playback_slot_locked(
+        p_audio_playback_handle,
+        p_error,
+        "AudioSpace::get_frames_remaining: playback handle is invalid, stale, or retiring.");
+    if (!slot) {
+        return 0;
+    }
+    return slot->voice->get_frames_remaining();
 }
 
-Lowl::size_l Lowl::Audio::AudioSpace::get_frame_count(const AudioPlaybackHandle p_audio_playback_handle) const {
+Lowl::size_l Lowl::Audio::AudioSpace::get_frame_count(const AudioPlaybackHandle p_audio_playback_handle,
+                                                      Error &p_error) const {
+    p_error.clear();
     std::lock_guard<std::mutex> lock(state_mutex);
-    const PlaybackSlot *slot = get_playback_slot_locked(p_audio_playback_handle);
-    return slot ? slot->voice->get_frame_count() : 0;
+    const PlaybackSlot *slot = require_playback_slot_locked(
+        p_audio_playback_handle,
+        p_error,
+        "AudioSpace::get_frame_count: playback handle is invalid, stale, or retiring.");
+    if (!slot) {
+        return 0;
+    }
+    return slot->voice->get_frame_count();
 }
 
 std::shared_ptr<Lowl::Audio::AudioData>
@@ -508,6 +627,34 @@ Lowl::Audio::AudioSpace::get_playback_slot_locked(const AudioPlaybackHandle p_au
         return nullptr;
     }
     return &slot;
+}
+
+Lowl::Audio::AudioSpace::PlaybackSlot *
+Lowl::Audio::AudioSpace::require_playback_slot_locked(const AudioPlaybackHandle p_audio_playback_handle,
+                                                      Error &p_error,
+                                                      const char *p_error_message) {
+    PlaybackSlot *slot = get_playback_slot_locked(p_audio_playback_handle);
+    if (slot) {
+        return slot;
+    }
+
+    LOWL_LOG_ERROR(p_error_message);
+    p_error.set_error(ErrorCode::AudioPlaybackHandleInvalid);
+    return nullptr;
+}
+
+const Lowl::Audio::AudioSpace::PlaybackSlot *
+Lowl::Audio::AudioSpace::require_playback_slot_locked(const AudioPlaybackHandle p_audio_playback_handle,
+                                                      Error &p_error,
+                                                      const char *p_error_message) const {
+    const PlaybackSlot *slot = get_playback_slot_locked(p_audio_playback_handle);
+    if (slot) {
+        return slot;
+    }
+
+    LOWL_LOG_ERROR(p_error_message);
+    p_error.set_error(ErrorCode::AudioPlaybackHandleInvalid);
+    return nullptr;
 }
 
 Lowl::Audio::AudioSource::RenderResult

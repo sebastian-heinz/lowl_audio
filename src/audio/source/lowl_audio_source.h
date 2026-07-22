@@ -13,8 +13,14 @@
 namespace Lowl::Audio {
     /**
      * Base class for anything that can render audio into a block for a mixer or device.
+     * Implementations used on a real-time render thread must not allocate, block, or perform
+     * unbounded work in mix_into(). AudioSource does not track topology or ownership; callers
+     * using sources outside AudioGraph are responsible for lifetime and render consistency.
      */
     class AudioSource {
+        static_assert(std::atomic<uint64_t>::is_always_lock_free,
+                      "AudioSource gain generation must be lock-free for real-time audio safety");
+
     public:
         struct MixGainVector {
             std::array<Sample, AudioBlockView::MAX_CHANNELS> values{};
@@ -84,10 +90,6 @@ namespace Lowl::Audio {
 
         virtual RenderResult mix_into(AudioBlockView p_block,
                                       const MixGainVector &p_upstream_gain) = 0;
-
-        virtual void on_added_to_mixer();
-
-        virtual void on_removed_from_mixer();
 
         virtual size_l get_frames_remaining() const = 0;
 

@@ -1,5 +1,7 @@
 #include "lowl_audio_re_sampler_r8b.h"
 
+#include <CDSPResampler.h>
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
