@@ -81,7 +81,7 @@ TEST_CASE("AudioUtilities") {
         REQUIRE_EQ(read.right, doctest::Approx(0.0f));
     }
 
-    SUBCASE("AudioUtilities - to_stream preserves 5.1 clip channel data") {
+    SUBCASE("AudioUtilities - to_stream preserves 5.1 asset channel data") {
         const size_t frame_count = 3;
         const size_t channel_count = 6;
         std::unique_ptr<Lowl::Sample[]> storage = std::make_unique<Lowl::Sample[]>(frame_count * channel_count);

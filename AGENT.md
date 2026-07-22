@@ -1,6 +1,6 @@
 - Treat this directory as the project root. Do not explore parent directories.
-- Allow read list: `AGENT.md`, `src/`
-- Confirm-first read list: `test/`, `third_party/`, `bench/`
+- Allow read list: `AGENT.md`, `src/`, `test/`
+- Confirm-first read list: `third_party/`, `bench/`
 - Disallow read list: `doc/`
 - Keep `cmake_minimum_required(VERSION 3.31)` unless explicitly asked to change it.
 - Do not run benchmarks unless explicitly requested.

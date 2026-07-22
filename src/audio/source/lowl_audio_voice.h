@@ -11,7 +11,7 @@
 
 namespace Lowl::Audio {
     /**
-     * Playback instance for an `AudioData` clip with its own position, gain, and panning state.
+     * Playback instance for an `AudioData` asset with its own position, gain, and panning state.
      */
     class AudioVoice : public AudioSource {
         static_assert(std::atomic<size_t>::is_always_lock_free,

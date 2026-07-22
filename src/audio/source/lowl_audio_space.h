@@ -109,7 +109,7 @@ namespace Lowl::Audio {
         void remove_audio(AudioAssetHandle p_audio_asset_handle, Error &p_error);
 
         [[nodiscard]] AudioPlaybackHandle create_playback(AudioAssetHandle p_audio_asset_handle, Error &p_error);
-        [[nodiscard]] AudioPlaybackHandle play_clip(AudioAssetHandle p_audio_asset_handle, Error &p_error);
+        [[nodiscard]] AudioPlaybackHandle play_asset(AudioAssetHandle p_audio_asset_handle, Error &p_error);
         void destroy_playback(AudioPlaybackHandle p_audio_playback_handle, Error &p_error);
 
         void play(AudioPlaybackHandle p_audio_playback_handle, Error &p_error);

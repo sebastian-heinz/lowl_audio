@@ -339,8 +339,8 @@ Lowl::AudioPlaybackHandle Lowl::Audio::AudioSpace::create_playback(const AudioAs
     return handle;
 }
 
-Lowl::AudioPlaybackHandle Lowl::Audio::AudioSpace::play_clip(const AudioAssetHandle p_audio_asset_handle,
-                                                             Error &p_error) {
+Lowl::AudioPlaybackHandle Lowl::Audio::AudioSpace::play_asset(const AudioAssetHandle p_audio_asset_handle,
+                                                              Error &p_error) {
     p_error.clear();
     const AudioPlaybackHandle playback_handle = create_playback(p_audio_asset_handle, p_error);
     if (p_error.has_error() || !playback_handle.is_valid()) {

@@ -126,7 +126,7 @@ namespace {
 TEST_CASE("AudioReader") {
     TestAudioReader reader;
 
-    SUBCASE("AudioReader - raw interleaved float32 PCM becomes planar clip data") {
+    SUBCASE("AudioReader - raw interleaved float32 PCM becomes planar asset data") {
         std::vector<float> samples{
             0.10f, -0.20f,
             0.30f, -0.40f,
@@ -189,7 +189,7 @@ TEST_CASE("AudioReader") {
         REQUIRE(audio_data == nullptr);
     }
 
-    SUBCASE("ReSampler - zero-frame clips stay empty") {
+    SUBCASE("ReSampler - zero-frame assets stay empty") {
         std::shared_ptr<Lowl::Audio::AudioData> audio =
             std::make_shared<Lowl::Audio::AudioData>(
                 std::unique_ptr<Lowl::Sample[]>(),
