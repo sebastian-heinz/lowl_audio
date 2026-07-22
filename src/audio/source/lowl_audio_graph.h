@@ -1,6 +1,7 @@
 #ifndef LOWL_AUDIO_GRAPH_H
 #define LOWL_AUDIO_GRAPH_H
 
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <type_traits>
@@ -30,18 +31,21 @@ namespace Lowl::Audio {
         static constexpr size_t MaxTopologyDepth = 64;
 
     private:
-        static constexpr uint64_l RootNodeId = 1;
+        static constexpr AudioNodeId RootNodeId = 1;
         static constexpr size_l LiveFrameCountSentinel = 1;
 
+        static_assert(MaxNodes <= std::numeric_limits<AudioNodeId>::max(),
+                      "AudioNodeId must represent every active graph node");
+
         struct Node {
-            uint64_l id = 0;
+            AudioNodeId id = 0;
             std::vector<std::unique_ptr<Node>> children;
             std::unique_ptr<AudioSource> source;
             AudioMixerHandle mixer_connection{};
             bool disconnect_pending = false;
             bool destroy_when_disconnected = false;
 
-            explicit Node(uint64_l p_id)
+            explicit Node(AudioNodeId p_id)
                 : id(p_id) {
             }
         };
@@ -58,13 +62,13 @@ namespace Lowl::Audio {
         std::unique_ptr<Node> render_root;
         std::vector<std::unique_ptr<Node>> detached_nodes;
         mutable std::mutex control_mutex;
-        uint64_l graph_id = 0;
-        uint64_l next_node_id = RootNodeId + 1;
+        AudioInstanceId graph_id = 0;
+        AudioNodeId next_node_id = RootNodeId + 1;
         size_t node_count = 1;
         bool shutting_down = false;
 
         static bool find_node_in_subtree(Node &p_node,
-                                         uint64_l p_node_id,
+                                         AudioNodeId p_node_id,
                                          Node *p_parent,
                                          size_t p_depth,
                                          bool p_render_reachable,
@@ -76,7 +80,7 @@ namespace Lowl::Audio {
 
         NodeLocation find_node_locked(AudioNodeHandle p_handle, Error &p_error, const char *p_operation);
         NodeLocation find_node_locked(AudioNodeHandle p_handle);
-        size_t find_detached_root_index_locked(uint64_l p_node_id) const;
+        size_t find_detached_root_index_locked(AudioNodeId p_node_id) const;
         void collect_mixer_completions_locked(Node &p_node, size_t &p_remaining_completions);
         void update_locked();
         void shutdown_subtree_quiescent(Node &p_node);

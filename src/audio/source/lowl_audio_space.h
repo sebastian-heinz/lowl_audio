@@ -53,14 +53,14 @@ namespace Lowl::Audio {
 
         struct AssetSlot {
             std::shared_ptr<AudioData> audio_data;
-            uint64_l generation = 1;
+            AudioGeneration generation = 1;
         };
 
         struct PlaybackSlot {
             std::unique_ptr<AudioVoice> voice;
             AudioAssetHandle audio_asset_handle = InvalidAudioAssetHandle;
             AudioMixerHandle mixer_handle{};
-            uint64_l generation = 1;
+            AudioGeneration generation = 1;
             SlotState slot_state = SlotState::Active;
         };
 
@@ -71,7 +71,7 @@ namespace Lowl::Audio {
         std::vector<AudioPlaybackId> free_playback_slots;
         mutable std::mutex state_mutex;
         AudioMixer mixer;
-        uint64_l owner_id;
+        AudioInstanceId owner_id;
         AudioAssetId current_audio_asset_id;
         AudioPlaybackId current_audio_playback_slot_id;
 

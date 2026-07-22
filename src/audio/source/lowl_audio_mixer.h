@@ -3,6 +3,7 @@
 
 #include <array>
 #include <atomic>
+#include <limits>
 #include <mutex>
 
 #include "audio/lowl_audio_lock_free_queue.h"
@@ -33,6 +34,8 @@ namespace Lowl::Audio {
         static constexpr size_t MaxConnections = 1024;
         static constexpr size_t MaxEventsPerRender = 64;
 
+        static_assert(MaxConnections <= std::numeric_limits<AudioMixerConnectionId>::max(),
+                      "AudioMixerConnectionId must represent every mixer connection slot");
         static_assert(std::atomic<bool>::is_always_lock_free,
                       "Mixer state flags must be lock-free for real-time audio safety");
 
@@ -44,12 +47,12 @@ namespace Lowl::Audio {
 
         struct RenderConnectionSlot {
             AudioSource *source = nullptr;
-            uint64_l generation = 0;
+            AudioGeneration generation = 0;
         };
 
         struct ControlConnectionSlot {
             AudioSource *source = nullptr;
-            uint64_l generation = 1;
+            AudioGeneration generation = 1;
         };
 
         std::array<RenderConnectionSlot, MaxConnections> render_connections{};
@@ -59,7 +62,7 @@ namespace Lowl::Audio {
         BoundedSpscQueue<AudioMixerCompletion, CompletionQueueCapacity> completions{};
         mutable std::mutex control_mutex;
         std::atomic<bool> shut_down{false};
-        uint64_l mixer_id;
+        AudioInstanceId mixer_id;
         size_t active_source_count = 0;
 
         static size_t get_connection_index(AudioMixerHandle p_handle);

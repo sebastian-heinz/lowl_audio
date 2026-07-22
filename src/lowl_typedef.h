@@ -43,8 +43,15 @@ namespace Lowl {
     static_assert(std::atomic<Sample>::is_always_lock_free,
                   "std::atomic<Sample> must be lock-free for real-time audio safety");
 
+    // Public audio handles use bounded, fixed-width identity components.
+    // Asset/playback/connection IDs address fixed or explicitly capped slot tables.
+    // Instance and node IDs are monotonic process/graph lifetime counters.
     typedef uint16_l AudioAssetId;
     typedef uint16_l AudioPlaybackId;
+    typedef uint16_l AudioMixerConnectionId;
+    typedef uint32_l AudioInstanceId;
+    typedef uint32_l AudioGeneration;
+    typedef uint32_l AudioNodeId;
     typedef double_l TimeSeconds;
     typedef uint32_l SampleCount;
 

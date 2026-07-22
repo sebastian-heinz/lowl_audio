@@ -8,8 +8,8 @@ namespace Lowl::Audio {
      * Queued command used to connect a source to the mixer.
      */
     struct AudioMixerEvent {
-        uint64_l generation = 0;
-        AudioPlaybackId connection_id = 0;
+        AudioGeneration generation = 0;
+        AudioMixerConnectionId connection_id = 0;
     };
 
     struct AudioMixerCompletion {
@@ -21,6 +21,11 @@ namespace Lowl::Audio {
         Type type = Type::Removed;
         AudioMixerHandle handle{};
     };
+
+    static_assert(sizeof(AudioMixerEvent) == 8,
+                  "AudioMixerEvent must remain compact for the fixed command queue");
+    static_assert(sizeof(AudioMixerCompletion) == 16,
+                  "AudioMixerCompletion must remain compact for the fixed completion queue");
 } // namespace Lowl::Audio
 
 #endif // LOWL_AUDIO_MIXER_EVENT_H

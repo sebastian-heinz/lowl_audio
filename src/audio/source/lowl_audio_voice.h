@@ -24,7 +24,7 @@ namespace Lowl::Audio {
             Paused = 2,
         };
 
-        /** Position and playback state originate from one atomic load. */
+        /** Coherent intrinsic voice state; mixer attachment belongs to the owning composition layer. */
         struct PlaybackSnapshot {
             size_l frame_position = 0;
             PlaybackState playback_state = PlaybackState::Stopped;
@@ -37,14 +37,22 @@ namespace Lowl::Audio {
         private:
             using Storage = uint64_t;
 
-            static constexpr Storage PositionMask = 0xFFFFFFFFULL;
-            static constexpr Storage PlaybackStateShift = 32;
+            // Two high bits encode the three playback states. The remaining 62 bits
+            // cover every Sample frame index that can exist in one allocation.
+            static constexpr Storage PlaybackStateShift = 62;
+            static constexpr Storage PositionMask = (Storage{1} << PlaybackStateShift) - 1;
             static constexpr Storage PlaybackStateMask = 0x3ULL;
 
             std::atomic<Storage> storage{};
 
             static_assert(std::atomic<Storage>::is_always_lock_free,
                           "AudioVoice published state must be lock-free for real-time audio safety");
+            static_assert(std::numeric_limits<size_t>::digits <= std::numeric_limits<Storage>::digits,
+                          "AudioVoice frame positions must fit in published-state storage");
+            static_assert(static_cast<Storage>(PlaybackState::Paused) <= PlaybackStateMask,
+                          "Published playback state must fit in its reserved bits");
+            static_assert(PositionMask >= std::numeric_limits<size_t>::max() / sizeof(Sample),
+                          "Published positions must cover every frame count that can fit in one sample allocation");
 
             static Storage pack(const PlaybackSnapshot &p_snapshot) {
                 const Storage packed_position = static_cast<Storage>(p_snapshot.frame_position) & PositionMask;

@@ -10,11 +10,11 @@
 #include "lowl_logger.h"
 
 namespace {
-    std::atomic<Lowl::uint64_l> next_audio_graph_id{1};
+    std::atomic<Lowl::AudioInstanceId> next_audio_graph_id{1};
 
-    Lowl::uint64_l allocate_audio_graph_id() {
-        const Lowl::uint64_l graph_id = next_audio_graph_id.fetch_add(1, std::memory_order_relaxed);
-        if (graph_id == 0 || graph_id == std::numeric_limits<Lowl::uint64_l>::max()) {
+    Lowl::AudioInstanceId allocate_audio_graph_id() {
+        const Lowl::AudioInstanceId graph_id = next_audio_graph_id.fetch_add(1, std::memory_order_relaxed);
+        if (graph_id == 0 || graph_id == std::numeric_limits<Lowl::AudioInstanceId>::max()) {
             LOWL_LOG_ERROR("AudioGraph: process-wide graph identity capacity is exhausted.");
             std::abort();
         }
@@ -50,7 +50,7 @@ Lowl::Audio::AudioGraph::~AudioGraph() {
 }
 
 bool Lowl::Audio::AudioGraph::find_node_in_subtree(Node &p_node,
-                                                    const uint64_l p_node_id,
+                                                    const AudioNodeId p_node_id,
                                                     Node *p_parent,
                                                     const size_t p_depth,
                                                     const bool p_render_reachable,
@@ -143,7 +143,7 @@ Lowl::Audio::AudioGraph::find_node_locked(const AudioNodeHandle p_handle,
     return location;
 }
 
-size_t Lowl::Audio::AudioGraph::find_detached_root_index_locked(const uint64_l p_node_id) const {
+size_t Lowl::Audio::AudioGraph::find_detached_root_index_locked(const AudioNodeId p_node_id) const {
     for (size_t index = 0; index < detached_nodes.size(); index++) {
         if (detached_nodes[index]->id == p_node_id) {
             return index;
@@ -256,13 +256,13 @@ Lowl::AudioNodeHandle Lowl::Audio::AudioGraph::add(std::unique_ptr<AudioSource> 
         p_error.set_error(ErrorCode::GraphNodeCapacityExhausted);
         return {};
     }
-    if (next_node_id == 0 || next_node_id == std::numeric_limits<uint64_l>::max()) {
+    if (next_node_id == 0 || next_node_id == std::numeric_limits<AudioNodeId>::max()) {
         LOWL_LOG_ERROR("AudioGraph::add: graph node identity capacity is exhausted.");
         p_error.set_error(ErrorCode::GraphNodeIdentityExhausted);
         return {};
     }
 
-    const uint64_l node_id = next_node_id;
+    const AudioNodeId node_id = next_node_id;
     auto node = std::make_unique<Node>(node_id);
     node->source = std::move(p_source);
     next_node_id++;

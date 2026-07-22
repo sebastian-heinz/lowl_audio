@@ -10,10 +10,10 @@
 #include "lowl_logger.h"
 
 namespace {
-    std::atomic<Lowl::uint64_l> next_audio_mixer_id{1};
+    std::atomic<Lowl::AudioInstanceId> next_audio_mixer_id{1};
 
-    bool advance_generation(Lowl::uint64_l &p_generation) {
-        if (p_generation == std::numeric_limits<Lowl::uint64_l>::max()) {
+    bool advance_generation(Lowl::AudioGeneration &p_generation) {
+        if (p_generation == std::numeric_limits<Lowl::AudioGeneration>::max()) {
             p_generation = 0;
             return false;
         }
@@ -21,9 +21,9 @@ namespace {
         return true;
     }
 
-    Lowl::uint64_l allocate_audio_mixer_id() {
-        const Lowl::uint64_l mixer_id = next_audio_mixer_id.fetch_add(1, std::memory_order_relaxed);
-        if (mixer_id == 0 || mixer_id == std::numeric_limits<Lowl::uint64_l>::max()) {
+    Lowl::AudioInstanceId allocate_audio_mixer_id() {
+        const Lowl::AudioInstanceId mixer_id = next_audio_mixer_id.fetch_add(1, std::memory_order_relaxed);
+        if (mixer_id == 0 || mixer_id == std::numeric_limits<Lowl::AudioInstanceId>::max()) {
             LOWL_LOG_ERROR("AudioMixer: process-wide mixer identity capacity is exhausted.");
             std::abort();
         }
@@ -143,7 +143,7 @@ void Lowl::Audio::AudioMixer::complete_connection(const size_t p_connection_inde
 
     AudioMixerHandle handle{};
     handle.mixer_id = mixer_id;
-    handle.connection_id = static_cast<AudioPlaybackId>(p_connection_index + 1);
+    handle.connection_id = static_cast<AudioMixerConnectionId>(p_connection_index + 1);
     handle.generation = connection.generation;
     disconnect_source(p_connection_index);
     enqueue_completion({p_type, handle});
@@ -287,7 +287,7 @@ Lowl::AudioMixerHandle Lowl::Audio::AudioMixer::connect(AudioSource &p_audio_sou
     ControlConnectionSlot &connection = control_connections[connection_index];
     AudioMixerHandle handle{};
     handle.mixer_id = mixer_id;
-    handle.connection_id = static_cast<AudioPlaybackId>(connection_index + 1);
+    handle.connection_id = static_cast<AudioMixerConnectionId>(connection_index + 1);
     handle.generation = connection.generation;
 
     connection.source = &p_audio_source;

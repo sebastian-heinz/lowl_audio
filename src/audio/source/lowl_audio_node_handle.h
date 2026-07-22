@@ -5,8 +5,8 @@
 
 namespace Lowl {
     struct AudioNodeHandle {
-        uint64_l graph_id = 0;
-        uint64_l node_id = 0;
+        AudioInstanceId graph_id = 0;
+        AudioNodeId node_id = 0;
 
         bool is_valid() const {
             return graph_id != 0 && node_id != 0;
@@ -20,6 +20,9 @@ namespace Lowl {
             return !(*this == p_other);
         }
     };
+
+    static_assert(sizeof(AudioNodeHandle) == 8,
+                  "AudioNodeHandle must remain a compact pair of 32-bit identities");
 } // namespace Lowl
 
 #endif // LOWL_AUDIO_NODE_HANDLE_H

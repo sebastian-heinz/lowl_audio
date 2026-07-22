@@ -13,15 +13,15 @@
 #include "lowl_logger.h"
 
 namespace {
-    std::atomic<Lowl::uint64_l> next_audio_space_owner_id{1};
+    std::atomic<Lowl::AudioInstanceId> next_audio_space_owner_id{1};
 
     template <typename T>
     T advance_allocation_id(const T p_current) {
         return p_current == std::numeric_limits<T>::max() ? static_cast<T>(0) : static_cast<T>(p_current + 1);
     }
 
-    bool advance_generation(Lowl::uint64_l &p_generation) {
-        if (p_generation == std::numeric_limits<Lowl::uint64_l>::max()) {
+    bool advance_generation(Lowl::AudioGeneration &p_generation) {
+        if (p_generation == std::numeric_limits<Lowl::AudioGeneration>::max()) {
             p_generation = 0;
             return false;
         }
@@ -29,9 +29,9 @@ namespace {
         return true;
     }
 
-    Lowl::uint64_l allocate_audio_space_owner_id() {
-        const Lowl::uint64_l owner_id = next_audio_space_owner_id.fetch_add(1, std::memory_order_relaxed);
-        if (owner_id == 0 || owner_id == std::numeric_limits<Lowl::uint64_l>::max()) {
+    Lowl::AudioInstanceId allocate_audio_space_owner_id() {
+        const Lowl::AudioInstanceId owner_id = next_audio_space_owner_id.fetch_add(1, std::memory_order_relaxed);
+        if (owner_id == 0 || owner_id == std::numeric_limits<Lowl::AudioInstanceId>::max()) {
             LOWL_LOG_ERROR("AudioSpace: process-wide owner identity capacity is exhausted.");
             std::abort();
         }
@@ -178,7 +178,7 @@ void Lowl::Audio::AudioSpace::clear_mixer_connection_locked(const AudioPlaybackI
         return;
     }
 
-    const AudioPlaybackId mixer_connection_id = p_slot.mixer_handle.connection_id;
+    const AudioMixerConnectionId mixer_connection_id = p_slot.mixer_handle.connection_id;
     if (mixer_connection_id < mixer_playback_lookup.size() &&
         mixer_playback_lookup[mixer_connection_id] == p_slot_id) {
         mixer_playback_lookup[mixer_connection_id] = InvalidPlaybackSlotId;
@@ -660,6 +660,11 @@ Lowl::Audio::AudioSpace::require_playback_slot_locked(const AudioPlaybackHandle 
 Lowl::Audio::AudioSource::RenderResult
 Lowl::Audio::AudioSpace::mix_into(AudioBlockView p_block, const MixGainVector &p_upstream_gain) {
     if (!playback_enabled.load(std::memory_order_relaxed)) {
+        // Aggregate pause suppresses audio, but the private mixer must still consume
+        // connection and disconnection lifecycle work from the render thread.
+        AudioBlockView control_block{};
+        control_block.channel_count = get_channel_count();
+        mixer.mix_into(control_block, make_unity_gain_vector());
         return {0, RenderState::Starved};
     }
     return mixer.mix_into(p_block, compose_gain_vector(p_upstream_gain));

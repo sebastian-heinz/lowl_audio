@@ -1,8 +1,8 @@
 # lowl_audio — Design Specification
 
-**Directive date:** 2026-07-21
+**Directive date:** 2026-07-22
 
-> **Implementation directive:** `lowl_audio` is an explicit, pull-based audio graph. Use one `AudioMixer` implementation and instantiate it as many times as the application needs. Do not introduce `AudioBus`, `AudioBusHandle`, `create_bus()`, or another bus-specific render/control path. An `AudioSpace` owns exactly one private `AudioMixer`, registers render-ready assets, and manages playback voices through IDs. The caller owns every mixer and connection outside a Space.
+> **Implementation directive:** `lowl_audio` is an explicit, pull-based audio graph. Use one `AudioMixer` implementation and instantiate it as many times as the application needs. Do not introduce `AudioBus`, `AudioBusHandle`, `create_bus()`, or another bus-specific render/control path. An `AudioSpace` owns exactly one private `AudioMixer`, registers render-ready assets, and manages playback voices through IDs. Outside a Space, callers may either manage source/mixer ownership and connections manually or place them in an optional owning `AudioGraph` for topology and lifetime safety.
 
 This document is the aligned architecture and implementation direction. Sections marked **Implemented** describe the current foundation. Sections marked **Planned** describe intended additions and are repeated in priority order in **Things Left To Do** at the bottom.
 
@@ -13,8 +13,9 @@ This document is the aligned architecture and implementation direction. Sections
 - Keep the render callback deterministic and real-time safe: no locks, allocations, blocking, or ownership churn.
 - Make formats, conversion, topology, ownership, and failure visible rather than implicit.
 - Reuse one mixer design for root mixes, submixes, logical volume groups, and the private mix inside a Space.
+- Offer `AudioGraph` as an optional owning composition component without making it a singleton or mandatory facade.
 
-The library does not own a game scene, global listener, or application-wide audio graph. It supplies sources, mixers, import/conversion utilities, and device backends; the application composes them.
+The library does not own a game scene, global listener, or global application graph. It supplies sources, mixers, an optional owning graph component, import/conversion utilities, and device backends. The application chooses and owns the composition root.
 
 ## Whole-System Picture
 
@@ -39,18 +40,20 @@ encoded file / bytes
                                              v
                                          AudioSpace --------------------+
                                                                         |
-external producer --> AudioStream --> optional processing --> AudioMixer(s) --> AudioDevice
-                                                                        ^
+external producer --> AudioStream --> optional processing -------------+--> manual AudioMixer(s) --> AudioDevice
+                                                                        |
 manually-owned AudioSource / AudioMixer --------------------------------+
+                                                                        |
+                                                                        +--> optional owning AudioGraph --> AudioDevice
 ```
 
-The device pulls a block from its root `AudioSource`. A root source is commonly an `AudioMixer`, but it can be any format-compatible source. Pulling a parent mixer recursively pulls nested mixers and their sources on the same render thread.
+The device pulls a block from its root `AudioSource`. A root source is commonly an `AudioMixer` or `AudioGraph`, but it can be any format-compatible source. Pulling a parent mixer recursively pulls nested mixers and their sources on the same render thread.
 
-There is no central `AudioGraph` object and no implicit routing. The graph is the object topology created by the caller.
+There is no mandatory or global `AudioGraph`. Applications may compose the object topology manually, or instantiate an `AudioGraph` that owns one topology and enforces its connection and lifetime rules. Routing remains explicit in both modes.
 
 ## Core Render Contract — Implemented
 
-`AudioSource` is the common renderable abstraction. `AudioVoice`, `AudioStream`, `AudioMixer`, and `AudioSpace` are all sources. Each source has one output `AudioFormat`, volume, panning, playback enable state, and a `mix_into()` implementation.
+`AudioSource` is the common renderable abstraction. `AudioVoice`, `AudioStream`, `AudioMixer`, `AudioSpace`, and `AudioGraph` are all sources. Each source has one output `AudioFormat`, volume, panning, playback enable state, and a `mix_into()` implementation.
 
 `mix_into()` accumulates samples into a planar `AudioBlockView`; it does not assume that it owns or should clear the destination. The sink clears the final block once, then the graph accumulates into it. This permits nested gain-only mixers to render directly into the device block without intermediate copies.
 
@@ -80,7 +83,11 @@ AudioData (asset) + AudioVoice (playback instance)
 
 An `AudioVoice` is a finite source backed by shared `AudioData`. Every voice has independent position, playback state, volume, and panning. It supports play/restart, pause/resume, stop, reset, and seek.
 
-Playback position, playback state, and mixer-detachment state are published as one coherent `PlaybackSnapshot`. Code making a decision from more than one of these fields must read the snapshot once. Reading separate convenience getters is acceptable only when no cross-field invariant is required.
+Playback position and playback state are published as one coherent `PlaybackSnapshot`. Code making a decision from both fields must read the snapshot once. Reading separate convenience getters is acceptable only when no cross-field invariant is required.
+
+The snapshot is encoded in one lock-free 64-bit atomic: bits 0–61 hold the frame position and bits 62–63 hold the playback state. The position range must cover every frame index representable by one in-memory `Sample` allocation; compile-time checks enforce that bound for each configured `Sample` type.
+
+Mixer attachment and detachment are ownership-lifecycle state, not intrinsic `AudioVoice` state. `AudioSpace` stores that state in its playback slot and serializes it with `state_mutex`; other composition owners and standalone `AudioMixer` users manage it through their own topology or connection handles. A stopped or paused voice may remain attached, so attachment is deliberately not part of `PlaybackSnapshot`.
 
 Control transitions are serialized by a control-side mutex. The render thread never takes that mutex; it consumes atomic commands and publishes the coherent snapshot atomically. This prevents impossible observations such as combining a new state with an old position while preserving real-time safety.
 
@@ -109,6 +116,8 @@ Creating playback constructs an `AudioVoice` and returns an `AudioPlaybackHandle
 
 Every Space owns exactly one private `AudioMixer`. Its voices feed that mixer, and the Space delegates rendering to it. The Space itself is an `AudioSource`, so its own volume and panning scale the aggregate result.
 
+Pausing the Space suppresses its aggregate audio but does not suspend mixer lifecycle work. While the Space continues to be pulled, it pumps its private mixer with a zero-frame block so queued connections, disconnections, and terminal acknowledgements can still progress without advancing voice playback.
+
 A Space does not:
 
 - expose or replace its private mixer;
@@ -118,7 +127,7 @@ A Space does not:
 - route itself into an external mixer;
 - represent a scene or listener.
 
-If an application wants several Spaces, a music stream, or manually-owned sources grouped together, it creates external `AudioMixer` instances and connects those sources explicitly.
+If an application wants several Spaces, a music stream, or manually-owned sources grouped together, it either creates external `AudioMixer` instances and manages those connections explicitly, or adopts the components into an `AudioGraph` that owns the same explicit mixer topology.
 
 ## Mixing and Topology — Implemented
 
@@ -131,13 +140,15 @@ AudioSpace "UI" -----------> AudioMixer "SFX"      |
 AudioStream "Music" -------> AudioMixer "Music" -> AudioMixer "Master" -> AudioDevice
 ```
 
+The application may own this topology directly, or place the same source and mixer objects under an `AudioGraph`; graph composition does not introduce a different mixer or render path.
+
 Names such as “SFX bus” or “music bus” are valid application terminology, but those objects remain ordinary mixers. The library does not need a bus type, bus handle, or `create_bus()` facade. A caller that needs a submix constructs another mixer and connects it to its parent like any other source.
 
 Each source and mixer has its own gain/panning. A mixer's gain controls its aggregate output; a child source's gain controls that source. Connection-local/per-input gain is not part of the current core contract. Because a stateful source is expected to have one render parent, source and group gain cover the established use cases without another parameter ownership model.
 
 Nested gain-only mixers do not need scratch buffers. They compose their gain with the upstream gain vector and let children accumulate directly into the downstream block. This avoids clear/copy passes for ordinary submixes.
 
-The render-side mixer has bounded, preallocated source slots; the current limit is 1024 active sources per mixer. Add/remove commands cross to the render thread through a bounded queue. A terminal acknowledgement (`Removed`, `Finished`, or `Rejected`) crosses back to the controller.
+The render-side mixer has bounded, preallocated source slots; the current limit is 1024 active sources per mixer. Connect commands cross to the render thread through a bounded queue, while disconnection requests use per-slot atomic flags. A terminal acknowledgement (`Removed` or `Finished`) crosses back to the controller. Format, capacity, shutdown, and other connection rejections are reported synchronously before a valid handle is returned; there is no asynchronous `Rejected` completion.
 
 ### Mixer Ownership and Threads
 
@@ -153,15 +164,32 @@ Mixer connections use mixer-scoped, generation-safe `AudioMixerHandle` values. T
 
 The handle prevents stale commands from targeting a recycled slot; it does not own the source. This distinction must remain explicit in the API and documentation.
 
+The completion queue has the same capacity as the fixed connection table. A reserved one-shot slot can produce at most one terminal completion and is not reusable until that completion is collected, so valid mixer state bounds outstanding completions by queue capacity. Queue insertion failure is therefore an invariant violation, not expected backpressure.
+
+### Optional Owning `AudioGraph`
+
+`AudioGraph` is a separate, optional composition component, like `AudioMixer` or `AudioSpace`. It owns adopted `AudioSource` nodes in one active render tree or in detached subtrees, contains a permanent root mixer, and is itself renderable as an `AudioSource`. Standalone sources, mixers, and Spaces remain usable without it.
+
+Callers add or create detached nodes, then connect detached subtree roots to render-reachable mixer nodes. The graph enforces one ownership domain, exact `AudioFormat` compatibility, mixer-only parents, a maximum of 1024 nodes, and a maximum topology depth of 64. It tracks mixer acknowledgements so disconnecting preserves an owned subtree and destroying active nodes waits for render-side detachment before releasing memory.
+
+`get()` and `get_source()` return borrowed pointers for configuring owned sources. Callers must not use the low-level `AudioMixer` connection lifecycle directly on graph-owned mixers because doing so would bypass the graph's topology and ownership bookkeeping. Exactly one control thread mutates a graph and exactly one render thread renders it.
+
+Pausing an `AudioGraph` suppresses its aggregate audio while still pumping its root mixer with a zero-frame block, allowing pending topology retirement to progress as long as the graph continues to be pulled.
+
 ## Identity and Handles — Implemented
 
-The three handle types have deliberately separate scopes:
+The four handle types have deliberately separate scopes:
 
 - `AudioAssetHandle` identifies registered data inside one `AudioSpace`.
 - `AudioPlaybackHandle` identifies one managed voice inside one `AudioSpace`.
 - `AudioMixerHandle` identifies one connection slot inside one `AudioMixer`.
+- `AudioNodeHandle` identifies one owned node inside one `AudioGraph`.
 
-Each handle contains an owner/mixer identity, slot identity, and generation. Recycling a slot advances its generation so stale handles fail validation. There is no `AudioBusHandle` and no second handle indirection around a mixer.
+Asset, playback, and mixer handles contain a 32-bit owner/instance identity, a 16-bit slot identity, and a 32-bit generation. Their naturally aligned size is 12 bytes. Asset and playback tables can represent 65,535 nonzero slot IDs; a mixer uses only 1,024 of the 65,535 representable connection IDs. Recycling a slot advances its nonzero generation so stale handles fail validation. A slot is permanently retired rather than allowing generation wrap to make an old handle valid again.
+
+`AudioNodeHandle` contains a 32-bit graph identity and a 32-bit monotonic node identity, for a size of 8 bytes. Graph node identities are not recycled, so the node handle does not need a generation field. Zero is invalid for every handle identity component. Process-wide component identity exhaustion is fatal, while graph node-identity exhaustion is returned as an error; neither counter wraps into reuse.
+
+There is no `AudioBusHandle` and no second handle indirection around a mixer.
 
 ## Audio Formats and Conversion — Implemented Foundation
 
@@ -203,7 +231,9 @@ Offline resampling and channel conversion already exist and are used while regis
 
 ### Internal Sample Type and Panning
 
-All graph processing uses `Sample`: `float32` by default or `double` with `LOWL_TYPE_SAMPLE_64`. Import converts encoded sample representations into `Sample`; the device converts `Sample` to its selected output `SampleFormat`.
+All graph processing uses `Sample`: `float32` by default or `double` when `LOWL_TYPE_SAMPLE_64` is selected. Import converts encoded sample representations into `Sample`; the device is responsible for converting `Sample` to its selected output `SampleFormat`.
+
+The default `float32` configuration is the currently complete end-to-end path. The source layer supports the `double` configuration, but optimized device write paths still accept `float` channel pointers directly, so a complete `LOWL_TYPE_SAMPLE_64` build currently fails at the device boundary. Completing that boundary conversion is tracked as correctness work rather than treating double-sample output as already supported.
 
 Panning is channel gain inside the source's existing layout. It never changes `AudioFormat`. Stereo pans across the left/right channels; mono panning only scales its one channel. Upmixing, downmixing, and arbitrary routing are channel conversion, not panning.
 
@@ -234,7 +264,7 @@ The render path obeys these rules:
 
 Control-side locks are valid for asset registration, playback management, names, handle tables, and device lifecycle. Atomics or bounded queues publish only the state needed by rendering.
 
-`AudioSpace::state_mutex` is control-side only. `AudioVoice` uses atomic render commands and a coherent atomic snapshot. `AudioStream` separates its producer and consumer cursors. `AudioMixer` applies queued mutations before rendering a block and reads from fixed source slots.
+`AudioSpace::state_mutex` is control-side only. `AudioVoice` uses atomic render commands and a coherent atomic snapshot. `AudioStream` separates its producer and consumer cursors. `AudioMixer` applies queued mutations before rendering a block and reads from fixed source slots. `AudioGraph` changes ownership only on its control thread; rendering pulls its permanent root mixer and topology retirement crosses the same bounded mixer protocol.
 
 ## Buffers and Scratch Storage — Implemented Policy
 
@@ -277,7 +307,9 @@ Device lifecycle code is intentionally top-down and explicit. Each failing platf
 
 - One `AudioMixer` implementation, many mixer instances; no global mixer singleton.
 - No `AudioBus`, bus handle, bus factory, or bus-specific render path.
-- One private mixer per `AudioSpace`; all external topology belongs to the caller.
+- One private mixer per `AudioSpace`; outside a Space, the application chooses manual ownership or an owning `AudioGraph`.
+- `AudioGraph` is an optional renderable composition component, not a mandatory facade or global graph.
+- Standalone `AudioMixer` remains deliberately non-owning; use `AudioGraph` when topology and source-until-ack lifetime should be enforced.
 - `AudioSpace` is a renderable sound bank and voice manager, not a graph or scene owner.
 - `AudioData` stores decoded samples; `AudioVoice` stores playback state. There is no separate Clip node.
 - `AudioFormat` is one bundled graph value and the single constructor argument for format-bearing objects.
@@ -285,6 +317,7 @@ Device lifecycle code is intentionally top-down and explicit. Each failing platf
 - Graph connections require exact `AudioFormat` compatibility; conversion is explicit.
 - Gain/panning is built into every source; mixer gain controls a group. No connection-local gain is required by the current design.
 - A mixer has one logical controller and acknowledgement owner. Different mixers may have different control threads.
+- Mixer connection failure is synchronous; terminal completions are `Removed` or `Finished`.
 - Nested gain-only mixers render without scratch buffers. Processors own only the preallocated state they require.
 - Multi-field playback observations use one coherent `PlaybackSnapshot`.
 - Device callbacks consume an atomically published, preallocated render state and never take control-side ownership.
@@ -299,23 +332,23 @@ Correctness and real-time behavior must be tested alongside implementation. Mech
 
 ### P0 — Correctness and Lifetime Safety
 
-1. Make terminal mixer acknowledgements loss-proof under queue saturation. A dropped `Removed`, `Finished`, or `Rejected` acknowledgement must never leave a source lifetime permanently unresolved; add overflow recovery and stress coverage.
-2. Validate staged start/stop failure handling on real CoreAudio and WASAPI devices. Exercise failure at every lifecycle stage, retry `stop()`, and verify that no callback can observe released `RenderState`, source, or buffer memory.
-3. Add focused concurrency stress coverage for mixer add/remove/retire, Space playback-slot recycling, stale generations, and coherent `AudioVoice::PlaybackSnapshot` observations.
+1. Complete device-boundary conversion for `LOWL_TYPE_SAMPLE_64`. Preserve the existing float SIMD fast paths and provide correct conversion from double `Sample` channels to every advertised output `SampleFormat`.
+2. Prove and stress-test the mixer completion-capacity invariant. One-shot reserved slots must bound outstanding `Removed`/`Finished` completions, and an invariant failure must have an explicit release-build policy that cannot silently orphan source lifetime.
+3. Validate staged start/stop failure handling on real CoreAudio and WASAPI devices. Exercise failure at every lifecycle stage, retry `stop()`, and verify that no callback can observe released `RenderState`, source, or buffer memory.
+4. Add focused concurrency stress coverage for mixer add/remove/retire, Space playback-slot recycling, `AudioGraph` subtree disconnect/destroy, stale generations, compact handle capacity boundaries, paused aggregate retirement, and coherent `AudioVoice::PlaybackSnapshot` observations above the former 32-bit position limit.
 
-### P1 — Complete the Explicit Graph
+### P1 — Add Explicit Processing Nodes
 
-4. Implement the live `Resampler` source node. Reuse the existing offline resampling work where appropriate, but preallocate all render state and define latency/flush behavior.
-5. Implement the live `ChannelMap` source node with explicit routing, upmix, downmix, and silence rules.
-6. Resolve the per-playback processing extension for `AudioSpace`, then implement `Spatializer`. The solution must preserve ID-based control, one private mixer, caller-owned external topology, and render-time lifetime safety without reintroducing AudioBus.
-7. Define and implement the effects/DSP source contract, including construction-time scratch/history sizing, latency reporting where needed, bypass, reset, and terminal-state propagation.
+5. Implement the live `Resampler` source node. Reuse the existing offline resampling work where appropriate, but preallocate all render state and define latency/flush behavior.
+6. Implement the live `ChannelMap` source node with explicit routing, upmix, downmix, and silence rules.
+7. Resolve the per-playback processing extension for `AudioSpace`, then implement `Spatializer`. The solution must preserve ID-based control, one private mixer, manual or `AudioGraph` composition outside the Space, and render-time lifetime safety without reintroducing AudioBus.
+8. Define and implement the effects/DSP source contract, including construction-time scratch/history sizing, latency reporting where needed, bypass, reset, and terminal-state propagation.
 
 ### P2 — API and Platform Hardening
 
-8. Harden or wrap the low-level non-owning mixer connection API so the source-until-ack lifetime rule is difficult to misuse, while keeping graph topology explicit.
 9. Remove remaining public “clip” vocabulary, such as `play_clip()`, in favor of asset/voice/playback terminology, with a deliberate compatibility plan if the API is already consumed externally.
 10. Verify advertised channel-layout and `SampleFormat` behavior across CoreAudio and WASAPI, including callback sizes larger than common defaults and layouts up to the graph's eight-channel limit.
-11. Add small composition examples for a root mixer, nested mixers, multiple Spaces, a stream, and clean acknowledgement-driven teardown. The examples must not introduce a bus facade.
+11. Add small composition examples for both modes: manually owned root/nested mixers with clean acknowledgement-driven teardown, and an owning `AudioGraph` containing mixers, multiple Spaces, and a stream. The examples must not introduce a bus facade.
 
 ### P3 — Explicitly Deferred / Optional
 
