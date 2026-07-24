@@ -3,6 +3,7 @@
 #include "lowl_audio_core_audio_device.h"
 
 #include <algorithm>
+#include <array>
 #include <cstring>
 
 #include "audio/backend/coreaudio/lowl_audio_core_audio_layout.h"
@@ -13,7 +14,6 @@
 
 namespace {
     using Lowl::Audio::AudioDeviceProperties;
-    using Lowl::Audio::AudioBlockView;
     using Lowl::Audio::ChannelLayout;
 
     bool is_layout_required(const AudioDeviceProperties &p_properties) {
@@ -60,6 +60,18 @@ namespace {
         return result;
     }
 
+    void clear_audio_buffer_list(AudioBufferList *p_buffers) {
+        if (p_buffers == nullptr) {
+            return;
+        }
+        for (UInt32 buffer_index = 0; buffer_index < p_buffers->mNumberBuffers; buffer_index++) {
+            ::AudioBuffer &buffer = p_buffers->mBuffers[buffer_index];
+            if (buffer.mData != nullptr) {
+                std::memset(buffer.mData, 0, buffer.mDataByteSize);
+            }
+        }
+    }
+
 } // namespace
 
 static OSStatus osx_audio_callback(void *inRefCon,
@@ -96,12 +108,7 @@ OSStatus Lowl::Audio::CoreAudioDevice::audio_callback(AudioUnitRenderActionFlags
     }
     RenderState *const published_state = load_render_state();
     if (published_state == nullptr || !published_state->audio_source) {
-        for (UInt32 buffer_index = 0; buffer_index < ioData->mNumberBuffers; buffer_index++) {
-            ::AudioBuffer &buffer = ioData->mBuffers[buffer_index];
-            if (buffer.mData != nullptr) {
-                std::memset(buffer.mData, 0, buffer.mDataByteSize);
-            }
-        }
+        clear_audio_buffer_list(ioData);
         return noErr;
     }
 
@@ -110,28 +117,42 @@ OSStatus Lowl::Audio::CoreAudioDevice::audio_callback(AudioUnitRenderActionFlags
         static_cast<uint32_l>(get_sample_size_bytes(published_properties.sample_format));
     const uint32_l channels =
         static_cast<uint32_l>(published_properties.audio_format.channel_layout.channel_count);
-    const bool can_render_non_interleaved_float32 =
-        published_properties.sample_format == Lowl::Audio::SampleFormat::FLOAT_32 && ioData->mNumberBuffers == channels;
+    if (sample_size_bytes == 0 || channels == 0 || channels > AudioBlockView::MAX_CHANNELS) {
+        clear_audio_buffer_list(ioData);
+        return kAudio_ParamError;
+    }
 
-    if (can_render_non_interleaved_float32) {
-        AudioBlockView output_block{};
-        output_block.frame_count = static_cast<uint32_t>(inNumberFrames);
-        output_block.channel_count = static_cast<uint8_t>(channels);
+    const bool uses_non_interleaved_float_buffers =
+        published_properties.sample_format == Lowl::Audio::SampleFormat::FLOAT_32 ||
+        published_properties.sample_format == Lowl::Audio::SampleFormat::FLOAT_64;
 
-        const uint32_l bytes_per_channel = inNumberFrames * sample_size_bytes;
-        for (uint32_l channel_index = 0; channel_index < channels; channel_index++) {
-            if (ioData->mBuffers[channel_index].mData == nullptr ||
-                ioData->mBuffers[channel_index].mDataByteSize < bytes_per_channel) {
-                return kAudio_ParamError;
-            }
-            std::memset(ioData->mBuffers[channel_index].mData, 0, bytes_per_channel);
-            output_block.channels[static_cast<size_t>(channel_index)] =
-                static_cast<Lowl::Sample *>(ioData->mBuffers[channel_index].mData);
+    if (uses_non_interleaved_float_buffers) {
+        if (ioData->mNumberBuffers != channels) {
+            clear_audio_buffer_list(ioData);
+            return kAudio_ParamError;
         }
 
-        Lowl::Audio::AudioSource::MixGainVector unity_gain;
-        published_state->audio_source->mix_into(output_block, unity_gain);
+        std::array<void *, AudioBlockView::MAX_CHANNELS> dst_channels{};
+        std::array<size_t, AudioBlockView::MAX_CHANNELS> dst_byte_sizes{};
+        for (uint32_l channel_index = 0; channel_index < channels; channel_index++) {
+            dst_channels[static_cast<size_t>(channel_index)] = ioData->mBuffers[channel_index].mData;
+            dst_byte_sizes[static_cast<size_t>(channel_index)] =
+                ioData->mBuffers[channel_index].mDataByteSize;
+        }
+
+        if (!render_to_planar_device_buffers(published_state,
+                                             dst_channels.data(),
+                                             dst_byte_sizes.data(),
+                                             static_cast<uint8_t>(channels),
+                                             inNumberFrames)) {
+            return kAudio_ParamError;
+        }
         return noErr;
+    }
+
+    if (ioData->mNumberBuffers != 1) {
+        clear_audio_buffer_list(ioData);
+        return kAudio_ParamError;
     }
 
     const uint32_l bytes_per_frame = sample_size_bytes * channels;

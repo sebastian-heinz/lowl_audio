@@ -4,6 +4,7 @@
 #include "audio/lowl_audio_sample_format.h"
 
 #include <array>
+#include <cmath>
 #include <cstring>
 #include <limits>
 
@@ -72,4 +73,14 @@ TEST_CASE("SampleConverter") {
         REQUIRE_FALSE(wrote);
         REQUIRE_EQ(write_ptr, storage.data());
     }
+
+#if defined(LOWL_TYPE_SAMPLE_64)
+    SUBCASE("SampleConverter - integer output does not narrow double Sample before quantizing") {
+        constexpr int32_t target_value = 12345;
+        const double threshold = static_cast<double>(target_value) / 32767.0;
+        const Lowl::Sample sample = std::nextafter(threshold, 0.0);
+
+        REQUIRE_EQ(Lowl::Audio::SampleConverter::sample_to_int16(sample), target_value - 1);
+    }
+#endif
 }

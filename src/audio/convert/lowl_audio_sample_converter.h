@@ -63,8 +63,9 @@ namespace Lowl::Audio {
         }
 
         static LOWL_INLINE int16_t sample_to_int16(Lowl::Sample p_sample) {
-            const float clamped = std::clamp(static_cast<float>(p_sample), -1.0f, 1.0f);
-            return static_cast<int16_t>(clamped * 32767.0f);
+            const Lowl::Sample clamped =
+                std::clamp(p_sample, static_cast<Lowl::Sample>(-1.0), static_cast<Lowl::Sample>(1.0));
+            return static_cast<int16_t>(clamped * static_cast<Lowl::Sample>(32767.0));
         }
 
         static LOWL_INLINE float sample_to_float(Lowl::Sample p_sample) {
@@ -76,13 +77,17 @@ namespace Lowl::Audio {
         }
 
         static LOWL_INLINE uint8_t sample_to_uint8(Lowl::Sample p_sample) {
-            float clamped = std::clamp(static_cast<float>(p_sample), -1.0f, 1.0f);
-            return static_cast<uint8_t>(static_cast<int>(clamped * 127.0f) + 128);
+            const Lowl::Sample clamped =
+                std::clamp(p_sample, static_cast<Lowl::Sample>(-1.0), static_cast<Lowl::Sample>(1.0));
+            return static_cast<uint8_t>(
+                static_cast<int>(clamped * static_cast<Lowl::Sample>(127.0)) + 128);
         }
 
         static LOWL_INLINE int8_t sample_to_int8(Lowl::Sample p_sample) {
-            const float clamped = std::clamp(static_cast<float>(p_sample), -1.0f, 1.0f);
-            const int8_t int8_value = static_cast<int8_t>(clamped * 127.0f);
+            const Lowl::Sample clamped =
+                std::clamp(p_sample, static_cast<Lowl::Sample>(-1.0), static_cast<Lowl::Sample>(1.0));
+            const int8_t int8_value =
+                static_cast<int8_t>(clamped * static_cast<Lowl::Sample>(127.0));
             return int8_value;
         }
 

@@ -4,6 +4,9 @@
 #include "audio/backend/lowl_audio_device.h"
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -13,6 +16,20 @@ namespace {
         Lowl::Sample left;
         Lowl::Sample right;
     };
+
+    template <typename Value>
+    Value read_unaligned(const uint8_t *p_src) {
+        Value value{};
+        std::memcpy(&value, p_src, sizeof(value));
+        return value;
+    }
+
+    int32_t read_int24(const uint8_t *p_src) {
+        const int32_t unsigned_value = static_cast<int32_t>(p_src[0]) |
+                                       (static_cast<int32_t>(p_src[1]) << 8) |
+                                       (static_cast<int32_t>(p_src[2]) << 16);
+        return (unsigned_value & 0x800000) != 0 ? unsigned_value - 0x1000000 : unsigned_value;
+    }
 
     class ShortReadAudioSource final : public Lowl::Audio::AudioSource {
     public:
@@ -55,6 +72,39 @@ namespace {
     private:
         std::vector<StereoSample> frames;
         Lowl::size_l next_frame = 0;
+    };
+
+    class OneFrameMonoSource final : public Lowl::Audio::AudioSource {
+    public:
+        explicit OneFrameMonoSource(const Lowl::Sample p_sample)
+            : AudioSource(Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Mono}),
+              sample(p_sample) {
+        }
+
+        RenderResult mix_into(Lowl::Audio::AudioBlockView p_block, const MixGainVector &) override {
+            if (consumed || p_block.frame_count == 0) {
+                return {0, RenderState::Finished};
+            }
+            p_block.channel(0)[0] += sample;
+            consumed = true;
+            return {1, RenderState::Finished};
+        }
+
+        Lowl::size_l get_frames_remaining() const override {
+            return consumed ? 0 : 1;
+        }
+
+        Lowl::size_l get_frame_position() const override {
+            return consumed ? 1 : 0;
+        }
+
+        Lowl::size_l get_frame_count() const override {
+            return 1;
+        }
+
+    private:
+        Lowl::Sample sample = 0;
+        bool consumed = false;
     };
 
     class TestAudioDevice final : public Lowl::Audio::AudioDevice {
@@ -107,6 +157,20 @@ namespace {
             unsigned long p_bytes_per_frame
         ) {
             render_to_device_buffer(load_render_state(), p_dst, p_dst_byte_size, p_frames_per_buffer, p_bytes_per_frame);
+        }
+
+        bool write_planar(void *const *p_dst_channels,
+                          const size_t *p_dst_byte_sizes,
+                          const uint8_t p_dst_channel_count,
+                          const unsigned long p_frames_per_buffer) {
+            if (!prepare(p_frames_per_buffer)) {
+                return false;
+            }
+            return render_to_planar_device_buffers(load_render_state(),
+                                                   p_dst_channels,
+                                                   p_dst_byte_sizes,
+                                                   p_dst_channel_count,
+                                                   p_frames_per_buffer);
         }
 
         void set_properties_list(std::vector<Lowl::Audio::AudioDeviceProperties> p_properties_list) {
@@ -291,6 +355,171 @@ TEST_CASE("AudioDevice") {
         REQUIRE_EQ(buffer[1], static_cast<int16_t>(-8191));
         REQUIRE_EQ(buffer[2], static_cast<int16_t>(-32767));
         REQUIRE_EQ(buffer[3], static_cast<int16_t>(32767));
+    }
+
+    SUBCASE("AudioDevice - every output SampleFormat converts and interleaves Sample channels") {
+        constexpr unsigned long frames_per_buffer = 2;
+        constexpr uint8_t channels = 2;
+        constexpr size_t max_audio_bytes = frames_per_buffer * channels * sizeof(double);
+        constexpr size_t guard_bytes = 16;
+        const std::array<Lowl::Audio::SampleFormat, 7> sample_formats = {
+            Lowl::Audio::SampleFormat::FLOAT_32,
+            Lowl::Audio::SampleFormat::FLOAT_64,
+            Lowl::Audio::SampleFormat::INT_32,
+            Lowl::Audio::SampleFormat::INT_24,
+            Lowl::Audio::SampleFormat::INT_16,
+            Lowl::Audio::SampleFormat::INT_8,
+            Lowl::Audio::SampleFormat::U_INT_8,
+        };
+
+        for (const Lowl::Audio::SampleFormat sample_format : sample_formats) {
+            alignas(double) std::array<uint8_t, max_audio_bytes + guard_bytes> buffer{};
+            buffer.fill(0x7F);
+
+            auto source = std::make_shared<ShortReadAudioSource>(
+                std::vector<StereoSample>{StereoSample{static_cast<Lowl::Sample>(0.25),
+                                                       static_cast<Lowl::Sample>(-0.5)}}
+            );
+
+            Lowl::Audio::AudioDeviceProperties properties{};
+            properties.audio_format =
+                Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
+            properties.sample_format = sample_format;
+
+            const size_t sample_size = Lowl::Audio::get_sample_size_bytes(sample_format);
+            const unsigned long bytes_per_frame = static_cast<unsigned long>(sample_size * channels);
+            const size_t audio_bytes = frames_per_buffer * bytes_per_frame;
+
+            TestAudioDevice device;
+            device.configure(properties, source);
+            REQUIRE(device.write(buffer.data(), frames_per_buffer, bytes_per_frame));
+
+            switch (sample_format) {
+                case Lowl::Audio::SampleFormat::FLOAT_32:
+                    REQUIRE_EQ(read_unaligned<float>(buffer.data()), doctest::Approx(0.25f));
+                    REQUIRE_EQ(read_unaligned<float>(buffer.data() + sizeof(float)), doctest::Approx(-0.5f));
+                    break;
+                case Lowl::Audio::SampleFormat::FLOAT_64:
+                    REQUIRE_EQ(read_unaligned<double>(buffer.data()), doctest::Approx(0.25));
+                    REQUIRE_EQ(read_unaligned<double>(buffer.data() + sizeof(double)), doctest::Approx(-0.5));
+                    break;
+                case Lowl::Audio::SampleFormat::INT_32:
+                    REQUIRE_EQ(read_unaligned<int32_t>(buffer.data()), 536870911);
+                    REQUIRE_EQ(read_unaligned<int32_t>(buffer.data() + sizeof(int32_t)), -1073741823);
+                    break;
+                case Lowl::Audio::SampleFormat::INT_24:
+                    REQUIRE_EQ(read_int24(buffer.data()), 2097152);
+                    REQUIRE_EQ(read_int24(buffer.data() + 3), -4194304);
+                    break;
+                case Lowl::Audio::SampleFormat::INT_16:
+                    REQUIRE_EQ(read_unaligned<int16_t>(buffer.data()), static_cast<int16_t>(8191));
+                    REQUIRE_EQ(read_unaligned<int16_t>(buffer.data() + sizeof(int16_t)),
+                               static_cast<int16_t>(-16383));
+                    break;
+                case Lowl::Audio::SampleFormat::INT_8:
+                    REQUIRE_EQ(read_unaligned<int8_t>(buffer.data()), static_cast<int8_t>(31));
+                    REQUIRE_EQ(read_unaligned<int8_t>(buffer.data() + sizeof(int8_t)),
+                               static_cast<int8_t>(-63));
+                    break;
+                case Lowl::Audio::SampleFormat::U_INT_8:
+                    REQUIRE_EQ(buffer[0], static_cast<uint8_t>(159));
+                    REQUIRE_EQ(buffer[1], static_cast<uint8_t>(65));
+                    break;
+                case Lowl::Audio::SampleFormat::Unknown:
+                    REQUIRE(false);
+                    break;
+            }
+
+            const uint8_t silence = sample_format == Lowl::Audio::SampleFormat::U_INT_8 ? 0x80 : 0x00;
+            for (size_t current_byte = bytes_per_frame; current_byte < audio_bytes; current_byte++) {
+                REQUIRE_EQ(buffer[current_byte], silence);
+            }
+            for (size_t current_byte = audio_bytes; current_byte < buffer.size(); current_byte++) {
+                REQUIRE_EQ(buffer[current_byte], static_cast<uint8_t>(0x7F));
+            }
+        }
+    }
+
+    SUBCASE("AudioDevice - FLOAT32 mono output uses the Sample-width-correct path") {
+        constexpr unsigned long frames_per_buffer = 2;
+        constexpr unsigned long bytes_per_frame = sizeof(float);
+        constexpr size_t audio_bytes = frames_per_buffer * bytes_per_frame;
+        constexpr size_t guard_bytes = 16;
+        alignas(float) std::array<uint8_t, audio_bytes + guard_bytes> buffer{};
+        buffer.fill(0x7F);
+
+        auto source = std::make_shared<OneFrameMonoSource>(static_cast<Lowl::Sample>(0.25));
+        Lowl::Audio::AudioDeviceProperties properties{};
+        properties.audio_format =
+            Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Mono};
+        properties.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
+
+        TestAudioDevice device;
+        device.configure(properties, source);
+        REQUIRE(device.write(buffer.data(), frames_per_buffer, bytes_per_frame));
+
+        REQUIRE_EQ(read_unaligned<float>(buffer.data()), doctest::Approx(0.25f));
+        REQUIRE_EQ(read_unaligned<float>(buffer.data() + sizeof(float)), doctest::Approx(0.0f));
+        for (size_t current_byte = audio_bytes; current_byte < buffer.size(); current_byte++) {
+            REQUIRE_EQ(buffer[current_byte], static_cast<uint8_t>(0x7F));
+        }
+    }
+
+    SUBCASE("AudioDevice - planar floating output converts Sample channels without overruns") {
+        constexpr unsigned long frames_per_buffer = 2;
+        constexpr uint8_t channels = 2;
+        constexpr size_t max_channel_bytes = frames_per_buffer * sizeof(double);
+        constexpr size_t guard_bytes = 16;
+        const std::array<Lowl::Audio::SampleFormat, 2> sample_formats = {
+            Lowl::Audio::SampleFormat::FLOAT_32,
+            Lowl::Audio::SampleFormat::FLOAT_64,
+        };
+
+        for (const Lowl::Audio::SampleFormat sample_format : sample_formats) {
+            alignas(double) std::array<uint8_t, max_channel_bytes + guard_bytes> left_buffer{};
+            alignas(double) std::array<uint8_t, max_channel_bytes + guard_bytes> right_buffer{};
+            left_buffer.fill(0x7F);
+            right_buffer.fill(0x7F);
+
+            auto source = std::make_shared<ShortReadAudioSource>(
+                std::vector<StereoSample>{StereoSample{static_cast<Lowl::Sample>(0.25),
+                                                       static_cast<Lowl::Sample>(-0.5)}}
+            );
+
+            Lowl::Audio::AudioDeviceProperties properties{};
+            properties.audio_format =
+                Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
+            properties.sample_format = sample_format;
+
+            const size_t sample_size = Lowl::Audio::get_sample_size_bytes(sample_format);
+            const size_t channel_bytes = frames_per_buffer * sample_size;
+            std::array<void *, channels> dst_channels = {left_buffer.data(), right_buffer.data()};
+            std::array<size_t, channels> dst_byte_sizes = {channel_bytes, channel_bytes};
+
+            TestAudioDevice device;
+            device.configure(properties, source);
+            REQUIRE(device.write_planar(dst_channels.data(),
+                                        dst_byte_sizes.data(),
+                                        channels,
+                                        frames_per_buffer));
+
+            if (sample_format == Lowl::Audio::SampleFormat::FLOAT_32) {
+                REQUIRE_EQ(read_unaligned<float>(left_buffer.data()), doctest::Approx(0.25f));
+                REQUIRE_EQ(read_unaligned<float>(right_buffer.data()), doctest::Approx(-0.5f));
+                REQUIRE_EQ(read_unaligned<float>(left_buffer.data() + sizeof(float)), doctest::Approx(0.0f));
+                REQUIRE_EQ(read_unaligned<float>(right_buffer.data() + sizeof(float)), doctest::Approx(0.0f));
+            } else {
+                REQUIRE_EQ(read_unaligned<double>(left_buffer.data()), doctest::Approx(0.25));
+                REQUIRE_EQ(read_unaligned<double>(right_buffer.data()), doctest::Approx(-0.5));
+                REQUIRE_EQ(read_unaligned<double>(left_buffer.data() + sizeof(double)), doctest::Approx(0.0));
+                REQUIRE_EQ(read_unaligned<double>(right_buffer.data() + sizeof(double)), doctest::Approx(0.0));
+            }
+
+            for (size_t current_byte = channel_bytes; current_byte < left_buffer.size(); current_byte++) {
+                REQUIRE_EQ(left_buffer[current_byte], static_cast<uint8_t>(0x7F));
+                REQUIRE_EQ(right_buffer[current_byte], static_cast<uint8_t>(0x7F));
+            }
+        }
     }
 
     SUBCASE("AudioDevice - published render state is independent from live configuration") {

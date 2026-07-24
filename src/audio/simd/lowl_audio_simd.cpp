@@ -7,12 +7,12 @@ namespace Lowl::Audio::Simd {
                                  Sample *LOWL_RESTRICT p_dst,
                                  Sample p_gain,
                                  uint32_t p_frame_count);
-    void interleave_stereo_float32_neon(const float *LOWL_RESTRICT p_src_l,
-                                        const float *LOWL_RESTRICT p_src_r,
+    void interleave_stereo_float32_neon(const Sample *LOWL_RESTRICT p_src_l,
+                                        const Sample *LOWL_RESTRICT p_src_r,
                                         float *LOWL_RESTRICT p_dst,
                                         uint32_t p_frame_count);
-    void interleave_stereo_int16_neon(const float *LOWL_RESTRICT p_src_l,
-                                      const float *LOWL_RESTRICT p_src_r,
+    void interleave_stereo_int16_neon(const Sample *LOWL_RESTRICT p_src_l,
+                                      const Sample *LOWL_RESTRICT p_src_r,
                                       int16_t *LOWL_RESTRICT p_dst,
                                       uint32_t p_frame_count);
 }
@@ -27,12 +27,12 @@ namespace Lowl::Audio::Simd {
                                  Sample *LOWL_RESTRICT p_dst,
                                  Sample p_gain,
                                  uint32_t p_frame_count);
-    void interleave_stereo_float32_avx2(const float *LOWL_RESTRICT p_src_l,
-                                        const float *LOWL_RESTRICT p_src_r,
+    void interleave_stereo_float32_avx2(const Sample *LOWL_RESTRICT p_src_l,
+                                        const Sample *LOWL_RESTRICT p_src_r,
                                         float *LOWL_RESTRICT p_dst,
                                         uint32_t p_frame_count);
-    void interleave_stereo_int16_avx2(const float *LOWL_RESTRICT p_src_l,
-                                      const float *LOWL_RESTRICT p_src_r,
+    void interleave_stereo_int16_avx2(const Sample *LOWL_RESTRICT p_src_l,
+                                      const Sample *LOWL_RESTRICT p_src_r,
                                       int16_t *LOWL_RESTRICT p_dst,
                                       uint32_t p_frame_count);
 }

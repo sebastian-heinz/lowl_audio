@@ -28,8 +28,8 @@ void mix_scaled_channel_avx2(const Sample *LOWL_RESTRICT p_src,
     }
 }
 
-void interleave_stereo_float32_avx2(const float *LOWL_RESTRICT p_src_l,
-                                    const float *LOWL_RESTRICT p_src_r,
+void interleave_stereo_float32_avx2(const Sample *LOWL_RESTRICT p_src_l,
+                                    const Sample *LOWL_RESTRICT p_src_r,
                                     float *LOWL_RESTRICT p_dst,
                                     const uint32_t p_frame_count) {
     if (p_src_l == nullptr || p_src_r == nullptr || p_dst == nullptr) {
@@ -57,8 +57,8 @@ void interleave_stereo_float32_avx2(const float *LOWL_RESTRICT p_src_l,
     }
 }
 
-void interleave_stereo_int16_avx2(const float *LOWL_RESTRICT p_src_l,
-                                  const float *LOWL_RESTRICT p_src_r,
+void interleave_stereo_int16_avx2(const Sample *LOWL_RESTRICT p_src_l,
+                                  const Sample *LOWL_RESTRICT p_src_r,
                                   int16_t *LOWL_RESTRICT p_dst,
                                   const uint32_t p_frame_count) {
     if (p_src_l == nullptr || p_src_r == nullptr || p_dst == nullptr) {

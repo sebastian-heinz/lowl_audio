@@ -52,6 +52,12 @@ namespace Lowl::Audio {
                                      unsigned long p_frames_per_buffer,
                                      unsigned long p_bytes_per_frame);
 
+        bool render_to_planar_device_buffers(RenderState *p_render_state,
+                                             void *const *p_dst_channels,
+                                             const size_t *p_dst_byte_sizes,
+                                             uint8_t p_dst_channel_count,
+                                             unsigned long p_frames_per_buffer);
+
     public:
         AudioDevice(_constructor_tag);
 
