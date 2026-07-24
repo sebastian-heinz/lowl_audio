@@ -1,6 +1,6 @@
 # lowl_audio — Design Specification
 
-**Directive date:** 2026-07-22
+**Directive date:** 2026-07-24
 
 This document records the agreed architecture, component responsibilities, and boundaries of `lowl_audio`.
 It describes the intended stable contract rather than serving as an implementation changelog.
@@ -101,7 +101,9 @@ Known gaps and planned extensions are listed separately under **Things Left To D
 
 - `AudioDevice`
   - Purpose: act as the sink boundary between one root `AudioSource` and a platform backend.
-  - Owns the final render buffer and converts planar `Sample` data to the selected device `SampleFormat`.
+  - Owns a preallocated render/conversion buffer and converts planar `Sample` data to the selected
+    device `SampleFormat`.
+  - May render directly into backend-owned planar buffers when their scalar representation matches `Sample`.
   - Publishes immutable-for-the-run render state to the platform callback.
 
 ## Agreed Contracts and Decisions
@@ -210,9 +212,11 @@ Known gaps and planned extensions are listed separately under **Things Left To D
 - Standalone callers may use the existing offline resampler and channel converter.
 - Live format conversion will use explicit `Resampler` and `ChannelMap` source nodes.
 - `Sample` is `float32` by default and `double` when `LOWL_TYPE_SAMPLE_64` is selected.
-- The float configuration is the complete end-to-end path today.
-- The source layer supports double, but current optimized device write paths still require `float` channel pointers.
-  A complete `LOWL_TYPE_SAMPLE_64` build therefore remains unfinished at the device boundary.
+- Device-boundary conversion supports both `Sample` widths and every advertised output `SampleFormat`.
+- Matching planar float output may render directly into backend buffers; differing scalar widths use the
+  preallocated render buffer and explicit conversion.
+- Float32 retains the optimized SIMD write paths. Double `Sample` uses width-correct scalar conversion
+  where a float32-only SIMD path would be invalid.
 
 ### Real-time, threading, and memory
 
@@ -291,8 +295,12 @@ Known gaps and planned extensions are listed separately under **Things Left To D
 
 ### P0 — Correctness and Lifetime Safety
 
-- Complete device-boundary conversion for `LOWL_TYPE_SAMPLE_64`.
-  Preserve float SIMD fast paths and convert double `Sample` channels to every advertised output `SampleFormat`.
+- Restore the full test target against the current public contracts.
+  Replace pre-redesign Mixer acknowledgement APIs, pass explicit `Error` values through Space control calls,
+  add direct dependencies required by focused tests, and require a clean fresh build before accepting results.
+- Make `LOWL_TYPE_SAMPLE_64` a supported public build option and run the complete test matrix for both
+  float32 and double `Sample`.
+  The compile definition must propagate to consumers because `Sample` is part of the public ABI.
 - Prove and stress-test the mixer completion-capacity invariant.
   Define a release-build invariant-failure policy that cannot silently orphan source lifetime.
 - Validate staged start/stop failure handling on real CoreAudio and WASAPI devices.
@@ -315,6 +323,7 @@ Known gaps and planned extensions are listed separately under **Things Left To D
 
 - Verify advertised channel-layout and `SampleFormat` behavior across CoreAudio and WASAPI.
   Include large callback sizes and layouts up to the eight-channel graph limit.
+- Synchronize public documentation with the no-bus composition model and current error-reporting APIs.
 - Add composition examples for:
   - Manually owned root and nested mixers with acknowledgement-driven teardown.
   - An owning `AudioGraph` containing mixers, multiple Spaces, and a stream.
