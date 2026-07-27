@@ -1,7 +1,9 @@
 #ifndef LOWL_FILE_H
 #define LOWL_FILE_H
 
+#include <cstdint>
 #include <fstream>
+#include <memory>
 
 #include "lowl_error.h"
 

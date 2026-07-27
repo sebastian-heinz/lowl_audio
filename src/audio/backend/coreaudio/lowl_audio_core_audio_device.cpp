@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdlib>
 #include <cstring>
 
 #include "audio/backend/coreaudio/lowl_audio_core_audio_layout.h"
@@ -103,10 +104,11 @@ OSStatus Lowl::Audio::CoreAudioDevice::audio_callback(AudioUnitRenderActionFlags
                                                       UInt32 inBusNumber,
                                                       UInt32 inNumberFrames,
                                                       AudioBufferList *ioData) {
+    auto callback_scope = begin_render_callback();
     if (ioData == nullptr || ioData->mNumberBuffers == 0) {
         return noErr;
     }
-    RenderState *const published_state = load_render_state();
+    RenderState *const published_state = callback_scope.load_render_state();
     if (published_state == nullptr || !published_state->audio_source) {
         clear_audio_buffer_list(ioData);
         return noErr;
@@ -279,6 +281,7 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
     audio_unit = create_audio_unit(device_id, error);
     if (error.has_error()) {
         LOWL_LOG_ERROR_F("failed on create_audio_unit (device:%u)", device_id);
+        cleanup_failed_start();
         return;
     }
 
@@ -394,6 +397,7 @@ void Lowl::Audio::CoreAudioDevice::start(AudioDeviceProperties p_audio_device_pr
 }
 
 void Lowl::Audio::CoreAudioDevice::stop(Lowl::Error &error) {
+    error.clear();
     cleanup_audio_unit(error);
 }
 
@@ -402,6 +406,7 @@ Lowl::Audio::CoreAudioDevice::~CoreAudioDevice() {
     stop(error);
     if (error.has_error()) {
         LOWL_LOG_ERROR_F("CoreAudioDevice::~CoreAudioDevice cleanup failed (device:%u)", device_id);
+        std::abort();
     }
 }
 
@@ -709,6 +714,8 @@ void Lowl::Audio::CoreAudioDevice::cleanup_audio_unit(Error &error) {
         }
         audio_unit_started = false;
     }
+
+    wait_for_render_callbacks();
 
     if (audio_unit_initialized && audio_unit != nullptr) {
         const OSStatus result = AudioUnitReset(audio_unit, kAudioUnitScope_Global, 0);

@@ -2,6 +2,7 @@
 #define LOWL_AUDIO_DEVICE_H
 
 #include <atomic>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -25,15 +26,37 @@ namespace Lowl::Audio {
 
         static_assert(std::atomic<RenderState *>::is_always_lock_free,
                       "Render-state publication must be lock-free for real-time audio safety");
+        static_assert(std::atomic<uint32_t>::is_always_lock_free,
+                      "Render callback activity must be lock-free for real-time audio safety");
 
         virtual ~AudioDevice() = 0;
+
+        class RenderCallbackScope final {
+        private:
+            AudioDevice *device;
+
+        public:
+            explicit RenderCallbackScope(AudioDevice &p_device);
+            ~RenderCallbackScope();
+
+            RenderCallbackScope(const RenderCallbackScope &) = delete;
+            RenderCallbackScope &operator=(const RenderCallbackScope &) = delete;
+            RenderCallbackScope(RenderCallbackScope &&) = delete;
+            RenderCallbackScope &operator=(RenderCallbackScope &&) = delete;
+
+            RenderState *load_render_state() const;
+        };
 
         std::shared_ptr<AudioSource> audio_source;
         AudioDeviceProperties audio_device_properties{};
         std::unique_ptr<RenderState> render_state_owner;
         std::atomic<RenderState *> published_render_state{nullptr};
+        std::atomic<uint32_t> active_render_callbacks{0};
         std::vector<AudioDeviceProperties> properties_list;
         std::string name;
+
+        /** Marks one callback active until the returned scope leaves the callback. */
+        [[nodiscard]] RenderCallbackScope begin_render_callback();
 
         /** Allocates and publishes a render state while the backend callback is quiescent. */
         bool allocate_render_buffer(unsigned long p_frame_capacity);
@@ -42,6 +65,9 @@ namespace Lowl::Audio {
 
         /** Prevents new callbacks from acquiring the render state without destroying it. */
         void unpublish_render_state();
+
+        /** Waits on the control thread after the backend can no longer begin callbacks. */
+        void wait_for_render_callbacks() const;
 
         /** Releases the unpublished state after the backend callback is quiescent. */
         bool release_render_state();

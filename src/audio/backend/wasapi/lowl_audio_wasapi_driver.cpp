@@ -29,7 +29,7 @@ void Lowl::Audio::WasapiDriver::initialize(Lowl::Error &error) {
     create_devices(error);
 }
 
-void Lowl::Audio::WasapiDriver::create_devices(Lowl::Error &error) {
+void Lowl::Audio::WasapiDriver::create_devices(Lowl::Error &) {
     IMMDeviceEnumerator *enumerator = nullptr;
     HRESULT result = CoCreateInstance(__uuidof(MMDeviceEnumerator),
                                       nullptr,

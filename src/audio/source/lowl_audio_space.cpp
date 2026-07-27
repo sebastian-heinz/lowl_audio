@@ -230,6 +230,7 @@ void Lowl::Audio::AudioSpace::collect_mixer_completions_locked() {
          completion_count++) {
         const AudioPlaybackId playback_id = find_playback_slot_id_by_mixer_handle_locked(completion.handle);
         if (playback_id == InvalidPlaybackSlotId) {
+            LOWL_LOG_ERROR("AudioSpace: mixer completion does not match a managed playback.");
             continue;
         }
 

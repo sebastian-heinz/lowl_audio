@@ -181,7 +181,6 @@ void Lowl::Audio::AudioGraph::collect_mixer_completions_locked(Node &p_node,
             }
             if (child_index == p_node.children.size()) {
                 LOWL_LOG_ERROR("AudioGraph::update: mixer completion does not match an owned child node.");
-                assert(false && "Graph-managed mixer completion must match graph ownership");
                 continue;
             }
 

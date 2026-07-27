@@ -1,11 +1,12 @@
 #ifndef LOWL_AUDIO_ALIGNED_STORAGE_H
 #define LOWL_AUDIO_ALIGNED_STORAGE_H
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 #include <malloc.h>
 #endif
 
@@ -19,7 +20,7 @@ namespace Lowl::Audio {
             if (p_ptr == nullptr) {
                 return;
             }
-#ifdef _MSC_VER
+#ifdef _WIN32
             _aligned_free(p_ptr);
 #else
             std::free(p_ptr);
@@ -42,7 +43,7 @@ namespace Lowl::Audio {
         }
 
         void *storage = nullptr;
-#ifdef _MSC_VER
+#ifdef _WIN32
         storage = _aligned_malloc(p_sample_count * sizeof(Sample), kSampleStorageAlignmentBytes);
         if (storage == nullptr) {
             throw std::bad_alloc();

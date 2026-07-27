@@ -3,7 +3,7 @@
 
 #ifdef LOWL_DRIVER_WASAPI
 
-#include "audio/lowl_audio_driver.h"
+#include "audio/backend/lowl_audio_driver.h"
 
 namespace Lowl::Audio {
     class WasapiDriver : public AudioDriver {

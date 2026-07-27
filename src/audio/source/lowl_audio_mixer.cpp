@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <atomic>
-#include <cassert>
 #include <cstdlib>
 #include <limits>
 #include <string>
@@ -76,80 +75,128 @@ Lowl::Audio::AudioMixer::get_control_connection_locked(const AudioMixerHandle p_
     return &connection;
 }
 
-void Lowl::Audio::AudioMixer::connect_source(const size_t p_connection_index,
-                                              const AudioMixerHandle p_handle,
-                                              AudioSource *p_audio_source) {
-    if (p_connection_index == InvalidConnectionIndex || p_connection_index >= render_connections.size()) {
-        assert(false && "Reserved mixer connection index must be in range");
+void Lowl::Audio::AudioMixer::record_render_fault(const RenderFault p_fault) noexcept {
+    render_faults.fetch_or(static_cast<uint32_t>(p_fault), std::memory_order_release);
+}
+
+void Lowl::Audio::AudioMixer::report_render_faults_locked() {
+    const uint32_t faults = render_faults.load(std::memory_order_acquire);
+    const uint32_t new_faults = faults & ~reported_render_faults;
+    if (new_faults == 0) {
         return;
     }
+    reported_render_faults |= new_faults;
+
+    if ((new_faults & static_cast<uint32_t>(RenderFault::ConnectIndexInvalid)) != 0) {
+        LOWL_LOG_ERROR("AudioMixer render: queued connection index is invalid; command skipped.");
+    }
+    if ((new_faults & static_cast<uint32_t>(RenderFault::ConnectSourceMissing)) != 0) {
+        LOWL_LOG_ERROR("AudioMixer render: queued connection has no source; command skipped.");
+    }
+    if ((new_faults & static_cast<uint32_t>(RenderFault::ConnectSlotOccupied)) != 0) {
+        LOWL_LOG_ERROR("AudioMixer render: queued connection targets an occupied slot; command skipped.");
+    }
+    if ((new_faults & static_cast<uint32_t>(RenderFault::DisconnectIndexInvalid)) != 0) {
+        LOWL_LOG_ERROR("AudioMixer render: disconnection index is invalid; request skipped.");
+    }
+    if ((new_faults & static_cast<uint32_t>(RenderFault::CompletionHandleInvalid)) != 0) {
+        LOWL_LOG_ERROR("AudioMixer render: completion handle is invalid; completion dropped.");
+    }
+    if ((new_faults & static_cast<uint32_t>(RenderFault::CompletionQueueFull)) != 0) {
+        LOWL_LOG_ERROR("AudioMixer render: completion queue is full; completion dropped.");
+    }
+    if ((new_faults & static_cast<uint32_t>(RenderFault::CompletionIndexInvalid)) != 0) {
+        LOWL_LOG_ERROR("AudioMixer render: completed connection index is invalid; request skipped.");
+    }
+    if ((new_faults & static_cast<uint32_t>(RenderFault::CompletionSlotInactive)) != 0) {
+        LOWL_LOG_ERROR("AudioMixer render: completion targets an inactive slot; request skipped.");
+    }
+    if ((new_faults & static_cast<uint32_t>(RenderFault::EventIndexInvalid)) != 0) {
+        LOWL_LOG_ERROR("AudioMixer render: queued event has an invalid connection index; event skipped.");
+    }
+    if ((new_faults & static_cast<uint32_t>(RenderFault::EventStale)) != 0) {
+        LOWL_LOG_ERROR("AudioMixer render: queued event is stale or has no reserved source; event skipped.");
+    }
+}
+
+bool Lowl::Audio::AudioMixer::connect_source(const size_t p_connection_index,
+                                             const AudioMixerHandle p_handle,
+                                             AudioSource *p_audio_source) {
+    if (p_connection_index == InvalidConnectionIndex || p_connection_index >= render_connections.size()) {
+        record_render_fault(RenderFault::ConnectIndexInvalid);
+        return false;
+    }
     if (p_audio_source == nullptr) {
-        assert(false && "A reserved mixer connection must have a source");
-        enqueue_completion({AudioMixerCompletion::Type::Removed, p_handle});
-        return;
+        record_render_fault(RenderFault::ConnectSourceMissing);
+        return false;
     }
 
     RenderConnectionSlot &connection = render_connections[p_connection_index];
     if (connection.source != nullptr) {
-        assert(false && "A reserved mixer connection must map to an inactive render slot");
-        enqueue_completion({AudioMixerCompletion::Type::Removed, p_handle});
-        return;
+        record_render_fault(RenderFault::ConnectSlotOccupied);
+        return false;
     }
 
     connection.source = p_audio_source;
     connection.generation = p_handle.generation;
     active_source_count++;
+    return true;
 }
 
-void Lowl::Audio::AudioMixer::disconnect_source(const size_t p_connection_index) {
+bool Lowl::Audio::AudioMixer::disconnect_source(const size_t p_connection_index) {
     if (p_connection_index == InvalidConnectionIndex || p_connection_index >= render_connections.size()) {
-        assert(false && "Active mixer connection index must be in range");
-        return;
+        record_render_fault(RenderFault::DisconnectIndexInvalid);
+        return false;
     }
 
     RenderConnectionSlot &connection = render_connections[p_connection_index];
     if (connection.source == nullptr) {
-        return;
+        return true;
     }
 
     connection.source = nullptr;
     active_source_count--;
+    return true;
 }
 
-void Lowl::Audio::AudioMixer::enqueue_completion(const AudioMixerCompletion &p_completion) {
+bool Lowl::Audio::AudioMixer::enqueue_completion(const AudioMixerCompletion &p_completion) {
     if (!p_completion.handle.is_valid()) {
-        assert(false && "Mixer completion must have a valid handle");
-        return;
+        record_render_fault(RenderFault::CompletionHandleInvalid);
+        return false;
     }
     if (completions.try_enqueue(p_completion)) {
-        return;
+        return true;
     }
 
-    assert(false && "One-shot connection slots must bound outstanding completions");
+    record_render_fault(RenderFault::CompletionQueueFull);
+    return false;
 }
 
-void Lowl::Audio::AudioMixer::complete_connection(const size_t p_connection_index,
-                                                   const AudioMixerCompletion::Type p_type) {
+bool Lowl::Audio::AudioMixer::complete_connection(const size_t p_connection_index,
+                                                  const AudioMixerCompletion::Type p_type) {
     if (p_connection_index == InvalidConnectionIndex || p_connection_index >= render_connections.size()) {
-        assert(false && "Completed mixer connection index must be in range");
-        return;
+        record_render_fault(RenderFault::CompletionIndexInvalid);
+        return false;
     }
 
     RenderConnectionSlot &connection = render_connections[p_connection_index];
     if (connection.source == nullptr || connection.generation == 0) {
-        assert(false && "Only an active mixer connection can complete");
-        return;
+        record_render_fault(RenderFault::CompletionSlotInactive);
+        return false;
     }
 
     AudioMixerHandle handle{};
     handle.mixer_id = mixer_id;
     handle.connection_id = static_cast<AudioMixerConnectionId>(p_connection_index + 1);
     handle.generation = connection.generation;
-    disconnect_source(p_connection_index);
-    enqueue_completion({p_type, handle});
+    if (!disconnect_source(p_connection_index)) {
+        return false;
+    }
+    return enqueue_completion({p_type, handle});
 }
 
-void Lowl::Audio::AudioMixer::process_events() {
+bool Lowl::Audio::AudioMixer::process_events() {
+    bool events_processed = true;
     AudioMixerEvent event{};
     for (size_t processed_event_count = 0;
          processed_event_count < MaxEventsPerRender && events.try_dequeue(event);
@@ -160,20 +207,26 @@ void Lowl::Audio::AudioMixer::process_events() {
         handle.generation = event.generation;
         const size_t connection_index = get_connection_index(handle);
         if (connection_index == InvalidConnectionIndex) {
-            assert(false && "Queued mixer connection index must be valid");
+            record_render_fault(RenderFault::EventIndexInvalid);
+            events_processed = false;
             continue;
         }
 
         ControlConnectionSlot &control_connection = control_connections[connection_index];
         if (control_connection.generation != handle.generation || control_connection.source == nullptr) {
-            assert(false && "Queued connect must match its reserved control connection");
+            record_render_fault(RenderFault::EventStale);
+            events_processed = false;
             continue;
         }
-        connect_source(connection_index, handle, control_connection.source);
+        if (!connect_source(connection_index, handle, control_connection.source)) {
+            events_processed = false;
+        }
     }
+    return events_processed;
 }
 
-void Lowl::Audio::AudioMixer::process_disconnect_requests() {
+bool Lowl::Audio::AudioMixer::process_disconnect_requests() {
+    bool requests_processed = true;
     size_t remaining_active_sources = active_source_count;
     for (size_t connection_index = 0;
          connection_index < render_connections.size() && remaining_active_sources > 0;
@@ -184,9 +237,12 @@ void Lowl::Audio::AudioMixer::process_disconnect_requests() {
         remaining_active_sources--;
 
         if (disconnect_requests[connection_index].load(std::memory_order_acquire)) {
-            complete_connection(connection_index, AudioMixerCompletion::Type::Removed);
+            if (!complete_connection(connection_index, AudioMixerCompletion::Type::Removed)) {
+                requests_processed = false;
+            }
         }
     }
+    return requests_processed;
 }
 
 Lowl::Audio::AudioSource::RenderResult
@@ -206,7 +262,9 @@ Lowl::Audio::AudioMixer::render_mixed_block(AudioBlockView p_block, const MixGai
         remaining_active_sources--;
 
         if (disconnect_requests[connection_index].load(std::memory_order_acquire)) {
-            complete_connection(connection_index, AudioMixerCompletion::Type::Removed);
+            if (!complete_connection(connection_index, AudioMixerCompletion::Type::Removed)) {
+                has_error = true;
+            }
             continue;
         }
 
@@ -217,7 +275,9 @@ Lowl::Audio::AudioMixer::render_mixed_block(AudioBlockView p_block, const MixGai
         }
 
         if (render_result.state == RenderState::Remove) {
-            complete_connection(connection_index, AudioMixerCompletion::Type::Finished);
+            if (!complete_connection(connection_index, AudioMixerCompletion::Type::Finished)) {
+                has_error = true;
+            }
             continue;
         }
         if (render_result.state == RenderState::Error) {
@@ -240,11 +300,11 @@ Lowl::Audio::AudioMixer::mix_into(AudioBlockView p_block, const MixGainVector &p
         return {0, RenderState::Error};
     }
 
-    process_events();
+    const bool events_processed = process_events();
 
     if (!playback_enabled.load(std::memory_order_relaxed)) {
-        process_disconnect_requests();
-        return {0, RenderState::Starved};
+        const bool requests_processed = process_disconnect_requests();
+        return {0, events_processed && requests_processed ? RenderState::Starved : RenderState::Error};
     }
 
     const uint8_t expected_channel_count = get_channel_count();
@@ -253,13 +313,18 @@ Lowl::Audio::AudioMixer::mix_into(AudioBlockView p_block, const MixGainVector &p
         return {0, RenderState::Error};
     }
 
-    return render_mixed_block(p_block, compose_gain_vector(p_upstream_gain));
+    RenderResult result = render_mixed_block(p_block, compose_gain_vector(p_upstream_gain));
+    if (!events_processed) {
+        result.state = RenderState::Error;
+    }
+    return result;
 }
 
 Lowl::AudioMixerHandle Lowl::Audio::AudioMixer::connect(AudioSource &p_audio_source, Error &p_error) {
     p_error.clear();
 
     std::lock_guard<std::mutex> lock(control_mutex);
+    report_render_faults_locked();
     if (shut_down.load(std::memory_order_relaxed)) {
         LOWL_LOG_ERROR("AudioMixer::connect: mixer has been shut down.");
         p_error.set_error(ErrorCode::MixerShutdown);
@@ -300,7 +365,6 @@ Lowl::AudioMixerHandle Lowl::Audio::AudioMixer::connect(AudioSource &p_audio_sou
         connection.source = nullptr;
         LOWL_LOG_ERROR("AudioMixer::connect: command queue capacity invariant was violated.");
         p_error.set_error(ErrorCode::Error);
-        assert(false && "Reserved connections must bound queued mixer commands");
         return {};
     }
 
@@ -311,6 +375,7 @@ void Lowl::Audio::AudioMixer::disconnect(const AudioMixerHandle p_handle, Error 
     p_error.clear();
 
     std::lock_guard<std::mutex> lock(control_mutex);
+    report_render_faults_locked();
     if (!p_handle.is_valid() || p_handle.mixer_id != mixer_id ||
         get_connection_index(p_handle) == InvalidConnectionIndex) {
         LOWL_LOG_ERROR("AudioMixer::disconnect: handle is invalid or belongs to a different mixer.");
@@ -339,6 +404,7 @@ void Lowl::Audio::AudioMixer::disconnect(const AudioMixerHandle p_handle, Error 
 
 bool Lowl::Audio::AudioMixer::try_collect_completion(AudioMixerCompletion &p_completion) {
     std::lock_guard<std::mutex> lock(control_mutex);
+    report_render_faults_locked();
     AudioMixerCompletion completion{};
     if (!completions.try_dequeue(completion)) {
         return false;
@@ -347,7 +413,6 @@ bool Lowl::Audio::AudioMixer::try_collect_completion(AudioMixerCompletion &p_com
     ControlConnectionSlot *connection = get_control_connection_locked(completion.handle);
     if (connection == nullptr) {
         LOWL_LOG_ERROR("AudioMixer::try_collect_completion: completion is stale or unknown.");
-        assert(false && "Mixer completion must match a reserved connection");
         p_completion = completion;
         return true;
     }
@@ -364,6 +429,7 @@ bool Lowl::Audio::AudioMixer::try_collect_completion(AudioMixerCompletion &p_com
 
 void Lowl::Audio::AudioMixer::shutdown_quiescent() {
     std::lock_guard<std::mutex> lock(control_mutex);
+    report_render_faults_locked();
     if (shut_down.exchange(true, std::memory_order_acq_rel)) {
         return;
     }

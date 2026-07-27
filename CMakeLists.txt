@@ -16,7 +16,7 @@ message("[LOWL] CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 set(LOWL_DRIVER_DUMMY TRUE)
 set(LOWL_DRIVER_CORE_AUDIO FALSE)
 set(LOWL_DRIVER_WASAPI FALSE)
-set(LOWL_TYPE_SAMPLE_64 FALSE)
+option(LOWL_TYPE_SAMPLE_64 "Use double precision for the public Lowl::Sample ABI" OFF)
 option(LOWL_BUILD_BENCHMARKS "Build lowl_audio microbenchmarks" OFF)
 # config - end
 
@@ -75,6 +75,10 @@ target_include_directories(${LOWL_LIB_MAIN}
         PUBLIC src/
         PRIVATE third_party/r8brain-free-src
 )
+
+if (LOWL_TYPE_SAMPLE_64)
+    target_compile_definitions(${LOWL_LIB_MAIN} PUBLIC LOWL_TYPE_SAMPLE_64)
+endif ()
 
 IF (LOWL_DRIVER_DUMMY)
     target_compile_definitions(${LOWL_LIB_MAIN} PRIVATE LOWL_DRIVER_DUMMY)

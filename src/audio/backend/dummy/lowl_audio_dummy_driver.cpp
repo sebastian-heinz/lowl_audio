@@ -6,7 +6,7 @@ Lowl::Audio::AudioDriverDummy::AudioDriverDummy() : AudioDriver() {
     name = std::string("DummyDriver");
 }
 
-void Lowl::Audio::AudioDriverDummy::initialize(Lowl::Error &error) {
+void Lowl::Audio::AudioDriverDummy::initialize(Lowl::Error &) {
 }
 
 #endif

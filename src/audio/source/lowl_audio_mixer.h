@@ -3,6 +3,7 @@
 
 #include <array>
 #include <atomic>
+#include <cstdint>
 #include <limits>
 #include <mutex>
 
@@ -38,12 +39,18 @@ namespace Lowl::Audio {
                       "AudioMixerConnectionId must represent every mixer connection slot");
         static_assert(std::atomic<bool>::is_always_lock_free,
                       "Mixer state flags must be lock-free for real-time audio safety");
+        static_assert(std::atomic<uint32_t>::is_always_lock_free,
+                      "Mixer render faults must be lock-free for real-time audio safety");
 
     private:
         static constexpr size_t EventQueueCapacity = MaxConnections;
         static constexpr size_t CompletionQueueCapacity = MaxConnections;
         static constexpr size_t InvalidConnectionIndex = MaxConnections;
         static constexpr size_l LiveFrameCountSentinel = 1;
+
+        static_assert(CompletionQueueCapacity == MaxConnections,
+                      "One completion entry is required for every reserved mixer slot"
+                      );
 
         struct RenderConnectionSlot {
             AudioSource *source = nullptr;
@@ -55,6 +62,19 @@ namespace Lowl::Audio {
             AudioGeneration generation = 1;
         };
 
+        enum class RenderFault : uint32_t {
+            ConnectIndexInvalid = 1U << 0U,
+            ConnectSourceMissing = 1U << 1U,
+            ConnectSlotOccupied = 1U << 2U,
+            DisconnectIndexInvalid = 1U << 3U,
+            CompletionHandleInvalid = 1U << 4U,
+            CompletionQueueFull = 1U << 5U,
+            CompletionIndexInvalid = 1U << 6U,
+            CompletionSlotInactive = 1U << 7U,
+            EventIndexInvalid = 1U << 8U,
+            EventStale = 1U << 9U,
+        };
+
         std::array<RenderConnectionSlot, MaxConnections> render_connections{};
         std::array<ControlConnectionSlot, MaxConnections> control_connections{};
         std::array<std::atomic<bool>, MaxConnections> disconnect_requests{};
@@ -62,21 +82,27 @@ namespace Lowl::Audio {
         BoundedSpscQueue<AudioMixerCompletion, CompletionQueueCapacity> completions{};
         mutable std::mutex control_mutex;
         std::atomic<bool> shut_down{false};
+        // Render-thread failures are latched without logging or terminating. The
+        // next control-thread operation reports each fault type once.
+        std::atomic<uint32_t> render_faults{0};
+        uint32_t reported_render_faults = 0;
         AudioInstanceId mixer_id;
         size_t active_source_count = 0;
 
         static size_t get_connection_index(AudioMixerHandle p_handle);
         size_t find_free_connection_index_locked() const;
         ControlConnectionSlot *get_control_connection_locked(AudioMixerHandle p_handle);
-        void connect_source(size_t p_connection_index,
+        void record_render_fault(RenderFault p_fault) noexcept;
+        void report_render_faults_locked();
+        bool connect_source(size_t p_connection_index,
                             AudioMixerHandle p_handle,
                             AudioSource *p_audio_source);
-        void disconnect_source(size_t p_connection_index);
-        void complete_connection(size_t p_connection_index, AudioMixerCompletion::Type p_type);
-        void process_events();
-        void process_disconnect_requests();
+        bool disconnect_source(size_t p_connection_index);
+        bool complete_connection(size_t p_connection_index, AudioMixerCompletion::Type p_type);
+        bool process_events();
+        bool process_disconnect_requests();
         RenderResult render_mixed_block(AudioBlockView p_block, const MixGainVector &p_upstream_gain);
-        void enqueue_completion(const AudioMixerCompletion &p_completion);
+        bool enqueue_completion(const AudioMixerCompletion &p_completion);
 
     public:
         size_l get_frames_remaining() const override;

@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <thread>
 #include <tuple>
 
 #include "audio/convert/lowl_audio_sample_converter.h"
@@ -141,6 +142,24 @@ Lowl::Audio::AudioDevice::AudioDevice(_constructor_tag) {
     audio_device_properties = AudioDeviceProperties{};
 }
 
+Lowl::Audio::AudioDevice::RenderCallbackScope::RenderCallbackScope(AudioDevice &p_device)
+    : device(&p_device) {
+    device->active_render_callbacks.fetch_add(1, std::memory_order_acq_rel);
+}
+
+Lowl::Audio::AudioDevice::RenderCallbackScope::~RenderCallbackScope() {
+    device->active_render_callbacks.fetch_sub(1, std::memory_order_acq_rel);
+}
+
+Lowl::Audio::AudioDevice::RenderState *
+Lowl::Audio::AudioDevice::RenderCallbackScope::load_render_state() const {
+    return device->load_render_state();
+}
+
+Lowl::Audio::AudioDevice::RenderCallbackScope Lowl::Audio::AudioDevice::begin_render_callback() {
+    return RenderCallbackScope(*this);
+}
+
 Lowl::Audio::AudioDeviceProperties
 Lowl::Audio::AudioDevice::get_closest_properties(AudioDeviceProperties p_audio_device_properties, Error &error) const {
     if (properties_list.empty()) {
@@ -194,10 +213,21 @@ void Lowl::Audio::AudioDevice::unpublish_render_state() {
     published_render_state.store(nullptr, std::memory_order_release);
 }
 
+void Lowl::Audio::AudioDevice::wait_for_render_callbacks() const {
+    while (active_render_callbacks.load(std::memory_order_acquire) != 0) {
+        std::this_thread::yield();
+    }
+}
+
 bool Lowl::Audio::AudioDevice::release_render_state() {
     if (published_render_state.load(std::memory_order_acquire) != nullptr) {
         LOWL_LOG_ERROR("AudioDevice::release_render_state: render state is still published.");
         assert(false && "Cannot release a published render state");
+        return false;
+    }
+    if (active_render_callbacks.load(std::memory_order_acquire) != 0) {
+        LOWL_LOG_ERROR("AudioDevice::release_render_state: a render callback is still active.");
+        assert(false && "Cannot release render state while a callback is active");
         return false;
     }
     render_state_owner.reset();
