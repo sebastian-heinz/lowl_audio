@@ -8,11 +8,12 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.name }}
+    name: ${{ matrix.config.name }} / Sample64=${{ matrix.sample_64 }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
       matrix:
+        sample_64: ["OFF", "ON"]
         config: 
         - {
             name: "Windows Latest MSVC",
@@ -187,44 +188,19 @@ jobs:
       - name: Configure
         shell: bash
         run: |
-          mkdir build
           mkdir instdir
           cmake \
             -S . \
-            -B . \
+            -B build \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }} \
+            -DLOWL_TYPE_SAMPLE_64=${{ matrix.sample_64 }} \
             -G "${{ matrix.config.generators }}" \
             -DCMAKE_INSTALL_PREFIX:PATH=${GITHUB_WORKSPACE}/instdir
 
       - name: Build
         shell: bash
-        run: cmake --build . --config ${{ matrix.config.build_type }}
+        run: cmake --build build --config ${{ matrix.config.build_type }}
 
-      - name: Test Win MSVC
-        if: startsWith(matrix.config.cc, 'cl') && startsWith(matrix.config.os, 'windows')
-        shell: powershell
-        run: |
-          cd test
-          cd Release
-          ./lowl_audio_test.exe
-
-      - name: Test Win MinGw
-        if: startsWith(matrix.config.cc, 'gcc') && startsWith(matrix.config.os, 'windows')
-        shell: powershell
-        run: |
-          cd test
-          ./lowl_audio_test.exe
-
-      - name: Test Unix
-        if: startsWith(matrix.config.os, 'ubuntu')
+      - name: Test
         shell: bash
-        run: |
-          cd test
-          ./lowl_audio_test
-
-      - name: Test Osx
-        if: startsWith(matrix.config.os, 'macos-latest')
-        shell: bash
-        run: |
-          cd test
-          ./lowl_audio_test
+        run: ctest --test-dir build -C ${{ matrix.config.build_type }} -R "^lowl_audio_test$" --output-on-failure

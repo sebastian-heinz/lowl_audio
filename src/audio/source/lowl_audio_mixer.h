@@ -8,8 +8,8 @@
 #include <mutex>
 
 #include "audio/lowl_audio_lock_free_queue.h"
-#include "audio/source/lowl_audio_mixer_handle.h"
 #include "audio/source/lowl_audio_mixer_event.h"
+#include "audio/source/lowl_audio_mixer_handle.h"
 #include "audio/source/lowl_audio_source.h"
 #include "lowl_error.h"
 #include "lowl_typedef.h"
@@ -49,12 +49,19 @@ namespace Lowl::Audio {
         static constexpr size_l LiveFrameCountSentinel = 1;
 
         static_assert(CompletionQueueCapacity == MaxConnections,
-                      "One completion entry is required for every reserved mixer slot"
-                      );
+                      "One completion entry is required for every reserved mixer slot");
+
+        enum class RenderConnectionState : uint8_t {
+            Free = 0,
+            Active = 1,
+            CompletionPending = 2,
+        };
 
         struct RenderConnectionSlot {
             AudioSource *source = nullptr;
             AudioGeneration generation = 0;
+            AudioMixerCompletion::Type pending_completion_type = AudioMixerCompletion::Type::Removed;
+            RenderConnectionState state = RenderConnectionState::Free;
         };
 
         struct ControlConnectionSlot {
@@ -88,21 +95,20 @@ namespace Lowl::Audio {
         uint32_t reported_render_faults = 0;
         AudioInstanceId mixer_id;
         size_t active_source_count = 0;
+        size_t pending_completion_count = 0;
 
         static size_t get_connection_index(AudioMixerHandle p_handle);
         size_t find_free_connection_index_locked() const;
         ControlConnectionSlot *get_control_connection_locked(AudioMixerHandle p_handle);
         void record_render_fault(RenderFault p_fault) noexcept;
         void report_render_faults_locked();
-        bool connect_source(size_t p_connection_index,
-                            AudioMixerHandle p_handle,
-                            AudioSource *p_audio_source);
-        bool disconnect_source(size_t p_connection_index);
+        bool connect_source(size_t p_connection_index, AudioMixerHandle p_handle, AudioSource *p_audio_source);
+        bool try_publish_pending_completion(size_t p_connection_index);
+        bool flush_pending_completions();
         bool complete_connection(size_t p_connection_index, AudioMixerCompletion::Type p_type);
         bool process_events();
         bool process_disconnect_requests();
         RenderResult render_mixed_block(AudioBlockView p_block, const MixGainVector &p_upstream_gain);
-        bool enqueue_completion(const AudioMixerCompletion &p_completion);
 
     public:
         size_l get_frames_remaining() const override;
@@ -114,8 +120,7 @@ namespace Lowl::Audio {
         /**
          * mixes a block from all sources
          */
-        RenderResult mix_into(AudioBlockView p_block,
-                              const MixGainVector &p_upstream_gain) override;
+        RenderResult mix_into(AudioBlockView p_block, const MixGainVector &p_upstream_gain) override;
 
         /**
          * Reserves one connection and queues its source for rendering. The returned

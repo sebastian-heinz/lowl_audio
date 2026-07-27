@@ -1,6 +1,7 @@
+#include <lowl.h>
+
 #include <exception>
 #include <iostream>
-#include <lowl.h>
 #include <string>
 #include <thread>
 #include <vector>
@@ -50,8 +51,7 @@ namespace {
 
 void print_audio_properties(const Lowl::Audio::AudioDeviceProperties &p_device_properties) {
     std::cout << "-- SampleRate:" << std::to_string(p_device_properties.audio_format.sample_rate) << "\n";
-    std::cout << "-- Channel:"
-              << std::to_string(p_device_properties.audio_format.channel_layout.channel_count) << "\n";
+    std::cout << "-- Channel:" << std::to_string(p_device_properties.audio_format.channel_layout.channel_count) << "\n";
     std::cout << "-- ChannelLayout:" << p_device_properties.audio_format.channel_layout.to_string() << "\n";
     std::cout << "-- SampleFormat:" << Lowl::Audio::sample_format_to_string(p_device_properties.sample_format) << "\n";
     std::cout << "-- Exclusive:" << (p_device_properties.exclusive_mode ? "TRUE" : "FALSE") << "\n";
@@ -79,9 +79,10 @@ void space(std::shared_ptr<Lowl::Audio::AudioDevice> device,
             error.clear();
             continue;
         }
-        const Lowl::AudioPlaybackHandle playback_handle = audio_space->create_playback(asset_handle);
-        if (!playback_handle.is_valid()) {
+        const Lowl::AudioPlaybackHandle playback_handle = audio_space->create_playback(asset_handle, error);
+        if (error.has_error() || !playback_handle.is_valid()) {
             std::cout << "Err: space->create_playback (" << music_path << ")\n";
+            error.clear();
             continue;
         }
         playback_entries.push_back({asset_handle, playback_handle});
@@ -132,9 +133,14 @@ void space(std::shared_ptr<Lowl::Audio::AudioDevice> device,
             }
             bool playing = status[selected_id];
             if (!playing) {
-                audio_space->play(selected_handle);
+                audio_space->play(selected_handle, error);
             } else {
-                audio_space->stop(selected_handle);
+                audio_space->stop(selected_handle, error);
+            }
+            if (error.has_error()) {
+                std::cout << "Err: space->" << (playing ? "stop" : "play") << "\n";
+                error.clear();
+                continue;
             }
             status[selected_id] = !playing;
         }

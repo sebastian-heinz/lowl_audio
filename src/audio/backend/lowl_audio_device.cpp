@@ -16,11 +16,13 @@
 namespace {
     auto make_property_score(const Lowl::Audio::AudioDeviceProperties &p_requested,
                              const Lowl::Audio::AudioDeviceProperties &p_candidate) {
-        const bool layout_mismatch =
-            p_requested.audio_format.channel_layout.is_valid() &&
-            p_candidate.audio_format.channel_layout != p_requested.audio_format.channel_layout;
+        const bool layout_mismatch = p_requested.audio_format.channel_layout.is_valid() &&
+                                     p_candidate.audio_format.channel_layout != p_requested.audio_format.channel_layout;
         const bool format_mismatch = p_requested.sample_format != Lowl::Audio::SampleFormat::Unknown &&
                                      p_candidate.sample_format != p_requested.sample_format;
+        const bool valid_bits_mismatch =
+            p_requested.wasapi.valid_bits_per_sample != 0 &&
+            p_candidate.wasapi.valid_bits_per_sample != p_requested.wasapi.valid_bits_per_sample;
         const double sample_rate_distance =
             p_requested.audio_format.sample_rate > Lowl::NO_SAMPLE_RATE &&
                     !Lowl::Audio::sample_rates_equal(p_requested.audio_format.sample_rate,
@@ -31,6 +33,7 @@ namespace {
         return std::make_tuple(!p_candidate.is_supported,
                                layout_mismatch,
                                format_mismatch,
+                               valid_bits_mismatch,
                                p_candidate.exclusive_mode != p_requested.exclusive_mode,
                                sample_rate_distance);
     }
@@ -59,8 +62,7 @@ namespace {
         for (uint32_t frame_index = 0; frame_index < p_frames; frame_index++) {
             for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
                 dst[static_cast<size_t>(frame_index) * channel_count + channel_index] =
-                    Lowl::Audio::SampleConverter::sample_to_float(
-                        p_block.channel(channel_index)[frame_index]);
+                    Lowl::Audio::SampleConverter::sample_to_float(p_block.channel(channel_index)[frame_index]);
             }
         }
     }
@@ -78,6 +80,27 @@ namespace {
             for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
                 dst[static_cast<size_t>(frame_index) * channel_count + channel_index] =
                     Lowl::Audio::SampleConverter::sample_to_int16(p_block.channel(channel_index)[frame_index]);
+            }
+        }
+    }
+
+    void write_interleaved_int32_valid_bits(const Lowl::Audio::AudioBlockView &p_block,
+                                            void *p_dst,
+                                            const uint32_t p_frames,
+                                            const uint16_t p_valid_bits) {
+        auto *dst = static_cast<int32_t *>(p_dst);
+        const uint16_t unused_bits = static_cast<uint16_t>(32U - p_valid_bits);
+        const int64_t valid_positive_limit =
+            static_cast<int64_t>((uint64_t{1} << static_cast<uint16_t>(p_valid_bits - 1U)) - 1U);
+        const int64_t alignment_scale = int64_t{1} << unused_bits;
+
+        for (uint32_t frame_index = 0; frame_index < p_frames; frame_index++) {
+            for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
+                const double clamped =
+                    std::clamp(static_cast<double>(p_block.channel(channel_index)[frame_index]), -1.0, 1.0);
+                const int64_t valid_sample =
+                    static_cast<int64_t>(std::llround(clamped * static_cast<double>(valid_positive_limit)));
+                *dst++ = static_cast<int32_t>(valid_sample * alignment_scale);
             }
         }
     }
@@ -102,9 +125,7 @@ namespace {
         return p_format == Lowl::Audio::SampleFormat::U_INT_8 ? 0x80 : 0x00;
     }
 
-    void fill_device_silence(void *p_dst,
-                             const size_t p_byte_count,
-                             const Lowl::Audio::SampleFormat p_format) {
+    void fill_device_silence(void *p_dst, const size_t p_byte_count, const Lowl::Audio::SampleFormat p_format) {
         if (p_dst == nullptr || p_byte_count == 0) {
             return;
         }
@@ -142,8 +163,7 @@ Lowl::Audio::AudioDevice::AudioDevice(_constructor_tag) {
     audio_device_properties = AudioDeviceProperties{};
 }
 
-Lowl::Audio::AudioDevice::RenderCallbackScope::RenderCallbackScope(AudioDevice &p_device)
-    : device(&p_device) {
+Lowl::Audio::AudioDevice::RenderCallbackScope::RenderCallbackScope(AudioDevice &p_device) : device(&p_device) {
     device->active_render_callbacks.fetch_add(1, std::memory_order_acq_rel);
 }
 
@@ -151,8 +171,7 @@ Lowl::Audio::AudioDevice::RenderCallbackScope::~RenderCallbackScope() {
     device->active_render_callbacks.fetch_sub(1, std::memory_order_acq_rel);
 }
 
-Lowl::Audio::AudioDevice::RenderState *
-Lowl::Audio::AudioDevice::RenderCallbackScope::load_render_state() const {
+Lowl::Audio::AudioDevice::RenderState *Lowl::Audio::AudioDevice::RenderCallbackScope::load_render_state() const {
     return device->load_render_state();
 }
 
@@ -279,8 +298,7 @@ void Lowl::Audio::AudioDevice::render_to_device_buffer(RenderState *p_render_sta
     AudioBlockView output_block = p_render_state->render_buffer.view(static_cast<uint32_t>(p_frames_per_buffer));
     p_render_state->render_buffer.clear(output_block.frame_count);
     AudioSource::MixGainVector unity_gain;
-    const AudioSource::RenderResult render_result =
-        p_render_state->audio_source->mix_into(output_block, unity_gain);
+    const AudioSource::RenderResult render_result = p_render_state->audio_source->mix_into(output_block, unity_gain);
     const uint32_t produced_frames = std::min(render_result.frames_produced, output_block.frame_count);
 
     switch (published_properties.sample_format) {
@@ -296,6 +314,13 @@ void Lowl::Audio::AudioDevice::render_to_device_buffer(RenderState *p_render_sta
         case SampleFormat::Unknown:
             if (published_properties.sample_format == SampleFormat::INT_16) {
                 write_interleaved_int16(output_block, p_dst, produced_frames);
+                break;
+            }
+            if (published_properties.sample_format == SampleFormat::INT_32 &&
+                published_properties.wasapi.valid_bits_per_sample > 1 &&
+                published_properties.wasapi.valid_bits_per_sample < 32) {
+                write_interleaved_int32_valid_bits(
+                    output_block, p_dst, produced_frames, published_properties.wasapi.valid_bits_per_sample);
                 break;
             }
             if (!write_interleaved_generic(published_properties.sample_format, output_block, p_dst, produced_frames)) {
@@ -339,32 +364,22 @@ bool Lowl::Audio::AudioDevice::render_to_planar_device_buffers(RenderState *p_re
     if (sample_size_bytes == 0 || channel_count == 0 || channel_count > AudioBlockView::MAX_CHANNELS ||
         p_dst_channel_count != channel_count || p_frames_per_buffer > std::numeric_limits<uint32_t>::max() ||
         static_cast<size_t>(p_frames_per_buffer) > std::numeric_limits<size_t>::max() / sample_size_bytes) {
-        fill_planar_device_silence(p_dst_channels,
-                                   p_dst_byte_sizes,
-                                   p_dst_channel_count,
-                                   std::numeric_limits<size_t>::max(),
-                                   sample_format);
+        fill_planar_device_silence(
+            p_dst_channels, p_dst_byte_sizes, p_dst_channel_count, std::numeric_limits<size_t>::max(), sample_format);
         return false;
     }
 
     const size_t requested_bytes_per_channel = static_cast<size_t>(p_frames_per_buffer) * sample_size_bytes;
     for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
-        if (p_dst_channels[channel_index] == nullptr ||
-            p_dst_byte_sizes[channel_index] < requested_bytes_per_channel) {
-            fill_planar_device_silence(p_dst_channels,
-                                       p_dst_byte_sizes,
-                                       channel_count,
-                                       requested_bytes_per_channel,
-                                       sample_format);
+        if (p_dst_channels[channel_index] == nullptr || p_dst_byte_sizes[channel_index] < requested_bytes_per_channel) {
+            fill_planar_device_silence(
+                p_dst_channels, p_dst_byte_sizes, channel_count, requested_bytes_per_channel, sample_format);
             return false;
         }
     }
 
-    fill_planar_device_silence(p_dst_channels,
-                               p_dst_byte_sizes,
-                               channel_count,
-                               requested_bytes_per_channel,
-                               sample_format);
+    fill_planar_device_silence(
+        p_dst_channels, p_dst_byte_sizes, channel_count, requested_bytes_per_channel, sample_format);
     if (!p_render_state->audio_source) {
         return true;
     }
@@ -388,15 +403,13 @@ bool Lowl::Audio::AudioDevice::render_to_planar_device_buffers(RenderState *p_re
         return true;
     }
 
-    AudioBlockView output_block =
-        p_render_state->render_buffer.view(static_cast<uint32_t>(p_frames_per_buffer));
+    AudioBlockView output_block = p_render_state->render_buffer.view(static_cast<uint32_t>(p_frames_per_buffer));
     if (output_block.channel_count != channel_count) {
         return false;
     }
     p_render_state->render_buffer.clear(output_block.frame_count);
     AudioSource::MixGainVector unity_gain;
-    const AudioSource::RenderResult render_result =
-        p_render_state->audio_source->mix_into(output_block, unity_gain);
+    const AudioSource::RenderResult render_result = p_render_state->audio_source->mix_into(output_block, unity_gain);
     const uint32_t produced_frames = std::min(render_result.frames_produced, output_block.frame_count);
 
     for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
@@ -404,11 +417,8 @@ bool Lowl::Audio::AudioDevice::render_to_planar_device_buffers(RenderState *p_re
         const Sample *src = output_block.channel(channel_index);
         for (uint32_t frame_index = 0; frame_index < produced_frames; frame_index++) {
             if (!SampleConverter::write_sample(sample_format, src[frame_index], &write_ptr)) {
-                fill_planar_device_silence(p_dst_channels,
-                                           p_dst_byte_sizes,
-                                           channel_count,
-                                           requested_bytes_per_channel,
-                                           sample_format);
+                fill_planar_device_silence(
+                    p_dst_channels, p_dst_byte_sizes, channel_count, requested_bytes_per_channel, sample_format);
                 return false;
             }
         }

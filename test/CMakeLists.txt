@@ -7,10 +7,12 @@ set(LOWL_TEST_FILES
         test_audio_device.cpp
         test_core_audio_device.cpp
         test_audio_data.cpp
+        test_audio_graph.cpp
         test_channel_layout.cpp
         test_channel_converter.cpp
         test_audio_source.cpp
         test_audio_reader.cpp
+        test_audio_mixer.cpp
         test_audio_space.cpp
         test_audio_stream.cpp
         test_audio_utilities.cpp
@@ -20,6 +22,7 @@ set(LOWL_TEST_FILES
         )
 
 add_executable(${LOWL_TEST_MAIN} ${LOWL_TEST_FILES})
+add_test(NAME ${LOWL_TEST_MAIN} COMMAND ${LOWL_TEST_MAIN})
 
 #set_target_properties(${LOWL_TEST_MAIN} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
 

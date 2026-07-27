@@ -32,7 +32,7 @@ namespace {
     }
 
     Lowl::Audio::AudioDeviceProperties make_device_properties(const Lowl::Audio::SampleFormat p_format,
-                                                               const Lowl::Audio::ChannelLayout p_layout) {
+                                                              const Lowl::Audio::ChannelLayout p_layout) {
         Lowl::Audio::AudioDeviceProperties properties{};
         properties.is_supported = true;
         properties.audio_format = {kSampleRate, p_layout};
@@ -53,8 +53,7 @@ namespace {
         return std::make_unique<Lowl::Audio::AudioData>(
             std::move(storage),
             p_frame_count,
-            Lowl::Audio::AudioFormat{kSampleRate, Lowl::Audio::ChannelLayout::Stereo}
-        );
+            Lowl::Audio::AudioFormat{kSampleRate, Lowl::Audio::ChannelLayout::Stereo});
     }
 
     std::unique_ptr<Lowl::Audio::AudioData> make_mono_audio_data(const size_t p_frame_count) {
@@ -67,10 +66,7 @@ namespace {
             }
         }
         return std::make_unique<Lowl::Audio::AudioData>(
-            std::move(storage),
-            p_frame_count,
-            Lowl::Audio::AudioFormat{kSampleRate, Lowl::Audio::ChannelLayout::Mono}
-        );
+            std::move(storage), p_frame_count, Lowl::Audio::AudioFormat{kSampleRate, Lowl::Audio::ChannelLayout::Mono});
     }
 
     std::vector<Lowl::Sample> make_interleaved_stereo_frames(const size_t p_frame_count) {
@@ -89,8 +85,7 @@ namespace {
             : AudioSource(Lowl::Audio::AudioFormat{kSampleRate, Lowl::Audio::ChannelLayout::Stereo}) {
         }
 
-        RenderResult mix_into(Lowl::Audio::AudioBlockView p_block,
-                              const MixGainVector &) override {
+        RenderResult mix_into(Lowl::Audio::AudioBlockView p_block, const MixGainVector &) override {
             for (uint32_t frame_index = 0; frame_index < p_block.frame_count; frame_index++) {
                 p_block.channel(0)[frame_index] += 0.25f;
                 p_block.channel(1)[frame_index] += -0.25f;
@@ -117,12 +112,10 @@ namespace {
 
     class ConstantMonoSource final : public Lowl::Audio::AudioSource {
     public:
-        ConstantMonoSource()
-            : AudioSource(Lowl::Audio::AudioFormat{kSampleRate, Lowl::Audio::ChannelLayout::Mono}) {
+        ConstantMonoSource() : AudioSource(Lowl::Audio::AudioFormat{kSampleRate, Lowl::Audio::ChannelLayout::Mono}) {
         }
 
-        RenderResult mix_into(Lowl::Audio::AudioBlockView p_block,
-                              const MixGainVector &) override {
+        RenderResult mix_into(Lowl::Audio::AudioBlockView p_block, const MixGainVector &) override {
             for (uint32_t frame_index = 0; frame_index < p_block.frame_count; frame_index++) {
                 p_block.channel(0)[frame_index] += 0.25f;
             }
@@ -167,7 +160,8 @@ namespace {
                                     p_bytes_per_frame);
         }
 
-        void start(Lowl::Audio::AudioDeviceProperties, std::shared_ptr<Lowl::Audio::AudioSource>, Lowl::Error &) override {
+        void
+        start(Lowl::Audio::AudioDeviceProperties, std::shared_ptr<Lowl::Audio::AudioSource>, Lowl::Error &) override {
         }
 
         void stop(Lowl::Error &) override {
@@ -206,13 +200,13 @@ namespace {
         }
 
         state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(frames_per_buffer));
-        state.SetBytesProcessed(
-            state.iterations() * static_cast<int64_t>(frames_per_buffer) * static_cast<int64_t>(bytes_per_frame));
+        state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(frames_per_buffer) *
+                                static_cast<int64_t>(bytes_per_frame));
     }
 
     void bench_audio_device_render_format(benchmark::State &state,
-                                           const Lowl::Audio::SampleFormat p_format,
-                                           const size_t p_sample_bytes) {
+                                          const Lowl::Audio::SampleFormat p_format,
+                                          const size_t p_sample_bytes) {
         const unsigned long frames_per_buffer = static_cast<unsigned long>(state.range(0));
         constexpr unsigned long channels = kStereoChannelCount;
         const unsigned long bytes_per_frame = static_cast<unsigned long>(p_sample_bytes) * channels;
@@ -229,8 +223,8 @@ namespace {
         }
 
         state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(frames_per_buffer));
-        state.SetBytesProcessed(
-            state.iterations() * static_cast<int64_t>(frames_per_buffer) * static_cast<int64_t>(bytes_per_frame));
+        state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(frames_per_buffer) *
+                                static_cast<int64_t>(bytes_per_frame));
     }
 
     void bench_audio_device_render_audio_space(benchmark::State &state) {
@@ -254,20 +248,32 @@ namespace {
         std::vector<Lowl::AudioPlaybackHandle> playback_handles;
         playback_handles.reserve(voice_count);
         for (size_t voice_index = 0; voice_index < voice_count; voice_index++) {
-            const Lowl::AudioPlaybackHandle playback_handle = audio_space->create_playback(asset_handle);
-            if (!playback_handle.is_valid()) {
+            const Lowl::AudioPlaybackHandle playback_handle = audio_space->create_playback(asset_handle, error);
+            if (error.has_error() || !playback_handle.is_valid()) {
                 state.SkipWithError("failed to create AudioSpace playback");
                 return;
             }
 
             const float base_volume = static_cast<float>(0.8 / static_cast<double>(voice_count));
             const float volume_variation = 0.85f + 0.15f * static_cast<float>(voice_index % 5) / 4.0f;
-            const float panning = voice_count == 1
-                                      ? 0.0f
-                                      : -1.0f + 2.0f * static_cast<float>(voice_index) / static_cast<float>(voice_count - 1);
-            audio_space->set_volume(playback_handle, base_volume * volume_variation);
-            audio_space->set_panning(playback_handle, panning);
-            audio_space->play(playback_handle);
+            const float panning =
+                voice_count == 1 ? 0.0f
+                                 : -1.0f + 2.0f * static_cast<float>(voice_index) / static_cast<float>(voice_count - 1);
+            audio_space->set_volume(playback_handle, base_volume * volume_variation, error);
+            if (error.has_error()) {
+                state.SkipWithError("failed to set AudioSpace playback volume");
+                return;
+            }
+            audio_space->set_panning(playback_handle, panning, error);
+            if (error.has_error()) {
+                state.SkipWithError("failed to set AudioSpace playback panning");
+                return;
+            }
+            audio_space->play(playback_handle, error);
+            if (error.has_error()) {
+                state.SkipWithError("failed to play AudioSpace playback");
+                return;
+            }
             playback_handles.push_back(playback_handle);
         }
 
@@ -287,8 +293,18 @@ namespace {
             if (frames_until_reset <= frames_consumed) {
                 state.PauseTiming();
                 for (const Lowl::AudioPlaybackHandle playback_handle : playback_handles) {
-                    audio_space->reset(playback_handle);
-                    audio_space->play(playback_handle);
+                    audio_space->reset(playback_handle, error);
+                    if (error.has_error()) {
+                        state.ResumeTiming();
+                        state.SkipWithError("failed to reset AudioSpace playback");
+                        return;
+                    }
+                    audio_space->play(playback_handle, error);
+                    if (error.has_error()) {
+                        state.ResumeTiming();
+                        state.SkipWithError("failed to replay AudioSpace playback");
+                        return;
+                    }
                 }
                 frames_until_reset = clip_frames;
                 state.ResumeTiming();
@@ -297,8 +313,8 @@ namespace {
             }
         }
 
-        state.SetItemsProcessed(
-            state.iterations() * static_cast<int64_t>(frames_per_buffer) * static_cast<int64_t>(kCallbacksPerIteration));
+        state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(frames_per_buffer) *
+                                static_cast<int64_t>(kCallbacksPerIteration));
         state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(frames_per_buffer) *
                                 static_cast<int64_t>(kCallbacksPerIteration) * static_cast<int64_t>(bytes_per_frame));
     }
@@ -343,8 +359,8 @@ namespace {
             }
         }
 
-        state.SetItemsProcessed(
-            state.iterations() * static_cast<int64_t>(frames_per_buffer) * static_cast<int64_t>(kCallbacksPerIteration));
+        state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(frames_per_buffer) *
+                                static_cast<int64_t>(kCallbacksPerIteration));
         state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(frames_per_buffer) *
                                 static_cast<int64_t>(kCallbacksPerIteration) * static_cast<int64_t>(bytes_per_frame));
     }
@@ -360,14 +376,14 @@ namespace {
 
         std::vector<std::shared_ptr<ConstantStereoSource>> sources;
         sources.reserve(voice_count);
+        Lowl::Error error;
         for (size_t voice_index = 0; voice_index < voice_count; voice_index++) {
             auto source = std::make_shared<ConstantStereoSource>();
-            const Lowl::AudioMixerHandle handle = mixer->allocate_handle();
-            if (!handle.is_valid()) {
-                state.SkipWithError("failed to allocate mixer handle");
+            const Lowl::AudioMixerHandle handle = mixer->connect(*source, error);
+            if (error.has_error() || !handle.is_valid()) {
+                state.SkipWithError("failed to connect mixer source");
                 return;
             }
-            mixer->mix(handle, source.get());
             sources.push_back(std::move(source));
         }
 
@@ -409,22 +425,31 @@ namespace {
         std::vector<Lowl::AudioPlaybackHandle> playback_handles;
         playback_handles.reserve(voice_count);
         for (size_t voice_index = 0; voice_index < voice_count; voice_index++) {
-            const Lowl::AudioPlaybackHandle playback_handle = audio_space->create_playback(asset_handle);
-            if (!playback_handle.is_valid()) {
+            const Lowl::AudioPlaybackHandle playback_handle = audio_space->create_playback(asset_handle, error);
+            if (error.has_error() || !playback_handle.is_valid()) {
                 state.SkipWithError("failed to create mono AudioSpace playback");
                 return;
             }
 
             const float base_volume = static_cast<float>(0.8 / static_cast<double>(voice_count));
             const float volume_variation = 0.85f + 0.15f * static_cast<float>(voice_index % 5) / 4.0f;
-            audio_space->set_volume(playback_handle, base_volume * volume_variation);
-            audio_space->play(playback_handle);
+            audio_space->set_volume(playback_handle, base_volume * volume_variation, error);
+            if (error.has_error()) {
+                state.SkipWithError("failed to set mono AudioSpace playback volume");
+                return;
+            }
+            audio_space->play(playback_handle, error);
+            if (error.has_error()) {
+                state.SkipWithError("failed to play mono AudioSpace playback");
+                return;
+            }
             playback_handles.push_back(playback_handle);
         }
 
         BenchAudioDevice device;
         device.configure(make_device_properties(Lowl::Audio::SampleFormat::FLOAT_32, Lowl::Audio::ChannelLayout::Mono),
-                         audio_space, frames_per_buffer);
+                         audio_space,
+                         frames_per_buffer);
 
         std::vector<std::byte> buffer(static_cast<size_t>(frames_per_buffer) * bytes_per_frame);
         size_t frames_until_reset = clip_frames;
@@ -439,8 +464,18 @@ namespace {
             if (frames_until_reset <= frames_consumed) {
                 state.PauseTiming();
                 for (const Lowl::AudioPlaybackHandle playback_handle : playback_handles) {
-                    audio_space->reset(playback_handle);
-                    audio_space->play(playback_handle);
+                    audio_space->reset(playback_handle, error);
+                    if (error.has_error()) {
+                        state.ResumeTiming();
+                        state.SkipWithError("failed to reset mono AudioSpace playback");
+                        return;
+                    }
+                    audio_space->play(playback_handle, error);
+                    if (error.has_error()) {
+                        state.ResumeTiming();
+                        state.SkipWithError("failed to replay mono AudioSpace playback");
+                        return;
+                    }
                 }
                 frames_until_reset = clip_frames;
                 state.ResumeTiming();
@@ -449,8 +484,8 @@ namespace {
             }
         }
 
-        state.SetItemsProcessed(
-            state.iterations() * static_cast<int64_t>(frames_per_buffer) * static_cast<int64_t>(kCallbacksPerIteration));
+        state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(frames_per_buffer) *
+                                static_cast<int64_t>(kCallbacksPerIteration));
         state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(frames_per_buffer) *
                                 static_cast<int64_t>(kCallbacksPerIteration) * static_cast<int64_t>(bytes_per_frame));
     }
@@ -503,8 +538,8 @@ namespace {
             }
         }
 
-        state.SetItemsProcessed(
-            state.iterations() * static_cast<int64_t>(frames_per_buffer) * static_cast<int64_t>(kCallbacksPerIteration));
+        state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(frames_per_buffer) *
+                                static_cast<int64_t>(kCallbacksPerIteration));
         state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(frames_per_buffer) *
                                 static_cast<int64_t>(kCallbacksPerIteration) * static_cast<int64_t>(bytes_per_frame));
     }
@@ -558,8 +593,8 @@ namespace {
         producer_running.store(false, std::memory_order_relaxed);
         producer.join();
 
-        state.SetItemsProcessed(
-            state.iterations() * static_cast<int64_t>(frames_per_buffer) * static_cast<int64_t>(kCallbacksPerIteration));
+        state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(frames_per_buffer) *
+                                static_cast<int64_t>(kCallbacksPerIteration));
         state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(frames_per_buffer) *
                                 static_cast<int64_t>(kCallbacksPerIteration) * static_cast<int64_t>(bytes_per_frame));
     }
@@ -586,9 +621,9 @@ namespace {
 
         auto source = std::make_shared<ConstantMonoSource>();
         BenchAudioDevice device;
-        device.configure(
-            make_device_properties(Lowl::Audio::SampleFormat::FLOAT_32, Lowl::Audio::ChannelLayout::Mono),
-            source, frames_per_buffer);
+        device.configure(make_device_properties(Lowl::Audio::SampleFormat::FLOAT_32, Lowl::Audio::ChannelLayout::Mono),
+                         source,
+                         frames_per_buffer);
 
         std::vector<std::byte> buffer(static_cast<size_t>(frames_per_buffer) * bytes_per_frame);
         for (auto _ : state) {
@@ -598,8 +633,8 @@ namespace {
         }
 
         state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(frames_per_buffer));
-        state.SetBytesProcessed(
-            state.iterations() * static_cast<int64_t>(frames_per_buffer) * static_cast<int64_t>(bytes_per_frame));
+        state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(frames_per_buffer) *
+                                static_cast<int64_t>(bytes_per_frame));
     }
 
     static void BM_AudioDevice_Render_AudioSpace(benchmark::State &state) {
@@ -627,46 +662,24 @@ namespace {
     }
 } // namespace
 
-BENCHMARK(BM_AudioDevice_Render_FLOAT32_Stereo)
-    ->Apply(apply_frame_args)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_AudioDevice_Render_FLOAT32_Stereo)->Apply(apply_frame_args)->Unit(benchmark::kMicrosecond);
 
-BENCHMARK(BM_AudioDevice_Render_INT16_Stereo)
-    ->Apply(apply_frame_args)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_AudioDevice_Render_INT16_Stereo)->Apply(apply_frame_args)->Unit(benchmark::kMicrosecond);
 
-BENCHMARK(BM_AudioDevice_Render_INT24_Stereo)
-    ->Apply(apply_frame_args)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_AudioDevice_Render_INT24_Stereo)->Apply(apply_frame_args)->Unit(benchmark::kMicrosecond);
 
-BENCHMARK(BM_AudioDevice_Render_INT32_Stereo)
-    ->Apply(apply_frame_args)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_AudioDevice_Render_INT32_Stereo)->Apply(apply_frame_args)->Unit(benchmark::kMicrosecond);
 
-BENCHMARK(BM_AudioDevice_Render_FLOAT32_Mono)
-    ->Apply(apply_frame_args)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_AudioDevice_Render_FLOAT32_Mono)->Apply(apply_frame_args)->Unit(benchmark::kMicrosecond);
 
-BENCHMARK(BM_AudioMixer_Render)
-    ->Apply(apply_voice_and_frame_args)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_AudioMixer_Render)->Apply(apply_voice_and_frame_args)->Unit(benchmark::kMicrosecond);
 
-BENCHMARK(BM_AudioDevice_Render_AudioSpace)
-    ->Apply(apply_voice_and_frame_args)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_AudioDevice_Render_AudioSpace)->Apply(apply_voice_and_frame_args)->Unit(benchmark::kMicrosecond);
 
-BENCHMARK(BM_AudioDevice_Render_AudioSpace_Mono)
-    ->Apply(apply_voice_and_frame_args)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_AudioDevice_Render_AudioSpace_Mono)->Apply(apply_voice_and_frame_args)->Unit(benchmark::kMicrosecond);
 
-BENCHMARK(BM_AudioDevice_Render_AudioStream)
-    ->Apply(apply_frame_args)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_AudioDevice_Render_AudioStream)->Apply(apply_frame_args)->Unit(benchmark::kMicrosecond);
 
-BENCHMARK(BM_AudioDevice_Render_AudioStream_Planar)
-    ->Apply(apply_frame_args)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_AudioDevice_Render_AudioStream_Planar)->Apply(apply_frame_args)->Unit(benchmark::kMicrosecond);
 
-BENCHMARK(BM_AudioDevice_Render_AudioStream_Threaded)
-    ->Apply(apply_frame_args)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_AudioDevice_Render_AudioStream_Threaded)->Apply(apply_frame_args)->Unit(benchmark::kMicrosecond);

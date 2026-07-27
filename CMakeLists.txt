@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.31)
 project(lowl_audio)
 
+include(CTest)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -230,7 +232,9 @@ add_subdirectory(third_party)
 target_link_libraries(${LOWL_LIB_MAIN} PUBLIC lowl_third_party)
 
 # Unit Test
-add_subdirectory(test)
+if (BUILD_TESTING)
+    add_subdirectory(test)
+endif ()
 
 # Benchmarks
 if (LOWL_BUILD_BENCHMARKS)

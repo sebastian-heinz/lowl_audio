@@ -1,8 +1,6 @@
 #include <doctest/doctest.h>
 
-#include "audio/lowl_audio_buffer.h"
-#include "audio/backend/lowl_audio_device.h"
-
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -11,22 +9,23 @@
 #include <utility>
 #include <vector>
 
+#include "audio/backend/lowl_audio_device.h"
+#include "audio/lowl_audio_buffer.h"
+
 namespace {
     struct StereoSample {
         Lowl::Sample left;
         Lowl::Sample right;
     };
 
-    template <typename Value>
-    Value read_unaligned(const uint8_t *p_src) {
+    template <typename Value> Value read_unaligned(const uint8_t *p_src) {
         Value value{};
         std::memcpy(&value, p_src, sizeof(value));
         return value;
     }
 
     int32_t read_int24(const uint8_t *p_src) {
-        const int32_t unsigned_value = static_cast<int32_t>(p_src[0]) |
-                                       (static_cast<int32_t>(p_src[1]) << 8) |
+        const int32_t unsigned_value = static_cast<int32_t>(p_src[0]) | (static_cast<int32_t>(p_src[1]) << 8) |
                                        (static_cast<int32_t>(p_src[2]) << 16);
         return (unsigned_value & 0x800000) != 0 ? unsigned_value - 0x1000000 : unsigned_value;
     }
@@ -38,13 +37,13 @@ namespace {
               frames(std::move(p_frames)) {
         }
 
-        RenderResult mix_into(Lowl::Audio::AudioBlockView p_block,
-                              const MixGainVector &) override {
+        RenderResult mix_into(Lowl::Audio::AudioBlockView p_block, const MixGainVector &) override {
             if (next_frame >= frames.size() || p_block.frame_count == 0) {
                 return {0, RenderState::Finished};
             }
 
-            const uint32_t frames_to_copy = static_cast<uint32_t>(std::min<size_t>(frames.size() - next_frame, p_block.frame_count));
+            const uint32_t frames_to_copy =
+                static_cast<uint32_t>(std::min<size_t>(frames.size() - next_frame, p_block.frame_count));
             for (uint32_t frame_index = 0; frame_index < frames_to_copy; frame_index++) {
                 const StereoSample &frame = frames[next_frame + frame_index];
                 p_block.channel(0)[frame_index] += frame.left;
@@ -77,8 +76,7 @@ namespace {
     class OneFrameMonoSource final : public Lowl::Audio::AudioSource {
     public:
         explicit OneFrameMonoSource(const Lowl::Sample p_sample)
-            : AudioSource(Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Mono}),
-              sample(p_sample) {
+            : AudioSource(Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Mono}), sample(p_sample) {
         }
 
         RenderResult mix_into(Lowl::Audio::AudioBlockView p_block, const MixGainVector &) override {
@@ -107,15 +105,53 @@ namespace {
         bool consumed = false;
     };
 
+    class ConstantMultichannelSource final : public Lowl::Audio::AudioSource {
+    public:
+        ConstantMultichannelSource(const Lowl::Audio::ChannelLayout p_layout, const uint32_t p_frame_count)
+            : AudioSource(Lowl::Audio::AudioFormat{44100.0, p_layout}), frame_count(p_frame_count) {
+        }
+
+        RenderResult mix_into(Lowl::Audio::AudioBlockView p_block, const MixGainVector &p_upstream_gain) override {
+            if (p_block.channel_count != get_channel_count()) {
+                return {0, RenderState::Error};
+            }
+
+            const uint32_t frames_to_write = std::min<uint32_t>(p_block.frame_count, frame_count - frame_position);
+            const MixGainVector gain = compose_gain_vector(p_upstream_gain);
+            for (uint8_t channel_index = 0; channel_index < p_block.channel_count; channel_index++) {
+                const Lowl::Sample value = static_cast<Lowl::Sample>(channel_index + 1) / static_cast<Lowl::Sample>(16);
+                for (uint32_t frame_index = 0; frame_index < frames_to_write; frame_index++) {
+                    p_block.channel(channel_index)[frame_index] += value * gain[channel_index];
+                }
+            }
+            frame_position += frames_to_write;
+            return {frames_to_write, frame_position == frame_count ? RenderState::Finished : RenderState::Ok};
+        }
+
+        Lowl::size_l get_frames_remaining() const override {
+            return frame_count - frame_position;
+        }
+
+        Lowl::size_l get_frame_position() const override {
+            return frame_position;
+        }
+
+        Lowl::size_l get_frame_count() const override {
+            return frame_count;
+        }
+
+    private:
+        uint32_t frame_count = 0;
+        uint32_t frame_position = 0;
+    };
+
     class TestAudioDevice final : public Lowl::Audio::AudioDevice {
     public:
         TestAudioDevice() : AudioDevice(_constructor_tag()) {
         }
 
-        void configure(
-            const Lowl::Audio::AudioDeviceProperties &p_properties,
-            std::shared_ptr<Lowl::Audio::AudioSource> p_audio_source
-        ) {
+        void configure(const Lowl::Audio::AudioDeviceProperties &p_properties,
+                       std::shared_ptr<Lowl::Audio::AudioSource> p_audio_source) {
             audio_device_properties = p_properties;
             audio_source = std::move(p_audio_source);
         }
@@ -141,22 +177,19 @@ namespace {
             if (!prepare(p_frames_per_buffer)) {
                 return false;
             }
-            write_published(
-                p_dst,
-                static_cast<size_t>(p_frames_per_buffer) * p_bytes_per_frame,
-                p_frames_per_buffer,
-                p_bytes_per_frame
-            );
+            write_published(p_dst,
+                            static_cast<size_t>(p_frames_per_buffer) * p_bytes_per_frame,
+                            p_frames_per_buffer,
+                            p_bytes_per_frame);
             return true;
         }
 
-        void write_published(
-            void *p_dst,
-            size_t p_dst_byte_size,
-            unsigned long p_frames_per_buffer,
-            unsigned long p_bytes_per_frame
-        ) {
-            render_to_device_buffer(load_render_state(), p_dst, p_dst_byte_size, p_frames_per_buffer, p_bytes_per_frame);
+        void write_published(void *p_dst,
+                             size_t p_dst_byte_size,
+                             unsigned long p_frames_per_buffer,
+                             unsigned long p_bytes_per_frame) {
+            render_to_device_buffer(
+                load_render_state(), p_dst, p_dst_byte_size, p_frames_per_buffer, p_bytes_per_frame);
         }
 
         bool write_planar(void *const *p_dst_channels,
@@ -166,28 +199,22 @@ namespace {
             if (!prepare(p_frames_per_buffer)) {
                 return false;
             }
-            return render_to_planar_device_buffers(load_render_state(),
-                                                   p_dst_channels,
-                                                   p_dst_byte_sizes,
-                                                   p_dst_channel_count,
-                                                   p_frames_per_buffer);
+            return render_to_planar_device_buffers(
+                load_render_state(), p_dst_channels, p_dst_byte_sizes, p_dst_channel_count, p_frames_per_buffer);
         }
 
         void set_properties_list(std::vector<Lowl::Audio::AudioDeviceProperties> p_properties_list) {
             properties_list = std::move(p_properties_list);
         }
 
-        void start(
-            Lowl::Audio::AudioDeviceProperties,
-            std::shared_ptr<Lowl::Audio::AudioSource>,
-            Lowl::Error &
-        ) override {
+        void
+        start(Lowl::Audio::AudioDeviceProperties, std::shared_ptr<Lowl::Audio::AudioSource>, Lowl::Error &) override {
         }
 
         void stop(Lowl::Error &) override {
         }
     };
-}
+} // namespace
 
 TEST_CASE("AudioDevice") {
     SUBCASE("AudioDeviceProperties - default initialization is safe") {
@@ -224,6 +251,27 @@ TEST_CASE("AudioDevice") {
         REQUIRE_EQ(selected, exact);
     }
 
+    SUBCASE("AudioDevice - get_closest_properties preserves WASAPI valid-bit precision") {
+        TestAudioDevice device;
+
+        Lowl::Audio::AudioDeviceProperties requested{};
+        requested.is_supported = true;
+        requested.audio_format = Lowl::Audio::AudioFormat{48000.0, Lowl::Audio::ChannelLayout::Stereo};
+        requested.sample_format = Lowl::Audio::SampleFormat::INT_32;
+        requested.wasapi.valid_bits_per_sample = 24;
+
+        Lowl::Audio::AudioDeviceProperties full_precision = requested;
+        full_precision.wasapi.valid_bits_per_sample = 32;
+        device.set_properties_list({full_precision, requested});
+
+        Lowl::Error error;
+        const Lowl::Audio::AudioDeviceProperties selected = device.get_closest_properties(requested, error);
+        REQUIRE_FALSE(error.has_error());
+        REQUIRE_EQ(selected, requested);
+        REQUIRE_NE(full_precision, requested);
+        REQUIRE((full_precision < requested || requested < full_precision));
+    }
+
     SUBCASE("AudioDevice - get_closest_properties falls back to nearest sample rate") {
         TestAudioDevice device;
 
@@ -255,8 +303,7 @@ TEST_CASE("AudioDevice") {
         Lowl::Audio::AudioDeviceProperties rhs = lhs;
         rhs.audio_format.sample_rate = 48000.4;
 
-        REQUIRE((lhs.get_audio_format() ==
-                 Lowl::Audio::AudioFormat{48000.0, Lowl::Audio::ChannelLayout::Stereo}));
+        REQUIRE((lhs.get_audio_format() == Lowl::Audio::AudioFormat{48000.0, Lowl::Audio::ChannelLayout::Stereo}));
         REQUIRE(lhs == rhs);
         REQUIRE_FALSE(lhs < rhs);
         REQUIRE_FALSE(rhs < lhs);
@@ -272,9 +319,7 @@ TEST_CASE("AudioDevice") {
         alignas(float) std::array<uint8_t, audio_bytes + guard_bytes> buffer{};
         buffer.fill(0x7F);
 
-        auto source = std::make_shared<ShortReadAudioSource>(
-            std::vector<StereoSample>{StereoSample{0.25f, -0.25f}}
-        );
+        auto source = std::make_shared<ShortReadAudioSource>(std::vector<StereoSample>{StereoSample{0.25f, -0.25f}});
 
         Lowl::Audio::AudioDeviceProperties properties{};
         properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
@@ -308,8 +353,7 @@ TEST_CASE("AudioDevice") {
         buffer.fill(0x7F);
 
         auto source = std::make_shared<ShortReadAudioSource>(
-            std::vector<StereoSample>{StereoSample{0.25f, -0.25f}, StereoSample{0.5f, -0.5f}}
-        );
+            std::vector<StereoSample>{StereoSample{0.25f, -0.25f}, StereoSample{0.5f, -0.5f}});
 
         Lowl::Audio::AudioDeviceProperties properties{};
         properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
@@ -336,12 +380,10 @@ TEST_CASE("AudioDevice") {
         std::array<int16_t, frames_per_buffer * channels> buffer{};
         buffer.fill(static_cast<int16_t>(0x1234));
 
-        auto source = std::make_shared<ShortReadAudioSource>(
-            std::vector<StereoSample>{
-                StereoSample{0.25f, -0.25f},
-                StereoSample{-1.0f, 1.0f},
-            }
-        );
+        auto source = std::make_shared<ShortReadAudioSource>(std::vector<StereoSample>{
+            StereoSample{0.25f, -0.25f},
+            StereoSample{-1.0f, 1.0f},
+        });
 
         Lowl::Audio::AudioDeviceProperties properties{};
         properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
@@ -376,14 +418,11 @@ TEST_CASE("AudioDevice") {
             alignas(double) std::array<uint8_t, max_audio_bytes + guard_bytes> buffer{};
             buffer.fill(0x7F);
 
-            auto source = std::make_shared<ShortReadAudioSource>(
-                std::vector<StereoSample>{StereoSample{static_cast<Lowl::Sample>(0.25),
-                                                       static_cast<Lowl::Sample>(-0.5)}}
-            );
+            auto source = std::make_shared<ShortReadAudioSource>(std::vector<StereoSample>{
+                StereoSample{static_cast<Lowl::Sample>(0.25), static_cast<Lowl::Sample>(-0.5)}});
 
             Lowl::Audio::AudioDeviceProperties properties{};
-            properties.audio_format =
-                Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
+            properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
             properties.sample_format = sample_format;
 
             const size_t sample_size = Lowl::Audio::get_sample_size_bytes(sample_format);
@@ -413,13 +452,11 @@ TEST_CASE("AudioDevice") {
                     break;
                 case Lowl::Audio::SampleFormat::INT_16:
                     REQUIRE_EQ(read_unaligned<int16_t>(buffer.data()), static_cast<int16_t>(8191));
-                    REQUIRE_EQ(read_unaligned<int16_t>(buffer.data() + sizeof(int16_t)),
-                               static_cast<int16_t>(-16383));
+                    REQUIRE_EQ(read_unaligned<int16_t>(buffer.data() + sizeof(int16_t)), static_cast<int16_t>(-16383));
                     break;
                 case Lowl::Audio::SampleFormat::INT_8:
                     REQUIRE_EQ(read_unaligned<int8_t>(buffer.data()), static_cast<int8_t>(31));
-                    REQUIRE_EQ(read_unaligned<int8_t>(buffer.data() + sizeof(int8_t)),
-                               static_cast<int8_t>(-63));
+                    REQUIRE_EQ(read_unaligned<int8_t>(buffer.data() + sizeof(int8_t)), static_cast<int8_t>(-63));
                     break;
                 case Lowl::Audio::SampleFormat::U_INT_8:
                     REQUIRE_EQ(buffer[0], static_cast<uint8_t>(159));
@@ -440,6 +477,37 @@ TEST_CASE("AudioDevice") {
         }
     }
 
+    SUBCASE("AudioDevice - 24 valid PCM bits are left-aligned in a 32-bit WASAPI container") {
+        constexpr unsigned long frames_per_buffer = 2;
+        constexpr unsigned long channels = 2;
+        constexpr unsigned long bytes_per_frame = sizeof(int32_t) * channels;
+        constexpr int32_t guard_value = 0x12345678;
+
+        std::array<int32_t, frames_per_buffer * channels + 2> buffer{};
+        buffer.fill(guard_value);
+
+        auto source = std::make_shared<ShortReadAudioSource>(std::vector<StereoSample>{
+            StereoSample{static_cast<Lowl::Sample>(0.25), static_cast<Lowl::Sample>(-0.5)},
+        });
+        Lowl::Audio::AudioDeviceProperties properties{};
+        properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
+        properties.sample_format = Lowl::Audio::SampleFormat::INT_32;
+        properties.wasapi.valid_bits_per_sample = 24;
+
+        TestAudioDevice device;
+        device.configure(properties, source);
+        REQUIRE(device.write(buffer.data(), frames_per_buffer, bytes_per_frame));
+
+        REQUIRE_EQ(buffer[0], static_cast<int32_t>(2097152 * 256));
+        REQUIRE_EQ(buffer[1], static_cast<int32_t>(-4194304 * 256));
+        REQUIRE_EQ(buffer[2], 0);
+        REQUIRE_EQ(buffer[3], 0);
+        REQUIRE_EQ(buffer[4], guard_value);
+        REQUIRE_EQ(buffer[5], guard_value);
+        REQUIRE_EQ(static_cast<uint32_t>(buffer[0]) & 0xFFU, 0U);
+        REQUIRE_EQ(static_cast<uint32_t>(buffer[1]) & 0xFFU, 0U);
+    }
+
     SUBCASE("AudioDevice - FLOAT32 mono output uses the Sample-width-correct path") {
         constexpr unsigned long frames_per_buffer = 2;
         constexpr unsigned long bytes_per_frame = sizeof(float);
@@ -450,8 +518,7 @@ TEST_CASE("AudioDevice") {
 
         auto source = std::make_shared<OneFrameMonoSource>(static_cast<Lowl::Sample>(0.25));
         Lowl::Audio::AudioDeviceProperties properties{};
-        properties.audio_format =
-            Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Mono};
+        properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Mono};
         properties.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
 
         TestAudioDevice device;
@@ -481,14 +548,11 @@ TEST_CASE("AudioDevice") {
             left_buffer.fill(0x7F);
             right_buffer.fill(0x7F);
 
-            auto source = std::make_shared<ShortReadAudioSource>(
-                std::vector<StereoSample>{StereoSample{static_cast<Lowl::Sample>(0.25),
-                                                       static_cast<Lowl::Sample>(-0.5)}}
-            );
+            auto source = std::make_shared<ShortReadAudioSource>(std::vector<StereoSample>{
+                StereoSample{static_cast<Lowl::Sample>(0.25), static_cast<Lowl::Sample>(-0.5)}});
 
             Lowl::Audio::AudioDeviceProperties properties{};
-            properties.audio_format =
-                Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
+            properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
             properties.sample_format = sample_format;
 
             const size_t sample_size = Lowl::Audio::get_sample_size_bytes(sample_format);
@@ -498,10 +562,7 @@ TEST_CASE("AudioDevice") {
 
             TestAudioDevice device;
             device.configure(properties, source);
-            REQUIRE(device.write_planar(dst_channels.data(),
-                                        dst_byte_sizes.data(),
-                                        channels,
-                                        frames_per_buffer));
+            REQUIRE(device.write_planar(dst_channels.data(), dst_byte_sizes.data(), channels, frames_per_buffer));
 
             if (sample_format == Lowl::Audio::SampleFormat::FLOAT_32) {
                 REQUIRE_EQ(read_unaligned<float>(left_buffer.data()), doctest::Approx(0.25f));
@@ -522,6 +583,47 @@ TEST_CASE("AudioDevice") {
         }
     }
 
+    SUBCASE("AudioDevice - large callbacks interleave every channel layout from one through eight") {
+        constexpr uint32_t frames_per_buffer = 4096;
+        constexpr size_t guard_samples = 16;
+        constexpr float guard_value = 123.0f;
+
+        for (uint8_t channel_count = 1; channel_count <= Lowl::Audio::ChannelLayout::MaxChannels; channel_count++) {
+            CAPTURE(channel_count);
+            const Lowl::Audio::ChannelLayout layout = Lowl::Audio::ChannelLayout::from_count(channel_count);
+            REQUIRE(layout.is_valid());
+
+            auto source = std::make_shared<ConstantMultichannelSource>(layout, frames_per_buffer);
+            Lowl::Audio::AudioDeviceProperties properties{};
+            properties.audio_format = Lowl::Audio::AudioFormat{44100.0, layout};
+            properties.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
+
+            const size_t audio_sample_count = static_cast<size_t>(frames_per_buffer) * channel_count;
+            std::vector<float> buffer(audio_sample_count + guard_samples, guard_value);
+
+            TestAudioDevice device;
+            device.configure(properties, source);
+            REQUIRE(device.write(
+                buffer.data(), frames_per_buffer, static_cast<unsigned long>(sizeof(float) * channel_count)));
+
+            const uint32_t sampled_frames[] = {
+                0,
+                frames_per_buffer / 2,
+                frames_per_buffer - 1,
+            };
+            for (const uint32_t frame_index : sampled_frames) {
+                for (uint8_t channel_index = 0; channel_index < channel_count; channel_index++) {
+                    const float expected = static_cast<float>(channel_index + 1) / 16.0f;
+                    REQUIRE_EQ(buffer[static_cast<size_t>(frame_index) * channel_count + channel_index],
+                               doctest::Approx(expected));
+                }
+            }
+            for (size_t guard_index = audio_sample_count; guard_index < buffer.size(); guard_index++) {
+                REQUIRE_EQ(buffer[guard_index], doctest::Approx(guard_value));
+            }
+        }
+    }
+
     SUBCASE("AudioDevice - published render state is independent from live configuration") {
         constexpr unsigned long frames_per_buffer = 2;
         constexpr unsigned long channels = 2;
@@ -532,8 +634,7 @@ TEST_CASE("AudioDevice") {
         buffer.fill(0);
 
         auto source = std::make_shared<ShortReadAudioSource>(
-            std::vector<StereoSample>{StereoSample{0.25f, -0.25f}, StereoSample{0.5f, -0.5f}}
-        );
+            std::vector<StereoSample>{StereoSample{0.25f, -0.25f}, StereoSample{0.5f, -0.5f}});
 
         Lowl::Audio::AudioDeviceProperties properties{};
         properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
@@ -562,8 +663,7 @@ TEST_CASE("AudioDevice") {
         buffer.fill(0x7F);
 
         auto source = std::make_shared<ShortReadAudioSource>(
-            std::vector<StereoSample>{StereoSample{0.25f, -0.25f}, StereoSample{0.5f, -0.5f}}
-        );
+            std::vector<StereoSample>{StereoSample{0.25f, -0.25f}, StereoSample{0.5f, -0.5f}});
 
         Lowl::Audio::AudioDeviceProperties properties{};
         properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
@@ -584,9 +684,7 @@ TEST_CASE("AudioDevice") {
     SUBCASE("AudioDevice - unpublished render state remains alive until explicit retirement") {
         constexpr unsigned long frames_per_buffer = 2;
 
-        auto source = std::make_shared<ShortReadAudioSource>(
-            std::vector<StereoSample>{StereoSample{0.25f, -0.25f}}
-        );
+        auto source = std::make_shared<ShortReadAudioSource>(std::vector<StereoSample>{StereoSample{0.25f, -0.25f}});
         std::weak_ptr<ShortReadAudioSource> source_lifetime = source;
 
         Lowl::Audio::AudioDeviceProperties properties{};
@@ -619,8 +717,7 @@ TEST_CASE("AudioDevice") {
         buffer.fill(0x7F);
 
         auto source = std::make_shared<ShortReadAudioSource>(
-            std::vector<StereoSample>{StereoSample{0.25f, -0.25f}, StereoSample{0.5f, -0.5f}}
-        );
+            std::vector<StereoSample>{StereoSample{0.25f, -0.25f}, StereoSample{0.5f, -0.5f}});
 
         Lowl::Audio::AudioDeviceProperties properties{};
         properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};

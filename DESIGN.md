@@ -159,6 +159,8 @@ Known gaps and planned extensions are listed separately under **Things Left To D
 - A reserved slot can produce at most one terminal completion before collection.
 - The completion queue has the same capacity as the slot table, so valid state bounds outstanding completions.
 - Completion enqueue failure is an invariant violation rather than expected backpressure.
+  The render slot first enters a non-rendering `CompletionPending` state and retains the completion for retry,
+  so even an invariant failure cannot silently orphan the caller-owned source lifetime.
 
 ### Playback and publication
 
@@ -213,6 +215,10 @@ Known gaps and planned extensions are listed separately under **Things Left To D
 - Live format conversion will use explicit `Resampler` and `ChannelMap` source nodes.
 - `Sample` is `float32` by default and `double` when `LOWL_TYPE_SAMPLE_64` is selected.
 - Device-boundary conversion supports both `Sample` widths and every advertised output `SampleFormat`.
+- PCM valid-bit precision is part of device-property identity, and samples are left-aligned when a backend
+  uses fewer valid bits than its integer container width.
+- Backend channel layouts use explicit speaker mappings; platform bit positions are never assumed to match
+  the library `Speaker` mask.
 - Matching planar float output may render directly into backend buffers; differing scalar widths use the
   preallocated render buffer and explicit conversion.
 - Float32 retains the optimized SIMD write paths. Double `Sample` uses width-correct scalar conversion
@@ -295,22 +301,9 @@ Known gaps and planned extensions are listed separately under **Things Left To D
 
 ### P0 — Correctness and Lifetime Safety
 
-- Restore the full test target against the current public contracts.
-  Replace pre-redesign Mixer acknowledgement APIs, pass explicit `Error` values through Space control calls,
-  add direct dependencies required by focused tests, and require a clean fresh build before accepting results.
-- Make `LOWL_TYPE_SAMPLE_64` a supported public build option and run the complete test matrix for both
-  float32 and double `Sample`.
-  The compile definition must propagate to consumers because `Sample` is part of the public ABI.
-- Prove and stress-test the mixer completion-capacity invariant.
-  Define a release-build invariant-failure policy that cannot silently orphan source lifetime.
 - Validate staged start/stop failure handling on real CoreAudio and WASAPI devices.
   Exercise every lifecycle stage, retry `stop()`, and verify that callbacks cannot observe released state or memory.
-- Add focused concurrency and boundary coverage for:
-  - Mixer connect/remove/finish/retire.
-  - Space playback-slot recycling and paused aggregate retirement.
-  - `AudioGraph` subtree disconnect/destroy and paused retirement.
-  - Stale generations and compact handle capacity boundaries.
-  - Coherent `PlaybackSnapshot` observations above the former 32-bit position limit.
+  This requires physical backend environments; real WASAPI testing is intentionally outside the current pass.
 
 ### P1 — Explicit Processing Components
 
@@ -318,15 +311,6 @@ Known gaps and planned extensions are listed separately under **Things Left To D
 - Implement live `ChannelMap`.
 - Resolve per-playback processing inside `AudioSpace`, then implement `Spatializer`.
 - Define and implement the effects/application-DSP source contract.
-
-### P2 — API and Platform Hardening
-
-- Verify advertised channel-layout and `SampleFormat` behavior across CoreAudio and WASAPI.
-  Include large callback sizes and layouts up to the eight-channel graph limit.
-- Synchronize public documentation with the no-bus composition model and current error-reporting APIs.
-- Add composition examples for:
-  - Manually owned root and nested mixers with acknowledgement-driven teardown.
-  - An owning `AudioGraph` containing mixers, multiple Spaces, and a stream.
 
 ### P3 — Explicitly Deferred or Optional
 

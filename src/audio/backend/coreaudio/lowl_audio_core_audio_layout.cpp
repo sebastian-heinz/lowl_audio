@@ -2,9 +2,72 @@
 
 #include "lowl_audio_core_audio_layout.h"
 
+#include <cstddef>
+
 namespace {
     using Lowl::Audio::ChannelLayout;
     using Lowl::Audio::Speaker;
+
+    bool to_label_from_speaker(const Speaker p_speaker, AudioChannelLabel &r_label) {
+        switch (p_speaker) {
+            case Speaker::FrontLeft:
+                r_label = kAudioChannelLabel_Left;
+                return true;
+            case Speaker::FrontRight:
+                r_label = kAudioChannelLabel_Right;
+                return true;
+            case Speaker::FrontCenter:
+                r_label = kAudioChannelLabel_Center;
+                return true;
+            case Speaker::LowFrequency:
+                r_label = kAudioChannelLabel_LFEScreen;
+                return true;
+            case Speaker::BackLeft:
+                r_label = kAudioChannelLabel_RearSurroundLeft;
+                return true;
+            case Speaker::BackRight:
+                r_label = kAudioChannelLabel_RearSurroundRight;
+                return true;
+            case Speaker::FrontLeftOfCenter:
+                r_label = kAudioChannelLabel_LeftCenter;
+                return true;
+            case Speaker::FrontRightOfCenter:
+                r_label = kAudioChannelLabel_RightCenter;
+                return true;
+            case Speaker::BackCenter:
+                r_label = kAudioChannelLabel_CenterSurround;
+                return true;
+            case Speaker::SideLeft:
+                r_label = kAudioChannelLabel_LeftSideSurround;
+                return true;
+            case Speaker::SideRight:
+                r_label = kAudioChannelLabel_RightSideSurround;
+                return true;
+            case Speaker::TopCenter:
+                r_label = kAudioChannelLabel_TopCenterSurround;
+                return true;
+            case Speaker::TopFrontLeft:
+                r_label = kAudioChannelLabel_VerticalHeightLeft;
+                return true;
+            case Speaker::TopFrontCenter:
+                r_label = kAudioChannelLabel_VerticalHeightCenter;
+                return true;
+            case Speaker::TopFrontRight:
+                r_label = kAudioChannelLabel_VerticalHeightRight;
+                return true;
+            case Speaker::TopBackLeft:
+                r_label = kAudioChannelLabel_TopBackLeft;
+                return true;
+            case Speaker::TopBackCenter:
+                r_label = kAudioChannelLabel_TopBackCenter;
+                return true;
+            case Speaker::TopBackRight:
+                r_label = kAudioChannelLabel_TopBackRight;
+                return true;
+            default:
+                return false;
+        }
+    }
 
     Speaker to_speaker_from_label(const AudioChannelLabel p_label) {
         switch (p_label) {
@@ -122,7 +185,8 @@ Lowl::Audio::ChannelLayout Lowl::Audio::CoreAudioLayout::to_channel_layout(const
         case kAudioChannelLayoutTag_UseChannelBitmap:
             return to_channel_layout_from_bitmap(p_layout.mChannelBitmap);
         case kAudioChannelLayoutTag_UseChannelDescriptions:
-            return to_channel_layout_from_descriptions(p_layout.mChannelDescriptions, p_layout.mNumberChannelDescriptions);
+            return to_channel_layout_from_descriptions(p_layout.mChannelDescriptions,
+                                                       p_layout.mNumberChannelDescriptions);
         case kAudioChannelLayoutTag_Mono:
             return ChannelLayout::Mono;
         case kAudioChannelLayoutTag_Stereo:
@@ -172,11 +236,20 @@ std::vector<uint8_t> Lowl::Audio::CoreAudioLayout::create_channel_layout_data(co
         return {};
     }
 
-    std::vector<uint8_t> layout_data(sizeof(AudioChannelLayout), 0);
+    const size_t layout_size = offsetof(AudioChannelLayout, mChannelDescriptions) +
+                               static_cast<size_t>(p_layout.channel_count) * sizeof(AudioChannelDescription);
+    std::vector<uint8_t> layout_data(layout_size, 0);
     auto *layout = reinterpret_cast<AudioChannelLayout *>(layout_data.data());
-    layout->mChannelLayoutTag = kAudioChannelLayoutTag_UseChannelBitmap;
-    layout->mChannelBitmap = static_cast<AudioChannelBitmap>(p_layout.speaker_mask);
-    layout->mNumberChannelDescriptions = 0;
+    layout->mChannelLayoutTag = kAudioChannelLayoutTag_UseChannelDescriptions;
+    layout->mChannelBitmap = 0;
+    layout->mNumberChannelDescriptions = p_layout.channel_count;
+    for (uint8_t channel_index = 0; channel_index < p_layout.channel_count; channel_index++) {
+        AudioChannelLabel label = kAudioChannelLabel_Unknown;
+        if (!to_label_from_speaker(p_layout.speaker_at(channel_index), label)) {
+            return {};
+        }
+        layout->mChannelDescriptions[channel_index].mChannelLabel = label;
+    }
     return layout_data;
 }
 

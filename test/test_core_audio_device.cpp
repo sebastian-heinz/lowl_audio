@@ -10,6 +10,8 @@
 #include <vector>
 
 #include "audio/backend/coreaudio/lowl_audio_core_audio_device.h"
+#include "audio/backend/coreaudio/lowl_audio_core_audio_layout.h"
+#include "audio/lowl_audio_setting.h"
 #include "audio/source/lowl_audio_mixer.h"
 
 namespace {
@@ -21,8 +23,7 @@ namespace {
     class OneFrameStereoSource final : public Lowl::Audio::AudioSource {
     public:
         explicit OneFrameStereoSource(const StereoSample p_sample)
-            : AudioSource(Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo}),
-              sample(p_sample) {
+            : AudioSource(Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo}), sample(p_sample) {
         }
 
         RenderResult mix_into(Lowl::Audio::AudioBlockView p_block, const MixGainVector &) override {
@@ -52,8 +53,7 @@ namespace {
         bool consumed = false;
     };
 
-    template <typename Value>
-    Value read_unaligned(const uint8_t *p_src) {
+    template <typename Value> Value read_unaligned(const uint8_t *p_src) {
         Value value{};
         std::memcpy(&value, p_src, sizeof(value));
         return value;
@@ -90,6 +90,22 @@ namespace {
 } // namespace
 
 TEST_CASE("CoreAudioDevice") {
+    SUBCASE("CoreAudioDevice - every advertised channel layout round-trips through CoreAudio descriptions") {
+        const std::vector<Lowl::Audio::ChannelLayout> advertised_layouts =
+            Lowl::Audio::AudioSetting::get_test_channel_layouts();
+
+        for (const Lowl::Audio::ChannelLayout &layout : advertised_layouts) {
+            CAPTURE(layout.to_string());
+            const std::vector<uint8_t> layout_data = Lowl::Audio::CoreAudioLayout::create_channel_layout_data(layout);
+            REQUIRE_FALSE(layout_data.empty());
+
+            const auto *core_audio_layout = reinterpret_cast<const AudioChannelLayout *>(layout_data.data());
+            REQUIRE_EQ(core_audio_layout->mChannelLayoutTag, kAudioChannelLayoutTag_UseChannelDescriptions);
+            REQUIRE_EQ(core_audio_layout->mNumberChannelDescriptions, layout.channel_count);
+            REQUIRE_EQ(Lowl::Audio::CoreAudioLayout::to_channel_layout(*core_audio_layout), layout);
+        }
+    }
+
     SUBCASE("CoreAudioDevice - property_callback processes every address in the batch") {
         RecordingCoreAudioDevice device;
         const AudioObjectPropertyAddress addresses[] = {
@@ -127,8 +143,7 @@ TEST_CASE("CoreAudioDevice") {
         for (const Lowl::Audio::SampleFormat sample_format : unsupported_formats) {
             Lowl::Audio::AudioDeviceProperties properties{};
             properties.is_supported = true;
-            properties.audio_format =
-                Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
+            properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
             properties.sample_format = sample_format;
 
             Lowl::Error error;
@@ -147,8 +162,7 @@ TEST_CASE("CoreAudioDevice") {
         RecordingCoreAudioDevice device;
         Lowl::Audio::AudioDeviceProperties properties{};
         properties.is_supported = true;
-        properties.audio_format =
-            Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
+        properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
         properties.sample_format = Lowl::Audio::SampleFormat::FLOAT_32;
 
         auto source = std::make_shared<Lowl::Audio::AudioMixer>(
@@ -189,8 +203,7 @@ TEST_CASE("CoreAudioDevice") {
             auto source = std::make_shared<OneFrameStereoSource>(
                 StereoSample{static_cast<Lowl::Sample>(0.25), static_cast<Lowl::Sample>(-0.5)});
             Lowl::Audio::AudioDeviceProperties properties{};
-            properties.audio_format =
-                Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
+            properties.audio_format = Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo};
             properties.sample_format = sample_format;
 
             RecordingCoreAudioDevice device;
@@ -199,12 +212,7 @@ TEST_CASE("CoreAudioDevice") {
 
             AudioUnitRenderActionFlags action_flags = 0;
             AudioTimeStamp timestamp{};
-            REQUIRE_EQ(device.audio_callback(&action_flags,
-                                             &timestamp,
-                                             0,
-                                             frames_per_buffer,
-                                             buffer_list),
-                       noErr);
+            REQUIRE_EQ(device.audio_callback(&action_flags, &timestamp, 0, frames_per_buffer, buffer_list), noErr);
 
             if (sample_format == Lowl::Audio::SampleFormat::FLOAT_32) {
                 REQUIRE_EQ(read_unaligned<float>(left_buffer.data()), doctest::Approx(0.25f));

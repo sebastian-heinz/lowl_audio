@@ -27,15 +27,15 @@ namespace Lowl::Audio {
                    "channel_layout:" + audio_format.channel_layout.to_string() + "," +
                    "sample_rate:" + std::to_string(audio_format.sample_rate) + "," +
                    "sample_format:" + std::string(sample_format_to_string(sample_format)) + "," +
+                   "valid_bits_per_sample:" + std::to_string(wasapi.valid_bits_per_sample) + "," +
                    "is_supported:" + std::to_string(is_supported) + "," +
                    "exclusive_mode:" + std::to_string(exclusive_mode) + "}";
         }
 
         bool operator==(const AudioDeviceProperties &rhs) const {
-            return is_supported == rhs.is_supported &&
-                   audio_format == rhs.audio_format &&
-                   sample_format == rhs.sample_format &&
-                   exclusive_mode == rhs.exclusive_mode;
+            return is_supported == rhs.is_supported && audio_format == rhs.audio_format &&
+                   sample_format == rhs.sample_format && exclusive_mode == rhs.exclusive_mode &&
+                   wasapi.valid_bits_per_sample == rhs.wasapi.valid_bits_per_sample;
         }
 
         bool operator!=(const AudioDeviceProperties &rhs) const {
@@ -67,6 +67,12 @@ namespace Lowl::Audio {
                 return true;
             }
             if (rhs.sample_format < sample_format) {
+                return false;
+            }
+            if (wasapi.valid_bits_per_sample < rhs.wasapi.valid_bits_per_sample) {
+                return true;
+            }
+            if (rhs.wasapi.valid_bits_per_sample < wasapi.valid_bits_per_sample) {
                 return false;
             }
             if (audio_format.channel_layout.speaker_mask < rhs.audio_format.channel_layout.speaker_mask) {

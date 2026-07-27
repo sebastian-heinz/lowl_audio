@@ -1,15 +1,15 @@
 #include <doctest/doctest.h>
-
 #include <lowl.h>
-
-#include "audio/lowl_audio_buffer.h"
-#include "audio/source/lowl_audio_voice.h"
 
 #include <atomic>
 #include <chrono>
 #include <memory>
 #include <thread>
 #include <vector>
+
+#include "audio/lowl_audio_buffer.h"
+#include "audio/source/lowl_audio_published_playback_state.h"
+#include "audio/source/lowl_audio_voice.h"
 
 namespace {
     struct StereoSample {
@@ -28,14 +28,11 @@ namespace {
             }
         }
         return std::make_unique<Lowl::Audio::AudioData>(
-            std::move(storage),
-            frame_count,
-            Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo}
-        );
+            std::move(storage), frame_count, Lowl::Audio::AudioFormat{44100.0, Lowl::Audio::ChannelLayout::Stereo});
     }
 
-    std::unique_ptr<Lowl::Audio::AudioData>
-    make_audio_data(Lowl::Audio::ChannelLayout p_layout, const std::vector<Lowl::Sample> &p_interleaved_frames) {
+    std::unique_ptr<Lowl::Audio::AudioData> make_audio_data(Lowl::Audio::ChannelLayout p_layout,
+                                                            const std::vector<Lowl::Sample> &p_interleaved_frames) {
         const uint8_t channel_count = p_layout.channel_count;
         const size_t frame_count = channel_count == 0 ? 0 : p_interleaved_frames.size() / channel_count;
         std::unique_ptr<Lowl::Sample[]> storage;
@@ -51,7 +48,7 @@ namespace {
         return std::make_unique<Lowl::Audio::AudioData>(
             std::move(storage), frame_count, Lowl::Audio::AudioFormat{44100.0, p_layout});
     }
-}
+} // namespace
 
 TEST_CASE("AudioData") {
     auto render_one_frame = [](Lowl::Audio::AudioVoice &p_audio_voice) {
@@ -132,8 +129,8 @@ TEST_CASE("AudioData") {
     }
 
     SUBCASE("AudioVoice - multichannel panning only touches front left and right speakers") {
-        std::shared_ptr<Lowl::Audio::AudioData> surround_audio = std::move(make_audio_data(
-            Lowl::Audio::ChannelLayout::Surround_5_1, {0.5f, 0.5f, 0.25f, 0.125f, 0.75f, -0.75f}));
+        std::shared_ptr<Lowl::Audio::AudioData> surround_audio = std::move(
+            make_audio_data(Lowl::Audio::ChannelLayout::Surround_5_1, {0.5f, 0.5f, 0.25f, 0.125f, 0.75f, -0.75f}));
         Lowl::Audio::AudioVoice surround_voice(surround_audio);
         surround_voice.set_panning(1);
         surround_voice.restart_playback();
@@ -207,10 +204,7 @@ TEST_CASE("AudioData") {
         storage[4] = 0.40f;
         storage[5] = 0.60f;
         Lowl::Audio::AudioData sliced_source(
-            std::move(storage),
-            3,
-            Lowl::Audio::AudioFormat{10.0, Lowl::Audio::ChannelLayout::Stereo}
-        );
+            std::move(storage), 3, Lowl::Audio::AudioFormat{10.0, Lowl::Audio::ChannelLayout::Stereo});
 
         std::unique_ptr<Lowl::Audio::AudioData> slice = sliced_source.create_slice(0.1, 0.3);
         REQUIRE(slice != nullptr);
@@ -230,10 +224,7 @@ TEST_CASE("AudioData") {
         storage[4] = 0.40f;
         storage[5] = 0.60f;
         std::unique_ptr<Lowl::Audio::AudioData> sliced_source = std::make_unique<Lowl::Audio::AudioData>(
-            std::move(storage),
-            3,
-            Lowl::Audio::AudioFormat{10.0, Lowl::Audio::ChannelLayout::Stereo}
-        );
+            std::move(storage), 3, Lowl::Audio::AudioFormat{10.0, Lowl::Audio::ChannelLayout::Stereo});
 
         std::unique_ptr<Lowl::Audio::AudioData> slice = sliced_source->create_slice(-1.0, 0.2);
         REQUIRE(slice != nullptr);
@@ -308,8 +299,7 @@ TEST_CASE("AudioData") {
             while (!start.load(std::memory_order_acquire)) {
             }
             const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
-            while (std::chrono::steady_clock::now() < deadline &&
-                   !invalid_state_seen.load(std::memory_order_relaxed)) {
+            while (std::chrono::steady_clock::now() < deadline && !invalid_state_seen.load(std::memory_order_relaxed)) {
                 const Lowl::Audio::AudioVoice::PlaybackSnapshot snapshot = voice.get_playback_snapshot();
                 if (snapshot.playback_state == Lowl::Audio::AudioVoice::PlaybackState::Stopped &&
                     snapshot.frame_position != 0U) {
@@ -325,5 +315,63 @@ TEST_CASE("AudioData") {
         reader.join();
 
         REQUIRE_FALSE(invalid_state_seen.load(std::memory_order_relaxed));
+    }
+
+    SUBCASE("AudioVoice - published snapshots stay coherent above the 32-bit frame boundary") {
+        using PlaybackState = Lowl::Audio::AudioVoice::PlaybackState;
+        using PlaybackSnapshot = Lowl::Audio::AudioVoice::PlaybackSnapshot;
+        using PublishedState =
+            Lowl::Audio::Detail::PublishedPlaybackState<PlaybackSnapshot, PlaybackState, Lowl::Sample>;
+
+        if constexpr (sizeof(size_t) > sizeof(uint32_t)) {
+            const size_t high_position_a = static_cast<size_t>((uint64_t{1} << 32U) + 17U);
+            const size_t high_position_b = static_cast<size_t>((uint64_t{1} << 32U) + 29U);
+            const PlaybackSnapshot snapshot_a{high_position_a, PlaybackState::Playing};
+            const PlaybackSnapshot snapshot_b{high_position_b, PlaybackState::Paused};
+
+            PublishedState published_state;
+            published_state.store(snapshot_a);
+
+            PlaybackSnapshot round_trip = published_state.load();
+            REQUIRE_EQ(round_trip.frame_position, high_position_a);
+            REQUIRE_EQ(round_trip.playback_state, PlaybackState::Playing);
+
+            std::atomic<bool> start{false};
+            std::atomic<bool> writer_done{false};
+            std::atomic<bool> invalid_snapshot_seen{false};
+
+            std::thread writer([&]() {
+                while (!start.load(std::memory_order_acquire)) {
+                }
+                for (size_t iteration = 0; iteration < 250000; iteration++) {
+                    published_state.store((iteration & 1U) == 0U ? snapshot_b : snapshot_a);
+                }
+                writer_done.store(true, std::memory_order_release);
+            });
+
+            std::thread reader([&]() {
+                while (!start.load(std::memory_order_acquire)) {
+                }
+                while (!writer_done.load(std::memory_order_acquire) &&
+                       !invalid_snapshot_seen.load(std::memory_order_relaxed)) {
+                    const PlaybackSnapshot snapshot = published_state.load();
+                    const bool matches_a = snapshot.frame_position == snapshot_a.frame_position &&
+                                           snapshot.playback_state == snapshot_a.playback_state;
+                    const bool matches_b = snapshot.frame_position == snapshot_b.frame_position &&
+                                           snapshot.playback_state == snapshot_b.playback_state;
+                    if (!matches_a && !matches_b) {
+                        invalid_snapshot_seen.store(true, std::memory_order_relaxed);
+                    }
+                }
+            });
+
+            start.store(true, std::memory_order_release);
+            writer.join();
+            reader.join();
+
+            REQUIRE_FALSE(invalid_snapshot_seen.load(std::memory_order_relaxed));
+        } else {
+            MESSAGE("Above-32-bit snapshot coverage requires a 64-bit size_t target.");
+        }
     }
 }
