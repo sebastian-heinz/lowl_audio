@@ -1,6 +1,7 @@
 # lowl_audio — Design Specification
 
 **Directive date:** 2026-07-24
+**Status reviewed:** 2026-07-27
 
 This document records the agreed architecture, component responsibilities, and boundaries of `lowl_audio`.
 It describes the intended stable contract rather than serving as an implementation changelog.
@@ -299,13 +300,20 @@ Known gaps and planned extensions are listed separately under **Things Left To D
 
 ## Things Left To Do
 
+All repository-verifiable P0 implementation and automated-test work described by this specification is complete.
+The remaining P0 work requires physical backend environments; it is validation work rather than a known code gap.
+
 ### P0 — Correctness and Lifetime Safety
 
-- Validate staged start/stop failure handling on real CoreAudio and WASAPI devices.
+- Validate staged start/stop failure handling on a real CoreAudio output device.
   Exercise every lifecycle stage, retry `stop()`, and verify that callbacks cannot observe released state or memory.
-  This requires physical backend environments; real WASAPI testing is intentionally outside the current pass.
+  The current development environment did not expose a usable CoreAudio output device.
+- Perform the equivalent validation on real WASAPI hardware when a Windows environment is available.
+  Real WASAPI testing is intentionally outside the current pass.
 
 ### P1 — Explicit Processing Components
+
+P1 is intentionally postponed until the remaining physical P0 validation is complete.
 
 - Implement live `Resampler`.
 - Implement live `ChannelMap`.
